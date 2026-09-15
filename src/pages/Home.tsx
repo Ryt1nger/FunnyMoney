@@ -17,6 +17,7 @@ import BottomSheet from '../components/BottomSheet';
 import Lessons from './Lessons';
 import Shop from './Shop';
 import Stats from './Stats';
+import Day from './Day';
 import {
   IconHeart,
   IconSmile,
@@ -369,6 +370,15 @@ export default function Home() {
         ) : sheet === 'stats' ? (
           <Stats
             bottomInset={navHeight}
+            onClose={() => {
+              setSheet(null);
+              setTab('home');
+            }}
+          />
+        ) : sheet === 'day' ? (
+          <Day
+            bottomInset={navHeight}
+            coins={coins}
             onClose={() => {
               setSheet(null);
               setTab('home');

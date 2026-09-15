@@ -242,6 +242,57 @@ export function IconFlag(props: IconProps) {
   );
 }
 
+// Миска с едой — задание «покорми питомца»
+export function IconBowl(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="M3.2 12.2h17.6c.3 0 .5.2.4.5-.4 3.8-3.7 6.7-7.6 6.7h-3.2c-3.9 0-7.2-2.9-7.6-6.7-.1-.3.1-.5.4-.5Z"
+        fill="currentColor"
+      />
+      <path d="M6.4 10.4c0-1.9 2.5-3.4 5.6-3.4s5.6 1.5 5.6 3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="8.2" cy="5.3" r="1.3" fill="currentColor" />
+      <circle cx="12" cy="4.3" r="1.3" fill="currentColor" />
+      <circle cx="15.8" cy="5.3" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
+// Геймпад — задание «поиграй с питомцем»
+export function IconGamepad(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M6.8 6.6h10.4c2.5 0 4.4 2.2 4 4.6l-.9 5.3c-.3 1.9-2.5 2.8-4 1.6l-1.7-1.4a2.6 2.6 0 0 0-1.6-.6H9c-.6 0-1.2.2-1.6.6l-1.7 1.4c-1.5 1.2-3.7.3-4-1.6l-.9-5.3c-.4-2.4 1.5-4.6 4-4.6Z" />
+      <g fill="#fff">
+        <rect x="5.4" y="9.9" width="1.4" height="4" rx="0.7" />
+        <rect x="3.9" y="11.4" width="4" height="1.4" rx="0.7" />
+        <circle cx="15.4" cy="10.4" r="1.1" />
+        <circle cx="18" cy="12.6" r="1.1" />
+      </g>
+    </svg>
+  );
+}
+
+// Полумесяц — задание «уложи спать»
+export function IconMoon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M20 14.4A8.6 8.6 0 1 1 9.6 4a7 7 0 0 0 10.4 10.4Z" />
+      <circle cx="17.5" cy="6.3" r="0.8" fill="currentColor" opacity="0.7" />
+      <circle cx="19.6" cy="9.2" r="0.5" fill="currentColor" opacity="0.6" />
+    </svg>
+  );
+}
+
+// Галочка выполненного задания
+export function IconCheck(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M5 12.5l4.2 4.2L19 6.8" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconShieldCrown(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
