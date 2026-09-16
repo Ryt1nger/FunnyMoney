@@ -47,6 +47,10 @@ function App() {
   const [screen, setScreen] = useState<Screen>(() => (isOnboarded() ? 'home' : 'onboarding'));
   const [overlay, setOverlay] = useState<OverlayPhase>('in');
   const [overlayKind, setOverlayKind] = useState<OverlayKind>('startup');
+  // Видимость overlay отделена от overlay: сначала монтируем с opacity 0,
+  // и только на следующий кадр переключаем в 1 — иначе браузер не успевает
+  // отрисовать стартовый кадр и появление происходит рывком, без анимации.
+  const [overlayVisible, setOverlayVisible] = useState(false);
   // Токен последнего запуска showLoadingOverlay — если за время ожидания
   // запустили новый переход, старый обязан молча самоустраниться, а не
   // погасить более новый экран загрузки поверх него.
@@ -62,11 +66,16 @@ function App() {
     if (fadeTimer.current) clearTimeout(fadeTimer.current);
     setOverlayKind(kind);
     setOverlay('in');
+    setOverlayVisible(false);
+    requestAnimationFrame(() => {
+      if (overlayRunId.current === runId) setOverlayVisible(true);
+    });
 
     await Promise.all([task(), delay(minMs)]);
 
     if (overlayRunId.current !== runId) return; // подменили более новым переходом — не гасим его
     setOverlay('out');
+    setOverlayVisible(false);
     fadeTimer.current = setTimeout(() => {
       if (overlayRunId.current === runId) setOverlay('hidden');
     }, FADE_MS);
@@ -114,9 +123,9 @@ function App() {
         {overlay !== 'hidden' && (
           <div
             className="pointer-events-none absolute inset-0 z-50 transition-opacity ease-in-out"
-            style={{ transitionDuration: `${FADE_MS}ms`, opacity: overlay === 'in' ? 1 : 0 }}
+            style={{ transitionDuration: `${FADE_MS}ms`, opacity: overlayVisible ? 1 : 0 }}
           >
-            {overlayKind === 'startup' ? <Loading /> : <PageLoading />}
+            {overlayKind === 'startup' ? <Loading /> : <PageLoading durationMs={TRANSITION_MIN_MS} />}
           </div>
         )}
       </div>

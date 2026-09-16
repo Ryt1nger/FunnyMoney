@@ -2,14 +2,21 @@ import loadingBg from '../assets/onboarding/loading-bg.jpg';
 import splashLogo from '../assets/onboarding/splash-logo.png';
 import coinIcon from '../assets/icons/coin.png';
 
+interface PageLoadingProps {
+  /** Сколько реально держится экран загрузки (App.tsx: TRANSITION_MIN_MS) —
+   * полоса заполняется равномерно ровно за это время, а не за фиксированный срок. */
+  durationMs?: number;
+}
+
 /**
  * Экран загрузки №2 — короткая перебивка между страницами (не при запуске
  * приложения, для этого есть отдельная заставка Loading.tsx с большим лого).
  * Фон — мишка с копилкой и книжкой, поверх — лого и полоса загрузки
  * с монеткой-лапкой в роли бегунка. Анимация — один проход 0% → 100%,
- * подогнана под TRANSITION_MS из App.tsx.
+ * растянутый на весь durationMs, чтобы полоса доходила до конца ровно
+ * к моменту, когда загрузка реально завершается.
  */
-export default function PageLoading() {
+export default function PageLoading({ durationMs = 4000 }: PageLoadingProps) {
   return (
     <div className="relative h-full w-full overflow-hidden">
       <img src={loadingBg} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -33,9 +40,17 @@ export default function PageLoading() {
         >
           <div
             className="loading-fill absolute inset-y-0 left-0 rounded-full"
-            style={{ background: 'linear-gradient(180deg, #fff8c9 0%, #ffd65c 45%, #f0b546 100%)' }}
+            style={{
+              background: 'linear-gradient(180deg, #fff8c9 0%, #ffd65c 45%, #f0b546 100%)',
+              animationDuration: `${durationMs}ms`,
+            }}
           />
-          <img src={coinIcon} alt="" className="loading-thumb absolute top-1/2 h-[42px] w-[42px] drop-shadow-md" />
+          <img
+            src={coinIcon}
+            alt=""
+            className="loading-thumb absolute top-1/2 h-[42px] w-[42px] drop-shadow-md"
+            style={{ animationDuration: `${durationMs}ms` }}
+          />
         </div>
       </div>
 
@@ -50,12 +65,16 @@ export default function PageLoading() {
         }
         .loading-fill {
           width: 0%;
-          animation: loading-fill-grow 0.85s cubic-bezier(0.3, 0.7, 0.4, 1) forwards;
+          animation-name: loading-fill-grow;
+          animation-timing-function: linear;
+          animation-fill-mode: forwards;
         }
         .loading-thumb {
           left: 0%;
           transform: translate(-50%, -50%);
-          animation: loading-thumb-move 0.85s cubic-bezier(0.3, 0.7, 0.4, 1) forwards;
+          animation-name: loading-thumb-move;
+          animation-timing-function: linear;
+          animation-fill-mode: forwards;
         }
       `}</style>
     </div>

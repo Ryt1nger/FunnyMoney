@@ -22,6 +22,7 @@ import Inventory from './Inventory';
 import Shop from './Shop';
 import Stats from './Stats';
 import Day from './Day';
+import { streakDays } from '../data/dayData';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
@@ -31,7 +32,7 @@ import {
   IconPlus,
   IconGift,
   IconFlame,
-  IconCart,
+  IconBackpack,
 } from '../components/icons';
 
 // Уровень/опыт — отдельная прогресс-система уроков, которая ещё не подключена
@@ -46,6 +47,15 @@ const EVENT_COPY = {
   title: 'Мишка заскучал\nбез урока!',
   description: 'Давно не был на уроке!',
 };
+
+// Русское склонение "день/дня/дней" для карточки серии.
+function pluralDays(n: number) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'день';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'дня';
+  return 'дней';
+}
 
 const LAST_LESSON_VISIT_KEY = 'funnymoney_last_lesson_visit_at';
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
@@ -197,24 +207,11 @@ export default function Home() {
                 <IconPlus className="h-4 w-4" />
               </button>
             </div>
-
-            <button
-              onClick={() => setSheet('inventory')}
-              className="flex h-8 w-8 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-              style={{
-                background: 'rgba(26,20,40,0.30)',
-                borderColor: 'rgba(255,255,255,0.30)',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-              }}
-              aria-label="Инвентарь"
-            >
-              <IconCart className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
         {/* Метрики */}
-        <div className="relative z-20 mt-3 flex gap-2.5 px-4">
+        <div className="relative z-20 mt-3 flex items-center gap-2.5 px-4">
           <GlassMetric
             icon={<img src={heartMetricIcon} alt="" className="h-full w-full object-contain" />}
             iconGradient="transparent"
@@ -236,6 +233,22 @@ export default function Home() {
             value={wealth}
             barGradient="linear-gradient(90deg, #63d98b 0%, #21a44f 100%)"
           />
+        </div>
+
+        {/* Кнопка инвентаря — отдельной строкой под статистиками, прижата вправо */}
+        <div className="relative z-20 mt-2 flex justify-end px-4">
+          <button
+            onClick={() => setSheet('inventory')}
+            className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+            style={{
+              background: 'rgba(26,20,40,0.30)',
+              borderColor: 'rgba(255,255,255,0.30)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+            }}
+            aria-label="Инвентарь"
+          >
+            <IconBackpack className="h-6 w-6" />
+          </button>
         </div>
 
         {/* Медведь — занимает всё свободное место между метриками и карточкой */}
@@ -384,7 +397,7 @@ export default function Home() {
               <IconFlame className="h-9 w-9 shrink-0 drop-shadow" />
               <div className="leading-tight">
                 <div className="whitespace-nowrap text-[13px] font-bold" style={{ color: '#4a3a22' }}>
-                  0 дней
+                  {streakDays} {pluralDays(streakDays)}
                 </div>
                 <div className="text-[12px] font-bold" style={{ color: '#4a3a22' }}>
                   серия
@@ -460,8 +473,6 @@ export default function Home() {
             bottomInset={navHeight}
             coins={coins}
             ownedProductIds={ownedProductIds}
-            ownedRoomIds={ownedRoomIds}
-            activeRoomId={activeRoomId}
             onClose={() => {
               setSheet(null);
               setTab('home');
