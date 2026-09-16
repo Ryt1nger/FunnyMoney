@@ -3,15 +3,24 @@ import Home from './pages/Home';
 import Onboarding from './pages/Onboarding';
 import Loading from './pages/Loading';
 import PageLoading from './pages/PageLoading';
+import { usePetStore } from './features/pet/petStore';
+import { useEconomyStore } from './features/economy/economyStore';
+import { bootstrapGame } from './services/bootstrap';
 
 const ONBOARDED_KEY = 'funnymoney_onboarded';
+
+// Стартовый баланс — тестовое значение для первого реального прогона на
+// устройстве (пока не подключена финальная экономическая настройка).
+const STARTING_COINS = 5000;
 
 // Экран загрузки на запуске (большое лого, без прогресс-бара) держится минимум
 // столько — даже если приложение (в нашем случае — мгновенно, синхронно) готово раньше.
 const STARTUP_MIN_MS = 5000;
-// Между обычными переходами страниц — второй, короткий экран загрузки
-// (с прогресс-баром), не полноценная пауза запуска.
-const TRANSITION_MS = 900;
+// Между обычными переходами страниц — второй экран загрузки (с прогресс-баром).
+// Это НЕ имитация: пока он показан, реально перечитывается и проверяется
+// сохранённое состояние игры (bootstrapGame) — экран держится минимум 4с
+// даже если проверка завершилась раньше, и дольше 4с, если проверка не успела.
+const TRANSITION_MIN_MS = 4000;
 // Длительность самого перехода прозрачности — одна и та же что для появления,
 // что для исчезновения, чтобы заставка никогда не дёргалась резко.
 const FADE_MS = 450;
@@ -28,58 +37,67 @@ function isOnboarded() {
   }
 }
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 // "Телефонная рамка": на десктопе — компактный мокап мобильных пропорций,
 // на реальном мобильном экране (и в APK) занимает весь экран.
 function App() {
-  // Целевой экран под заставкой уже выбран сразу (он ничего не грузит по-настоящему —
-  // все данные мок), заставка просто перекрывает его сверху и плавно тает.
   const [screen, setScreen] = useState<Screen>(() => (isOnboarded() ? 'home' : 'onboarding'));
   const [overlay, setOverlay] = useState<OverlayPhase>('in');
   const [overlayKind, setOverlayKind] = useState<OverlayKind>('startup');
-  const overlayTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Токен последнего запуска showLoadingOverlay — если за время ожидания
+  // запустили новый переход, старый обязан молча самоустраниться, а не
+  // погасить более новый экран загрузки поверх него.
+  const overlayRunId = useRef(0);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function clearOverlayTimers() {
-    overlayTimers.current.forEach(clearTimeout);
-    overlayTimers.current = [];
-  }
-
-  // Показывает экран загрузки нужного вида на `holdMs`, затем плавно убирает его
-  // (fade-out на FADE_MS). kind='startup' — заставка с большим лого (запуск
-  // приложения), kind='transition' — короткая перебивка с прогресс-баром
-  // (переход между страницами).
-  function showLoadingOverlay(kind: OverlayKind, holdMs: number) {
-    clearOverlayTimers();
+  // Показывает экран загрузки нужного вида, пока не пройдёт реальная асинхронная
+  // работа `task` И не истечёт минимум `minMs` (что дольше — то и решает).
+  // kind='startup' — заставка с большим лого (запуск приложения),
+  // kind='transition' — экран с прогресс-баром + реальная проверка сохранённых данных.
+  async function showLoadingOverlay(kind: OverlayKind, minMs: number, task: () => Promise<void>) {
+    const runId = ++overlayRunId.current;
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
     setOverlayKind(kind);
     setOverlay('in');
-    const outId = setTimeout(() => {
-      setOverlay('out');
-      const hideId = setTimeout(() => setOverlay('hidden'), FADE_MS);
-      overlayTimers.current.push(hideId);
-    }, holdMs);
-    overlayTimers.current.push(outId);
+
+    await Promise.all([task(), delay(minMs)]);
+
+    if (overlayRunId.current !== runId) return; // подменили более новым переходом — не гасим его
+    setOverlay('out');
+    fadeTimer.current = setTimeout(() => {
+      if (overlayRunId.current === runId) setOverlay('hidden');
+    }, FADE_MS);
   }
 
-  // Заставка при реальном запуске приложения — минимум 5 секунд, даже если
-  // всё уже готово раньше.
+  // Заставка при реальном запуске приложения — минимум 5 секунд, и за это время
+  // реально проверяем/восстанавливаем сохранённое состояние (economy/pet/inventory).
   useEffect(() => {
-    showLoadingOverlay('startup', STARTUP_MIN_MS);
-    return clearOverlayTimers;
+    showLoadingOverlay('startup', STARTUP_MIN_MS, bootstrapGame);
+    return () => {
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function goTo(next: Screen) {
     setScreen(next);
-    showLoadingOverlay('transition', TRANSITION_MS);
+    showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame);
   }
 
   function handleOnboardingComplete(age: number, petName: string) {
     try {
       localStorage.setItem(ONBOARDED_KEY, '1');
-      localStorage.setItem('funnymoney_pet_name', petName);
       localStorage.setItem('funnymoney_user_age', String(age));
     } catch {
       // localStorage недоступен — просто продолжаем без сохранения
     }
+    // Начальное состояние игры: питомец и экономика создаются один раз, здесь,
+    // а не размазаны по экранам — единая точка входа в игровой прогресс.
+    usePetStore.getState().createPet('bear', petName);
+    useEconomyStore.getState().initIfEmpty(STARTING_COINS);
     goTo('home');
   }
 
@@ -92,7 +110,7 @@ function App() {
         {/* Экран загрузки — отдельный слой поверх текущего экрана, который всегда
             плавно появляется/исчезает через opacity, а не переключается резко.
             На запуске — заставка с большим лого, между страницами — версия
-            с прогресс-баром. */}
+            с прогресс-баром (и реальной проверкой данных, не имитацией). */}
         {overlay !== 'hidden' && (
           <div
             className="pointer-events-none absolute inset-0 z-50 transition-opacity ease-in-out"
@@ -107,13 +125,13 @@ function App() {
       <div className="hidden flex-col gap-2 rounded-2xl bg-white/90 p-3 shadow-lg sm:flex">
         <span className="px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Состояние</span>
         <button
-          onClick={() => showLoadingOverlay('startup', STARTUP_MIN_MS)}
+          onClick={() => showLoadingOverlay('startup', STARTUP_MIN_MS, bootstrapGame)}
           className="rounded-xl bg-neutral-100 px-4 py-2 text-left text-[13px] font-semibold text-neutral-600 transition hover:bg-neutral-200"
         >
           Загрузка (запуск)
         </button>
         <button
-          onClick={() => showLoadingOverlay('transition', TRANSITION_MS)}
+          onClick={() => showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame)}
           className="rounded-xl bg-neutral-100 px-4 py-2 text-left text-[13px] font-semibold text-neutral-600 transition hover:bg-neutral-200"
         >
           Загрузка (переход)
@@ -133,6 +151,16 @@ function App() {
           }`}
         >
           Главный экран
+        </button>
+        <button
+          onClick={() => {
+            localStorage.removeItem(ONBOARDED_KEY);
+            import('./services/storage').then(({ storage }) => storage.resetAll());
+            window.location.reload();
+          }}
+          className="rounded-xl bg-red-50 px-4 py-2 text-left text-[13px] font-semibold text-red-500 transition hover:bg-red-100"
+        >
+          Сбросить прогресс
         </button>
       </div>
     </div>

@@ -17,40 +17,37 @@ import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import GlassMetric from '../components/GlassMetric';
 import BottomNav, { type TabId } from '../components/BottomNav';
 import BottomSheet from '../components/BottomSheet';
-import Lessons from './Lessons';
+import LessonsPlaceholder from './LessonsPlaceholder';
+import Inventory from './Inventory';
 import Shop from './Shop';
 import Stats from './Stats';
 import Day from './Day';
+import { usePetStore } from '../features/pet/petStore';
+import { useEconomyStore } from '../features/economy/economyStore';
+import { useInventoryStore } from '../features/inventory/inventoryStore';
+import { purchaseRoom } from '../features/economy/purchase';
 import {
   IconStar,
   IconPlus,
   IconGift,
   IconFlame,
+  IconCart,
 } from '../components/icons';
 
-// Мок-данные — цель F2 довести вёрстку 1:1 под референс, реальный
-// стор (usePetStore/useEconomyStore) подключаем следующим проходом.
-const mock = {
-  petName: 'Мишка',
-  level: 3,
-  xp: 240,
-  xpToNext: 500,
-  coins: 5709,
-  health: 82,
-  happiness: 76,
-  wealth: 64,
-  event: {
-    title: 'Мишка заскучал\nбез урока!',
-    description: 'Давно не был на уроке!',
-  },
-  rewardStepsLeft: 1,
-  rewardProgress: 80,
-  streakDays: 6,
+// Уровень/опыт — отдельная прогресс-система уроков, которая ещё не подключена
+// (уроки пока заглушка), поэтому пока фиксированные значения для оформления шапки.
+const LEVEL = 1;
+const XP = 0;
+const XP_TO_NEXT = 500;
+
+// Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
+// только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
+const EVENT_COPY = {
+  title: 'Мишка заскучал\nбез урока!',
+  description: 'Давно не был на уроке!',
 };
 
 const LAST_LESSON_VISIT_KEY = 'funnymoney_last_lesson_visit_at';
-// Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
-// только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 
 function shouldShowLessonReminder() {
@@ -73,9 +70,24 @@ function markLessonVisited() {
   }
 }
 
+type SheetId = TabId | 'inventory';
+
 export default function Home() {
+  const pet = usePetStore((s) => s.pet);
+  const coins = useEconomyStore((s) => s.coins);
+  const wealthScore = useEconomyStore((s) => s.wealthScore);
+  const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
+  const activeRoomId = useInventoryStore((s) => s.activeRoomId);
+  const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
+
+  const petName = pet?.name ?? 'Мишка';
+  const health = pet?.health ?? 0;
+  const happiness = pet?.happiness ?? 0;
+  // Богатство — метрика-проценты 0..100, производная от wealthScore экономики.
+  const wealth = Math.max(0, Math.min(100, wealthScore));
+
   const [tab, setTab] = useState<TabId>('home');
-  const [sheet, setSheet] = useState<TabId | null>(null);
+  const [sheet, setSheet] = useState<SheetId | null>(null);
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
 
   function openLessonsFromReminder() {
@@ -91,9 +103,7 @@ export default function Home() {
       setShowLessonReminder(false);
     }
   }, [sheet]);
-  const [coins, setCoins] = useState(mock.coins);
-  const [ownedRoomIds, setOwnedRoomIds] = useState<string[]>(['room-day']);
-  const [activeRoomId, setActiveRoomId] = useState('room-day');
+
   const [previewRoom, setPreviewRoom] = useState<RoomProduct | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const [navHeight, setNavHeight] = useState(74);
@@ -102,7 +112,7 @@ export default function Home() {
   useLayoutEffect(() => {
     if (navRef.current) setNavHeight(navRef.current.offsetHeight);
   }, []);
-  const xpPercent = Math.min(100, Math.round((mock.xp / mock.xpToNext) * 100));
+  const xpPercent = Math.min(100, Math.round((XP / XP_TO_NEXT) * 100));
 
   return (
     // Фото комнаты — фон ВСЕГО экрана. Контент раскладывается колонкой
@@ -125,13 +135,13 @@ export default function Home() {
             <div className="relative shrink-0">
               <img
                 src={bearAvatar}
-                alt={mock.petName}
+                alt={petName}
                 className="h-[52px] w-[52px] rounded-full border-2 border-white object-cover shadow-lg"
               />
               <div className="absolute -right-[15px] top-1/2 flex h-[24px] w-[24px] -translate-y-1/2 items-center justify-center drop-shadow">
                 <img src={levelFlower} alt="" className="absolute inset-0 h-full w-full" />
                 <span className="relative text-[11px] font-extrabold" style={{ color: '#2c2a5e' }}>
-                  {mock.level}
+                  {LEVEL}
                 </span>
               </div>
             </div>
@@ -141,7 +151,7 @@ export default function Home() {
                 className="text-[15px] font-bold leading-none text-white"
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.45)' }}
               >
-                {mock.petName}
+                {petName}
               </div>
               <div
                 className="mt-1.5 h-[10px] w-[118px] overflow-hidden rounded-full"
@@ -159,26 +169,46 @@ export default function Home() {
                 className="mt-1 text-[11px] font-medium leading-none text-white"
                 style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
               >
-                {mock.xp} / {mock.xpToNext} XP
+                {XP} / {XP_TO_NEXT} XP
               </div>
             </div>
           </div>
 
-          <div
-            className="flex shrink-0 items-center gap-1.5 rounded-full border py-1.5 pl-2.5 pr-1.5 backdrop-blur-md"
-            style={{
-              background: 'rgba(26,20,40,0.30)',
-              borderColor: 'rgba(255,255,255,0.30)',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-            }}
-          >
-            <img src={coinIcon} alt="" className="h-[22px] w-[22px]" />
-            <span className="text-base font-bold leading-none text-white">{coins}</span>
-            <button
-              className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
-              style={{ background: 'linear-gradient(180deg, #7c74f5 0%, #5b4de0 100%)' }}
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div
+              className="flex shrink-0 items-center gap-1.5 rounded-full border py-1.5 pl-2.5 pr-1.5 backdrop-blur-md"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
             >
-              <IconPlus className="h-4 w-4" />
+              <img src={coinIcon} alt="" className="h-[22px] w-[22px]" />
+              <span className="text-base font-bold leading-none text-white">{coins}</span>
+              <button
+                onClick={() => {
+                  // "+" ведёт на экран Дня — там реальные задания, за которые начисляются монеты.
+                  setTab('day');
+                  setSheet('day');
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
+                style={{ background: 'linear-gradient(180deg, #7c74f5 0%, #5b4de0 100%)' }}
+              >
+                <IconPlus className="h-4 w-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={() => setSheet('inventory')}
+              className="flex h-8 w-8 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Инвентарь"
+            >
+              <IconCart className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -189,21 +219,21 @@ export default function Home() {
             icon={<img src={heartMetricIcon} alt="" className="h-full w-full object-contain" />}
             iconGradient="transparent"
             label="Здоровье"
-            value={mock.health}
+            value={health}
             barGradient="linear-gradient(90deg, #fb7f92 0%, #ef4060 100%)"
           />
           <GlassMetric
             icon={<img src={smileMetricIcon} alt="" className="h-full w-full object-contain" />}
             iconGradient="transparent"
             label="Счастье"
-            value={mock.happiness}
+            value={happiness}
             barGradient="linear-gradient(90deg, #f9cb63 0%, #efa622 100%)"
           />
           <GlassMetric
             icon={<img src={coinsMetricIcon} alt="" className="h-full w-full object-contain" />}
             iconGradient="transparent"
             label="Богатство"
-            value={mock.wealth}
+            value={wealth}
             barGradient="linear-gradient(90deg, #63d98b 0%, #21a44f 100%)"
           />
         </div>
@@ -241,7 +271,7 @@ export default function Home() {
           />
           <img
             src={bearFull}
-            alt={mock.petName}
+            alt={petName}
             draggable={false}
             className="pointer-events-none absolute bottom-0 left-1/2 h-[92%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
           />
@@ -300,10 +330,10 @@ export default function Home() {
                   className="whitespace-pre-line text-[13.5px] font-bold leading-tight"
                   style={{ color: '#2c2a5e' }}
                 >
-                  {mock.event.title}
+                  {EVENT_COPY.title}
                 </p>
                 <p className="mt-1.5 text-[9.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-                  {mock.event.description}
+                  {EVENT_COPY.description}
                 </p>
               </div>
             </div>
@@ -323,7 +353,7 @@ export default function Home() {
               <IconGift className="h-10 w-10 shrink-0 drop-shadow" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold" style={{ color: '#7d6034' }}>
-                  Награда через {mock.rewardStepsLeft} задание
+                  Уроки скоро откроются
                 </div>
                 <div
                   className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full"
@@ -335,7 +365,7 @@ export default function Home() {
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${mock.rewardProgress}%`,
+                      width: '0%',
                       background: 'linear-gradient(90deg, #f1cf86 0%, #e3b355 100%)',
                     }}
                   />
@@ -354,7 +384,7 @@ export default function Home() {
               <IconFlame className="h-9 w-9 shrink-0 drop-shadow" />
               <div className="leading-tight">
                 <div className="whitespace-nowrap text-[13px] font-bold" style={{ color: '#4a3a22' }}>
-                  {mock.streakDays} дней
+                  0 дней
                 </div>
                 <div className="text-[12px] font-bold" style={{ color: '#4a3a22' }}>
                   серия
@@ -388,12 +418,9 @@ export default function Home() {
         }}
       >
         {sheet === 'lessons' ? (
-          <Lessons
+          <LessonsPlaceholder
             bottomInset={navHeight}
             coins={coins}
-            level={mock.level}
-            xp={mock.xp}
-            xpToNext={mock.xpToNext}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -428,6 +455,18 @@ export default function Home() {
               setTab('home');
             }}
           />
+        ) : sheet === 'inventory' ? (
+          <Inventory
+            bottomInset={navHeight}
+            coins={coins}
+            ownedProductIds={ownedProductIds}
+            ownedRoomIds={ownedRoomIds}
+            activeRoomId={activeRoomId}
+            onClose={() => {
+              setSheet(null);
+              setTab('home');
+            }}
+          />
         ) : (
           <div className="flex h-full items-center justify-center bg-[#fbefe1] text-[15px] font-bold" style={{ color: '#7b7a8c' }}>
             Раздел в разработке
@@ -445,15 +484,7 @@ export default function Home() {
             activeRoomId={activeRoomId}
             onBack={() => setPreviewRoom(null)}
             onBuy={(room) => {
-              if (ownedRoomIds.includes(room.id)) {
-                setActiveRoomId(room.id);
-                setPreviewRoom(null);
-                return;
-              }
-              if (coins < room.price) return;
-              setCoins((c) => c - room.price);
-              setOwnedRoomIds((ids) => [...ids, room.id]);
-              setActiveRoomId(room.id);
+              purchaseRoom(room);
               setPreviewRoom(null);
             }}
           />

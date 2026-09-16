@@ -7,8 +7,10 @@ import catToys from '../assets/icons/shop/cat-toys.png';
 import catClothes from '../assets/icons/shop/cat-clothes.png';
 import catInterior from '../assets/icons/shop/cat-interior.png';
 import MaskIcon from '../components/MaskIcon';
-import { IconArrowLeft, IconPlus } from '../components/icons';
-import { productsByCategory, rooms, type RoomProduct, type ShopCategoryId } from '../data/shopData';
+import { IconArrowLeft, IconPlus, IconCheck } from '../components/icons';
+import { productsByCategory, rooms, type RoomProduct, type ShopCategoryId, type ShopProduct } from '../data/shopData';
+import { useInventoryStore } from '../features/inventory/inventoryStore';
+import { purchaseProduct } from '../features/economy/purchase';
 
 const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
   { id: 'food', label: 'Еда', icon: catFood },
@@ -34,7 +36,12 @@ interface Props {
 export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, onRoomSelect }: Props) {
   const [category, setCategory] = useState<ShopCategoryId>('food');
   const [entered, setEntered] = useState(false);
+  const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const products = category === 'interior' ? [] : productsByCategory(category);
+
+  function handleBuy(product: ShopProduct) {
+    purchaseProduct(product); // 'ok' | 'already_owned' | 'insufficient_funds' — кнопка сама отражает итог по инвентарю/балансу
+  }
 
   // фото шапки проявляется, кремовый лист выезжает снизу
   useEffect(() => {
@@ -198,35 +205,50 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
           </div>
         ) : (
           <div className="mt-2.5 grid grid-cols-3 gap-2.5">
-            {products.map((p) => (
-              <div
-                key={p.id}
-                className="relative flex flex-col rounded-[18px] border bg-white/85 p-2 shadow-sm"
-                style={{ borderColor: '#f0e2cb' }}
-              >
-                <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
-                  <img src={p.image} alt="" className="max-h-[66px] w-auto object-contain" />
-                </div>
+            {products.map((p) => {
+              const owned = ownedProductIds.includes(p.id);
+              const canAfford = coins >= p.price;
+              return (
                 <div
-                  className="min-h-[26px] text-[10.5px] font-bold leading-tight"
-                  style={{ color: '#2c2a5e' }}
+                  key={p.id}
+                  className="relative flex flex-col rounded-[18px] border bg-white/85 p-2 shadow-sm"
+                  style={{ borderColor: '#f0e2cb' }}
                 >
-                  {p.name}
+                  <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
+                    <img src={p.image} alt="" className="max-h-[66px] w-auto object-contain" />
+                  </div>
+                  <div
+                    className="min-h-[26px] text-[10.5px] font-bold leading-tight"
+                    style={{ color: '#2c2a5e' }}
+                  >
+                    {p.name}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1">
+                    <img src={coinIcon} alt="" className="h-[15px] w-[15px]" />
+                    <span className="text-[11.5px] font-bold" style={{ color: '#4a4560' }}>
+                      {p.price}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => !owned && handleBuy(p)}
+                    disabled={owned || !canAfford}
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-full py-[5px] text-[11px] font-bold text-white transition active:translate-y-[1px] active:scale-[0.98] disabled:active:translate-y-0 disabled:active:scale-100"
+                    style={{
+                      background: owned ? '#9bd6a8' : canAfford ? VIOLET : '#c9c2d8',
+                      boxShadow: owned || !canAfford ? undefined : BTN_SHADOW,
+                    }}
+                  >
+                    {owned ? (
+                      <>
+                        <IconCheck className="h-3 w-3" /> Куплено
+                      </>
+                    ) : (
+                      'Купить'
+                    )}
+                  </button>
                 </div>
-                <div className="mt-1 flex items-center gap-1">
-                  <img src={coinIcon} alt="" className="h-[15px] w-[15px]" />
-                  <span className="text-[11.5px] font-bold" style={{ color: '#4a4560' }}>
-                    {p.price}
-                  </span>
-                </div>
-                <button
-                  className="mt-2 w-full rounded-full py-[5px] text-[11px] font-bold text-white transition active:translate-y-[1px] active:scale-[0.98]"
-                  style={{ background: VIOLET, boxShadow: BTN_SHADOW }}
-                >
-                  Купить
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

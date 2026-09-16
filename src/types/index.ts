@@ -1,6 +1,6 @@
 // ===== Pet =====
 
-export type PetSpecies = 'cat' | 'dog' | 'rabbit';
+export type PetSpecies = 'bear' | 'cat' | 'dog' | 'rabbit';
 
 export type PetMood = 'happy' | 'sad' | 'hungry' | 'excited' | 'neutral' | 'worried';
 

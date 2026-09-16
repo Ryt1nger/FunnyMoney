@@ -19,6 +19,11 @@ import {
   IconStar,
 } from '../components/icons';
 import { currentDay, streakDays, tasksDone, tasksTotal, dayTasks, type DayTaskIcon } from '../data/dayData';
+import { useEconomyStore } from '../features/economy/economyStore';
+
+// Разовая награда за серию дней — тестовое значение баланса, до появления
+// полноценной системы прогресса по серии (Game Core: progress).
+const STREAK_BONUS_COINS = 100;
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const BTN_SHADOW =
@@ -49,6 +54,14 @@ interface Props {
 export default function Day({ bottomInset = 0, coins, onClose }: Props) {
   const [entered, setEntered] = useState(false);
   const [tab, setTab] = useState<DayTab>('tasks');
+  const [streakClaimed, setStreakClaimed] = useState(false);
+  const applyCoinsDelta = useEconomyStore((s) => s.applyCoinsDelta);
+
+  function claimStreakBonus() {
+    if (streakClaimed) return;
+    applyCoinsDelta(STREAK_BONUS_COINS, 'Бонус за серию дней');
+    setStreakClaimed(true);
+  }
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setEntered(true));
@@ -279,18 +292,25 @@ export default function Day({ bottomInset = 0, coins, onClose }: Props) {
 
             {/* Баннер бонуса за серию */}
             <button
-              className="mt-3 mb-1 flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition active:scale-[0.98]"
-              style={{ background: VIOLET, boxShadow: '0 6px 16px rgba(92,90,216,0.30)' }}
+              onClick={claimStreakBonus}
+              disabled={streakClaimed}
+              className="mt-3 mb-1 flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition active:scale-[0.98] disabled:active:scale-100"
+              style={{
+                background: streakClaimed ? '#c9c2d8' : VIOLET,
+                boxShadow: streakClaimed ? undefined : '0 6px 16px rgba(92,90,216,0.30)',
+              }}
             >
               <IconGift className="h-9 w-9 shrink-0 drop-shadow" />
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] font-extrabold text-white">Бонус за серию дней!</div>
                 <div className="mt-0.5 text-[10.5px] leading-tight text-white/85">
-                  Оставайся активным и получай особые награды
+                  {streakClaimed
+                    ? `Получено +${STREAK_BONUS_COINS} монет`
+                    : 'Оставайся активным и получай особые награды'}
                 </div>
               </div>
               <span className="shrink-0 rounded-full bg-white/20 px-3.5 py-1.5 text-[12px] font-bold text-white">
-                Получить
+                {streakClaimed ? 'Получено' : 'Получить'}
               </span>
             </button>
           </>
