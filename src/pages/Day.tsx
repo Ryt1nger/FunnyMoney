@@ -18,12 +18,24 @@ import {
   IconCheck,
   IconStar,
 } from '../components/icons';
-import { currentDay, streakDays, tasksDone, tasksTotal, dayTasks, type DayTaskIcon } from '../data/dayData';
+import { currentDay, streakDays, dayTasks, type DayTask, type DayTaskIcon } from '../data/dayData';
 import { useEconomyStore } from '../features/economy/economyStore';
+import { usePetStore } from '../features/pet/petStore';
+import { useDayProgressStore } from '../features/progress/dayProgressStore';
 
 // Разовая награда за серию дней — тестовое значение баланса, до появления
 // полноценной системы прогресса по серии (Game Core: progress).
 const STREAK_BONUS_COINS = 100;
+
+// Задания, которые можно выполнить прямо с этого экрана одной кнопкой —
+// применяют награду к питомцу/экономике и отмечают задание выполненным.
+// «lesson» намеренно не входит сюда (переход на урок пока вне скоупа),
+// «shop» засчитывается автоматически при покупке (см. purchase.ts).
+const DIRECT_ACTION_LABEL: Record<string, string> = {
+  feed: 'Покормить',
+  play: 'Играть',
+  sleep: 'Уложить',
+};
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const BTN_SHADOW =
@@ -56,11 +68,29 @@ export default function Day({ bottomInset = 0, coins, onClose }: Props) {
   const [tab, setTab] = useState<DayTab>('tasks');
   const [streakClaimed, setStreakClaimed] = useState(false);
   const applyCoinsDelta = useEconomyStore((s) => s.applyCoinsDelta);
+  const applyPetDelta = usePetStore((s) => s.applyDelta);
+  const completedTaskIds = useDayProgressStore((s) => s.completedTaskIds);
+  const completeTask = useDayProgressStore((s) => s.completeTask);
+  const isTaskDone = (id: string) => completedTaskIds.includes(id);
+  const tasksDone = dayTasks.filter((t) => isTaskDone(t.id)).length;
 
   function claimStreakBonus() {
     if (streakClaimed) return;
     applyCoinsDelta(STREAK_BONUS_COINS, 'Бонус за серию дней');
     setStreakClaimed(true);
+  }
+
+  // Выполнить задание "одной кнопкой" прямо здесь: применяет награду
+  // к питомцу/балансу и один раз (в день) отмечает задание сделанным.
+  function completeDirectTask(task: DayTask) {
+    if (isTaskDone(task.id)) return;
+    if (task.rewardHeart || task.rewardSmile) {
+      applyPetDelta({ health: task.rewardHeart, happiness: task.rewardSmile });
+    }
+    if (task.rewardCoins) {
+      applyCoinsDelta(task.rewardCoins, `Задание дня: ${task.title}`);
+    }
+    completeTask(task.id);
   }
 
   useEffect(() => {
@@ -201,7 +231,7 @@ export default function Day({ bottomInset = 0, coins, onClose }: Props) {
                 Выполнено сегодня
               </span>
               <span className="text-[12px] font-extrabold" style={{ color: '#2c2a5e' }}>
-                {tasksDone}/{tasksTotal}
+                {tasksDone}/{dayTasks.length}
               </span>
             </div>
 
@@ -209,11 +239,15 @@ export default function Day({ bottomInset = 0, coins, onClose }: Props) {
             <div className="mt-2 flex flex-col gap-2.5">
               {dayTasks.map((task) => {
                 const { Icon, bg, fg } = TASK_ICON[task.icon];
+                const done = isTaskDone(task.id);
+                // 'lesson' намеренно не выполняется прямо здесь (переход на урок вне
+                // скоупа); 'shop' засчитывается только реальной покупкой в магазине.
+                const isDirectAction = task.id in DIRECT_ACTION_LABEL;
                 return (
                   <div
                     key={task.id}
                     className="flex items-center gap-3 rounded-[20px] p-2.5 shadow-sm"
-                    style={{ background: task.status === 'done' ? 'rgba(120,190,140,0.16)' : 'rgba(255,255,255,0.8)' }}
+                    style={{ background: done ? 'rgba(120,190,140,0.16)' : 'rgba(255,255,255,0.8)' }}
                   >
                     <div
                       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px]"
@@ -263,26 +297,36 @@ export default function Day({ bottomInset = 0, coins, onClose }: Props) {
                       </div>
                     </div>
 
-                    {task.status === 'done' ? (
+                    {done ? (
                       <span
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
                         style={{ background: '#4caf6d' }}
                       >
                         <IconCheck className="h-4 w-4" />
                       </span>
-                    ) : task.status === 'action' ? (
+                    ) : isDirectAction ? (
                       <button
+                        onClick={() => completeDirectTask(task)}
                         className="shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                         style={{ background: VIOLET, boxShadow: BTN_SHADOW }}
                       >
-                        {task.actionLabel}
+                        {DIRECT_ACTION_LABEL[task.id]}
+                      </button>
+                    ) : task.id === 'lesson' ? (
+                      // Переход на урок пока не подключаем (вне скоупа) — кнопка неактивна.
+                      <button
+                        disabled
+                        className="shrink-0 cursor-default rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white opacity-60"
+                        style={{ background: VIOLET }}
+                      >
+                        Начать
                       </button>
                     ) : (
                       <span
                         className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
                         style={{ background: 'rgba(120,110,150,0.14)', color: '#a19cb0' }}
                       >
-                        {task.progressLabel}
+                        0/1
                       </span>
                     )}
                   </div>

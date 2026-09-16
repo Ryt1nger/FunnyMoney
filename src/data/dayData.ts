@@ -1,9 +1,8 @@
-// Мок-данные экрана «День» — ежедневные задания, серия и прогресс.
-// Реальный игровой цикл (Game Core: economy/progress) подключим позже,
-// сейчас цель — 1:1 вёрстка под референс design/screens/03-stats-and-day.png.
+// Задания экрана «День» — статичные описания/награды (сколько монет/XP/здоровья
+// даёт задание), а фактическое выполнение (кто сделан, кто нет) считается
+// в реальном времени из useDayProgressStore, см. src/pages/Day.tsx.
 
 export type DayTaskIcon = 'bowl' | 'game' | 'book' | 'cart' | 'moon';
-export type DayTaskStatus = 'done' | 'action' | 'locked';
 
 export interface DayTask {
   id: string;
@@ -14,27 +13,21 @@ export interface DayTask {
   rewardSmile?: number;
   rewardCoins?: number;
   xp: number;
-  status: DayTaskStatus;
-  /** Текст кнопки для status === 'action' */
-  actionLabel?: string;
-  /** Счётчик для status === 'locked', напр. «0/1» */
-  progressLabel?: string;
 }
 
+// Серия дней — отдельная система прогресса, ещё не спроектирована,
+// пока фиксированное демонстрационное значение.
 export const currentDay = 6;
 export const streakDays = 6;
-export const tasksDone = 4;
-export const tasksTotal = 7;
 
 export const dayTasks: DayTask[] = [
   {
     id: 'feed',
     icon: 'bowl',
     title: 'Покорми питомца',
-    description: 'Купи и дай еду своему питомцу',
+    description: 'Дай еду своему питомцу',
     rewardHeart: 20,
     xp: 10,
-    status: 'done',
   },
   {
     id: 'play',
@@ -43,7 +36,6 @@ export const dayTasks: DayTask[] = [
     description: 'Проведи 1 игру в комнате',
     rewardSmile: 15,
     xp: 10,
-    status: 'done',
   },
   {
     id: 'lesson',
@@ -52,8 +44,6 @@ export const dayTasks: DayTask[] = [
     description: 'Изучи новую полезную тему',
     rewardSmile: 20,
     xp: 15,
-    status: 'action',
-    actionLabel: 'Начать',
   },
   {
     id: 'shop',
@@ -62,8 +52,6 @@ export const dayTasks: DayTask[] = [
     description: 'Сделай 1 покупку в магазине',
     rewardCoins: 25,
     xp: 10,
-    status: 'locked',
-    progressLabel: '0/1',
   },
   {
     id: 'sleep',
@@ -72,7 +60,5 @@ export const dayTasks: DayTask[] = [
     description: 'Пусть он хорошо отдохнёт',
     rewardHeart: 15,
     xp: 10,
-    status: 'locked',
-    progressLabel: '0/1',
   },
 ];

@@ -1,6 +1,7 @@
 import { useEconomyStore } from './economyStore';
 import { usePetStore } from '../pet/petStore';
 import { useInventoryStore } from '../inventory/inventoryStore';
+import { useDayProgressStore } from '../progress/dayProgressStore';
 import type { ShopProduct, RoomProduct } from '../../data/shopData';
 
 export type PurchaseResult = 'ok' | 'already_owned' | 'insufficient_funds';
@@ -28,6 +29,9 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
     });
   }
 
+  // Задание дня «Купи что-нибудь в магазине» засчитывается любой реальной покупкой.
+  useDayProgressStore.getState().completeTask('shop');
+
   return 'ok';
 }
 
@@ -46,6 +50,9 @@ export function purchaseRoom(room: RoomProduct): PurchaseResult {
     applyCoinsDelta(-room.price, `Комната: ${room.name}`);
   }
   inventory.addOwnedRoom(room.id);
+
+  // Покупка комнаты — тоже реальная покупка в магазине, засчитывает задание дня.
+  useDayProgressStore.getState().completeTask('shop');
 
   return 'ok';
 }

@@ -1,6 +1,7 @@
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePetStore } from '../features/pet/petStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
+import { useDayProgressStore } from '../features/progress/dayProgressStore';
 
 /**
  * Реальная (не имитация) проверка сохранённого состояния игры: перечитывает
@@ -19,4 +20,5 @@ export async function bootstrapGame(): Promise<void> {
   useEconomyStore.getState().hydrate();
   usePetStore.getState().hydrate();
   useInventoryStore.getState().hydrate();
+  useDayProgressStore.getState().hydrate();
 }
