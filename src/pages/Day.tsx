@@ -24,11 +24,10 @@ const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const BTN_SHADOW =
   'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)';
 
-type DayTab = 'tasks' | 'rewards' | 'events';
+type DayTab = 'tasks' | 'rewards';
 const TABS: { id: DayTab; label: string }[] = [
   { id: 'tasks', label: 'Задания дня' },
   { id: 'rewards', label: 'Награды' },
-  { id: 'events', label: 'События' },
 ];
 
 // Иконка + пастельный цвет квадрата под неё — свой набор на тип задания,
@@ -299,7 +298,7 @@ export default function Day({ bottomInset = 0, coins, onClose }: Props) {
           <div className="mt-10 flex flex-col items-center gap-2 px-6 text-center">
             <IconGift className="h-12 w-12 opacity-70" />
             <p className="text-[13.5px] font-bold" style={{ color: '#7b7a8c' }}>
-              {tab === 'rewards' ? 'Награды появятся здесь совсем скоро' : 'События появятся здесь совсем скоро'}
+              Награды появятся здесь совсем скоро
             </p>
           </div>
         )}

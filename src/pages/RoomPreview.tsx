@@ -1,33 +1,69 @@
-import bearFull from '../assets/pet/bear-main.png';
-import bearSilhouette from '../assets/pet/bear-main-trim.png';
+import { useEffect, useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
-import { IconArrowLeft } from '../components/icons';
+import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '../components/icons';
 import type { RoomProduct } from '../data/shopData';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
 interface Props {
-  room: RoomProduct;
+  /** все комнаты интерьера — переключаемся между ними стрелками, не выходя из просмотра */
+  rooms: RoomProduct[];
+  /** с какой комнаты открыли просмотр (тап по карточке в магазине) */
+  initialRoomId: string;
   coins: number;
-  /** уже куплена игроком (независимо от статического поля room.owned) */
-  owned: boolean;
+  ownedRoomIds: string[];
   /** прямо сейчас стоит в комнате питомца */
-  active: boolean;
+  activeRoomId: string;
   onBack: () => void;
   /** купить/установить — компонент сам решает по owned/active, что означает нажатие */
   onBuy: (room: RoomProduct) => void;
 }
 
 /**
- * Предпросмотр комнаты перед покупкой: главный экран без интерфейса —
- * только питомец на новом фоне и кнопка покупки.
+ * Фон комнаты со сменой через fade — тот же приём "entered", что и в остальных
+ * экранах (opacity 0→1 через rAF), только перезапускается при смене src.
  */
-export default function RoomPreview({ room, coins, owned, active, onBack, onBuy }: Props) {
+function RoomBackground({ src }: { src: string }) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    setShow(false);
+    const id = requestAnimationFrame(() => setShow(true));
+    return () => cancelAnimationFrame(id);
+  }, [src]);
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="absolute inset-0 h-full w-full object-cover object-bottom transition-opacity duration-300"
+      style={{ opacity: show ? 1 : 0 }}
+    />
+  );
+}
+
+/**
+ * Предпросмотр комнаты перед покупкой: только фон комнаты и кнопка покупки.
+ * Фоны листаются стрелками влево/вправо по кругу, как карусель, не закрывая просмотр.
+ */
+export default function RoomPreview({ rooms, initialRoomId, coins, ownedRoomIds, activeRoomId, onBack, onBuy }: Props) {
+  const [index, setIndex] = useState(() => {
+    const i = rooms.findIndex((r) => r.id === initialRoomId);
+    return i >= 0 ? i : 0;
+  });
+
+  const room = rooms[index];
+  const owned = ownedRoomIds.includes(room.id);
+  const active = activeRoomId === room.id;
   const enough = coins >= room.price;
+
+  const go = (delta: number) => {
+    setIndex((i) => (i + delta + rooms.length) % rooms.length);
+  };
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#b9835a]">
-      <img src={room.background} alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
+      <RoomBackground src={room.background} />
 
       {/* Верхняя строка: назад, название комнаты и баланс монет */}
       <div className="relative flex items-center gap-3 px-4 pt-5">
@@ -61,41 +97,41 @@ export default function RoomPreview({ room, coins, owned, active, onBack, onBuy 
         </div>
       </div>
 
-      {/* Питомец на новом фоне — тот же масштаб и тень, что и на главном экране */}
-      <div className="absolute inset-x-0 bottom-[190px] top-[76px]">
-        <div className="relative h-full w-full">
-          <img
-            src={bearSilhouette}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="pointer-events-none absolute left-1/2 h-[58%] w-auto select-none"
-            style={{
-              bottom: '6.6%',
-              transformOrigin: 'bottom center',
-              transform: 'translateX(-52%) scaleY(-0.18) skewX(-22deg)',
-              filter: 'brightness(0) blur(5px)',
-              opacity: 0.5,
-            }}
-          />
-          {/* Плотное касание прямо под лапами — как на главном экране, сдвинуто к центру ковра */}
-          <div
-            className="absolute bottom-[4.4%] left-1/2 h-[14px] w-[100px] rounded-[50%]"
-            style={{
-              transform: 'translateX(-52%)',
-              background:
-                'radial-gradient(ellipse at 50% 50%, rgba(20,10,2,0.55) 0%, rgba(20,10,2,0.28) 50%, rgba(20,10,2,0) 76%)',
-              filter: 'blur(3px)',
-            }}
-          />
-          <img
-            src={bearFull}
-            alt=""
-            draggable={false}
-            className="pointer-events-none absolute bottom-0 left-1/2 h-[62%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
-          />
+      {/* Точки-индикатор — какая комната сейчас показана */}
+      {rooms.length > 1 && (
+        <div className="relative z-10 mt-2.5 flex items-center justify-center gap-1.5">
+          {rooms.map((r, i) => (
+            <span
+              key={r.id}
+              className="h-[6px] rounded-full transition-all"
+              style={{
+                width: i === index ? 16 : 6,
+                background: i === index ? '#ffffff' : 'rgba(255,255,255,0.4)',
+              }}
+            />
+          ))}
         </div>
-      </div>
+      )}
+
+      {/* Стрелки карусели — листаем фоны по кругу, не выходя из просмотра */}
+      {rooms.length > 1 && (
+        <>
+          <button
+            onClick={() => go(-1)}
+            aria-label="Предыдущая комната"
+            className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-90"
+          >
+            <IconChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            onClick={() => go(1)}
+            aria-label="Следующая комната"
+            className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-90"
+          >
+            <IconChevronRight className="h-6 w-6" />
+          </button>
+        </>
+      )}
 
       {/* Покупка */}
       <div className="absolute inset-x-0 bottom-0 px-4 pb-5">

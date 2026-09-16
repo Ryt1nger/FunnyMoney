@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type UIEvent } from 'react';
 import heroImg from '../assets/heroes/hero-stats.jpg';
+import coinIcon from '../assets/icons/coin.png';
 import podiumImg from '../assets/icons/stats/podium-stage.png';
 import shieldGold from '../assets/icons/stats/shield-gold.png';
 import laurelLeft from '../assets/icons/stats/laurel-left.png';
@@ -13,7 +14,7 @@ import confettiBlue2 from '../assets/icons/stats/confetti-blue-2.png';
 import confettiBlue3 from '../assets/icons/stats/confetti-blue-3.png';
 import bearAvatar from '../assets/pet/bear-avatar.png';
 import AnimalAvatar from '../components/AnimalAvatar';
-import { IconArrowLeft } from '../components/icons';
+import { IconArrowLeft, IconPlus } from '../components/icons';
 import {
   podium,
   aboveMe,
@@ -29,6 +30,7 @@ const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
 interface Props {
   bottomInset?: number;
+  coins: number;
   onClose: () => void;
 }
 
@@ -125,7 +127,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
   );
 }
 
-export default function Stats({ bottomInset = 0, onClose }: Props) {
+export default function Stats({ bottomInset = 0, coins, onClose }: Props) {
   const [entered, setEntered] = useState(false);
   const [fogOpacity, setFogOpacity] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -181,13 +183,30 @@ export default function Stats({ bottomInset = 0, onClose }: Props) {
         {/* Контент шапки поверх картинки, z-index выше кремовой секции ниже —
             если плашка лиги вылезет за нижний край шапки, она останется НАД
             статистикой, а не окажется под ней. */}
-        <div className="relative z-20 flex items-start px-4 pt-4">
+        <div className="relative z-20 flex items-start justify-between px-4 pt-4">
           <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"
           >
             <IconArrowLeft className="h-5 w-5" />
           </button>
+          <div
+            className="flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-1.5 backdrop-blur-md"
+            style={{
+              background: 'rgba(26,20,40,0.30)',
+              borderColor: 'rgba(255,255,255,0.30)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+            }}
+          >
+            <img src={coinIcon} alt="" className="h-6 w-6" />
+            <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
+            <button
+              className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
+              style={{ background: VIOLET }}
+            >
+              <IconPlus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="relative z-20 mt-2 px-4">

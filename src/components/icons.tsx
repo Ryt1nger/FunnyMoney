@@ -143,6 +143,14 @@ export function IconChevronRight(props: IconProps) {
   );
 }
 
+export function IconChevronLeft(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconPlus(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" {...props}>
@@ -192,6 +200,28 @@ export function IconArrowLeft(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" {...props}>
       <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconArrowRight(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Игральная кость — кнопка «случайное имя»
+export function IconDice(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="#fff" />
+      <circle cx="8.2" cy="8.2" r="1.6" fill="#6262e4" />
+      <circle cx="15.8" cy="8.2" r="1.6" fill="#6262e4" />
+      <circle cx="12" cy="12" r="1.6" fill="#6262e4" />
+      <circle cx="8.2" cy="15.8" r="1.6" fill="#6262e4" />
+      <circle cx="15.8" cy="15.8" r="1.6" fill="#6262e4" />
     </svg>
   );
 }

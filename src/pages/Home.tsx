@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import bearFull from '../assets/pet/bear-main.png';
 // обрезанный по силуэту вариант — только для отбрасываемой тени,
 // иначе прозрачное поле PNG превращается после отражения в зазор
@@ -11,6 +11,9 @@ import boneToy from '../assets/items/toys/bone-toy-card.png';
 import boneBlob from '../assets/ui/bone-blob.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
+import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
+import smileMetricIcon from '../assets/icons/metrics/smile-3d.png';
+import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import GlassMetric from '../components/GlassMetric';
 import BottomNav, { type TabId } from '../components/BottomNav';
 import BottomSheet from '../components/BottomSheet';
@@ -19,9 +22,6 @@ import Shop from './Shop';
 import Stats from './Stats';
 import Day from './Day';
 import {
-  IconHeart,
-  IconSmile,
-  IconCoinStack,
   IconStar,
   IconPlus,
   IconGift,
@@ -35,22 +35,62 @@ const mock = {
   level: 3,
   xp: 240,
   xpToNext: 500,
-  coins: 709,
+  coins: 5709,
   health: 82,
   happiness: 76,
   wealth: 64,
   event: {
-    title: 'Мишка хочет поиграть\nс новой игрушкой!',
-    description: 'У тебя есть 300 монет. Что выберешь?',
+    title: 'Мишка заскучал\nбез урока!',
+    description: 'Давно не был на уроке!',
   },
   rewardStepsLeft: 1,
   rewardProgress: 80,
   streakDays: 6,
 };
 
+const LAST_LESSON_VISIT_KEY = 'funnymoney_last_lesson_visit_at';
+// Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
+// только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
+const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
+
+function shouldShowLessonReminder() {
+  try {
+    const raw = localStorage.getItem(LAST_LESSON_VISIT_KEY);
+    if (!raw) return true; // ещё ни разу не заходил — точно пора напомнить
+    const lastVisit = Number(raw);
+    if (!Number.isFinite(lastVisit)) return true;
+    return Date.now() - lastVisit > LESSON_REMINDER_THRESHOLD_MS;
+  } catch {
+    return true;
+  }
+}
+
+function markLessonVisited() {
+  try {
+    localStorage.setItem(LAST_LESSON_VISIT_KEY, String(Date.now()));
+  } catch {
+    // localStorage недоступен — просто не запоминаем, напоминание останется активным
+  }
+}
+
 export default function Home() {
   const [tab, setTab] = useState<TabId>('home');
   const [sheet, setSheet] = useState<TabId | null>(null);
+  const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
+
+  function openLessonsFromReminder() {
+    setTab('lessons');
+    setSheet('lessons');
+  }
+
+  // Любой заход на урок (через напоминание или через нижнюю навигацию) считается
+  // визитом — запоминаем время и прячем напоминание до следующего "долгого перерыва".
+  useEffect(() => {
+    if (sheet === 'lessons') {
+      markLessonVisited();
+      setShowLessonReminder(false);
+    }
+  }, [sheet]);
   const [coins, setCoins] = useState(mock.coins);
   const [ownedRoomIds, setOwnedRoomIds] = useState<string[]>(['room-day']);
   const [activeRoomId, setActiveRoomId] = useState('room-day');
@@ -146,22 +186,22 @@ export default function Home() {
         {/* Метрики */}
         <div className="relative z-20 mt-3 flex gap-2.5 px-4">
           <GlassMetric
-            icon={<IconHeart className="h-4 w-4" style={{ color: '#ffffff' }} />}
-            iconGradient="linear-gradient(180deg, #fb7185 0%, #e11d48 100%)"
+            icon={<img src={heartMetricIcon} alt="" className="h-full w-full object-contain" />}
+            iconGradient="transparent"
             label="Здоровье"
             value={mock.health}
             barGradient="linear-gradient(90deg, #fb7f92 0%, #ef4060 100%)"
           />
           <GlassMetric
-            icon={<IconSmile className="h-4 w-4" style={{ color: '#8a5a00' }} />}
-            iconGradient="linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%)"
+            icon={<img src={smileMetricIcon} alt="" className="h-full w-full object-contain" />}
+            iconGradient="transparent"
             label="Счастье"
             value={mock.happiness}
             barGradient="linear-gradient(90deg, #f9cb63 0%, #efa622 100%)"
           />
           <GlassMetric
-            icon={<IconCoinStack className="h-4 w-4" style={{ color: '#ffffff' }} />}
-            iconGradient="linear-gradient(180deg, #4ade80 0%, #16a34a 100%)"
+            icon={<img src={coinsMetricIcon} alt="" className="h-full w-full object-contain" />}
+            iconGradient="transparent"
             label="Богатство"
             value={mock.wealth}
             barGradient="linear-gradient(90deg, #63d98b 0%, #21a44f 100%)"
@@ -209,62 +249,65 @@ export default function Home() {
 
         {/* Карточка события + плашки — поверх фото */}
         <div className="relative z-20 px-4">
-          {/* Карточка низкая; бейдж и круг с костью намеренно выступают
-              за её верхнюю границу — поэтому overflow не обрезаем */}
-          <div
-            className="relative rounded-[26px] border px-3.5 pb-3.5 pt-[30px] shadow-xl"
-            style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
-          >
-            <span
-              className="absolute -top-3 left-3.5 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold text-white shadow-md"
-              style={{ background: 'linear-gradient(135deg, #6d5ce7 0%, #5b4de0 55%, #7a4fd8 100%)' }}
+          {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
+              давно не заходил на урок в течение дня (см. shouldShowLessonReminder). */}
+          {showLessonReminder && (
+            <div
+              className="relative rounded-[26px] border px-3.5 pb-3.5 pt-[30px] shadow-xl"
+              style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
             >
-              <IconStar className="h-3.5 w-3.5 drop-shadow" style={{ color: '#fcd34d' }} />
-              Событие дня
-            </span>
-
-            {/* Кластер 1:1 по замерам референса (доли от ширины кляксы B=92):
-                клякса 92x68 (h=0.735B); кость 0.519B x 0.481B при dx=0.251B, dy=0.107B;
-                кнопка 1.167B x 0.323B при dx=0.409B, dy=0.631B.
-                Клякса и кость — графика, вырезанная из самого референса. */}
-            <div className="pointer-events-none absolute -top-[5px] right-3.5 h-[88px] w-[145px]">
-              <img
-                src={boneBlob}
-                alt=""
-                className="absolute left-0 top-0 h-[68px] w-[92px] select-none"
-                draggable={false}
-              />
-              <img
-                src={boneToy}
-                alt=""
-                className="absolute left-[23px] top-[10px] h-[44px] w-auto select-none drop-shadow-sm"
-                draggable={false}
-              />
-              <button
-                className="pointer-events-auto absolute left-[38px] top-[58px] h-[30px] w-[107px] rounded-full text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
-                style={{
-                  background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
-                  boxShadow:
-                    'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
-                }}
+              <span
+                className="absolute -top-3 left-3.5 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold text-white shadow-md"
+                style={{ background: 'linear-gradient(135deg, #6d5ce7 0%, #5b4de0 55%, #7a4fd8 100%)' }}
               >
-                Решить
-              </button>
-            </div>
+                <IconStar className="h-3.5 w-3.5 drop-shadow" style={{ color: '#fcd34d' }} />
+                Событие дня
+              </span>
+
+              {/* Кластер 1:1 по замерам референса (доли от ширины кляксы B=92):
+                  клякса 92x68 (h=0.735B); кость 0.519B x 0.481B при dx=0.251B, dy=0.107B;
+                  кнопка 1.167B x 0.323B при dx=0.409B, dy=0.631B.
+                  Клякса и кость — графика, вырезанная из самого референса. */}
+              <div className="pointer-events-none absolute -top-[5px] right-3.5 h-[88px] w-[145px]">
+                <img
+                  src={boneBlob}
+                  alt=""
+                  className="absolute left-0 top-0 h-[68px] w-[92px] select-none"
+                  draggable={false}
+                />
+                <img
+                  src={boneToy}
+                  alt=""
+                  className="absolute left-[23px] top-[10px] h-[44px] w-auto select-none drop-shadow-sm"
+                  draggable={false}
+                />
+                <button
+                  onClick={openLessonsFromReminder}
+                  className="pointer-events-auto absolute left-[38px] top-[58px] h-[30px] w-[107px] rounded-full text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+                  style={{
+                    background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
+                    boxShadow:
+                      'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
+                  }}
+                >
+                  На урок
+                </button>
+              </div>
 
 
-            <div className="pr-[148px]">
-              <p
-                className="whitespace-pre-line text-[13.5px] font-bold leading-tight"
-                style={{ color: '#2c2a5e' }}
-              >
-                {mock.event.title}
-              </p>
-              <p className="mt-1.5 whitespace-nowrap text-[9.5px]" style={{ color: '#7b7a8c' }}>
-                {mock.event.description}
-              </p>
+              <div className="pr-[148px]">
+                <p
+                  className="whitespace-pre-line text-[13.5px] font-bold leading-tight"
+                  style={{ color: '#2c2a5e' }}
+                >
+                  {mock.event.title}
+                </p>
+                <p className="mt-1.5 text-[9.5px] leading-snug" style={{ color: '#7b7a8c' }}>
+                  {mock.event.description}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-2.5 flex gap-2.5">
             {/* Форма — скруглённый прямоугольник (не таблетка), с внутренней
@@ -370,6 +413,7 @@ export default function Home() {
         ) : sheet === 'stats' ? (
           <Stats
             bottomInset={navHeight}
+            coins={coins}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -394,10 +438,11 @@ export default function Home() {
       {previewRoom && (
         <div className="absolute inset-0 z-50">
           <RoomPreview
-            room={previewRoom}
+            rooms={rooms}
+            initialRoomId={previewRoom.id}
             coins={coins}
-            owned={ownedRoomIds.includes(previewRoom.id)}
-            active={activeRoomId === previewRoom.id}
+            ownedRoomIds={ownedRoomIds}
+            activeRoomId={activeRoomId}
             onBack={() => setPreviewRoom(null)}
             onBuy={(room) => {
               if (ownedRoomIds.includes(room.id)) {

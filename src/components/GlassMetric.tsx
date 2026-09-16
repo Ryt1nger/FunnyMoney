@@ -26,7 +26,9 @@ export default function GlassMetric({ icon, iconGradient, label, value, barGradi
       }}
     >
       <span
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full shadow-md"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+          iconGradient === 'transparent' ? '' : 'shadow-md'
+        }`}
         style={{ background: iconGradient }}
       >
         {icon}
