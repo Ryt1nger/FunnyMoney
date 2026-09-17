@@ -100,7 +100,7 @@ export const useDayProgressStore = create<DayProgressStore>((set, get) => ({
     const state = get();
     // Если наступил новый день (в т.ч. пока приложение было открыто) — сначала сбрасываем
     // список заданий (серию — только если реально пропущен день, см. normalizeStreak).
-    let base = state.date === todayKey() ? state : { ...state, date: todayKey(), completedTaskIds: [] };
+    let base: DayProgressState = state.date === todayKey() ? state : { ...state, date: todayKey(), completedTaskIds: [] };
     base = normalizeStreak(base);
     if (base.completedTaskIds.includes(taskId)) {
       if (base !== state) {
