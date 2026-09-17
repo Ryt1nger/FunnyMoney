@@ -41,7 +41,7 @@ const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const BTN_SHADOW =
   'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)';
 
-type DayTab = 'tasks' | 'rewards';
+export type DayTab = 'tasks' | 'rewards';
 const TABS: { id: DayTab; label: string }[] = [
   { id: 'tasks', label: 'Задания дня' },
   { id: 'rewards', label: 'Награды' },
@@ -60,12 +60,14 @@ const TASK_ICON: Record<DayTaskIcon, { Icon: typeof IconBowl; bg: string; fg: st
 interface Props {
   bottomInset?: number;
   coins: number;
+  /** Вкладка, с которой открывается экран — например "Награды" по ссылке из окошка "+" */
+  initialTab?: DayTab;
   onClose: () => void;
 }
 
-export default function Day({ bottomInset = 0, coins, onClose }: Props) {
+export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Props) {
   const [entered, setEntered] = useState(false);
-  const [tab, setTab] = useState<DayTab>('tasks');
+  const [tab, setTab] = useState<DayTab>(initialTab ?? 'tasks');
   const [streakClaimed, setStreakClaimed] = useState(false);
   const applyCoinsDelta = useEconomyStore((s) => s.applyCoinsDelta);
   const applyPetDelta = usePetStore((s) => s.applyDelta);

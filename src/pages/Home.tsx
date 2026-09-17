@@ -17,11 +17,12 @@ import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import GlassMetric from '../components/GlassMetric';
 import BottomNav, { type TabId } from '../components/BottomNav';
 import BottomSheet from '../components/BottomSheet';
+import EarnCoinsModal from '../components/EarnCoinsModal';
 import LessonsPlaceholder from './LessonsPlaceholder';
 import Inventory from './Inventory';
 import Shop from './Shop';
 import Stats from './Stats';
-import Day from './Day';
+import Day, { type DayTab } from './Day';
 import { streakDays } from '../data/dayData';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
@@ -99,6 +100,10 @@ export default function Home() {
   const [tab, setTab] = useState<TabId>('home');
   const [sheet, setSheet] = useState<SheetId | null>(null);
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
+  // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
+  // уроки, либо в раздел наград на экране "День".
+  const [earnModalOpen, setEarnModalOpen] = useState(false);
+  const [dayInitialTab, setDayInitialTab] = useState<DayTab>('tasks');
 
   function openLessonsFromReminder() {
     setTab('lessons');
@@ -196,11 +201,7 @@ export default function Home() {
               <img src={coinIcon} alt="" className="h-[22px] w-[22px]" />
               <span className="text-base font-bold leading-none text-white">{coins}</span>
               <button
-                onClick={() => {
-                  // "+" ведёт на экран Дня — там реальные задания, за которые начисляются монеты.
-                  setTab('day');
-                  setSheet('day');
-                }}
+                onClick={() => setEarnModalOpen(true)}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
                 style={{ background: 'linear-gradient(180deg, #7c74f5 0%, #5b4de0 100%)' }}
               >
@@ -265,7 +266,7 @@ export default function Home() {
             draggable={false}
             className="pointer-events-none absolute left-1/2 h-[86%] w-auto select-none"
             style={{
-              bottom: '6.6%',
+              bottom: '10.6%',
               transformOrigin: 'bottom center',
               transform: 'translateX(-52%) scaleY(-0.18) skewX(-22deg)',
               filter: 'brightness(0) blur(5px)',
@@ -274,7 +275,7 @@ export default function Home() {
           />
           {/* Плотное касание прямо под лапами */}
           <div
-            className="absolute bottom-[4.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
+            className="absolute bottom-[8.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
             style={{
               transform: 'translateX(-52%)',
               background:
@@ -286,7 +287,7 @@ export default function Home() {
             src={bearFull}
             alt={petName}
             draggable={false}
-            className="pointer-events-none absolute bottom-0 left-1/2 h-[92%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+            className="pointer-events-none absolute bottom-[4%] left-1/2 h-[92%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
           />
         </div>
 
@@ -417,6 +418,7 @@ export default function Home() {
             onChange={(next) => {
               setTab(next);
               setSheet(next === 'home' ? null : next);
+              if (next === 'day') setDayInitialTab('tasks');
             }}
           />
         </div>
@@ -463,6 +465,7 @@ export default function Home() {
           <Day
             bottomInset={navHeight}
             coins={coins}
+            initialTab={dayInitialTab}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -484,6 +487,23 @@ export default function Home() {
           </div>
         )}
       </BottomSheet>
+
+      {/* Окошко "как заработать монеты" — по кнопке "+" в балансе */}
+      <EarnCoinsModal
+        open={earnModalOpen}
+        onClose={() => setEarnModalOpen(false)}
+        onOpenLessons={() => {
+          setEarnModalOpen(false);
+          setTab('lessons');
+          setSheet('lessons');
+        }}
+        onOpenRewards={() => {
+          setEarnModalOpen(false);
+          setDayInitialTab('rewards');
+          setTab('day');
+          setSheet('day');
+        }}
+      />
 
       {previewRoom && (
         <div className="absolute inset-0 z-50">
