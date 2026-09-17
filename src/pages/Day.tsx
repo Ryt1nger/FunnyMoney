@@ -18,10 +18,10 @@ import {
   IconCheck,
   IconStar,
 } from '../components/icons';
-import { currentDay, streakDays, dayTasks, type DayTask, type DayTaskIcon } from '../data/dayData';
+import { dayTasks, type DayTask, type DayTaskIcon } from '../data/dayData';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePetStore } from '../features/pet/petStore';
-import { useDayProgressStore } from '../features/progress/dayProgressStore';
+import { useDayProgressStore, STREAK_MILESTONE_STEP } from '../features/progress/dayProgressStore';
 
 // Разовая награда за серию дней — тестовое значение баланса, до появления
 // полноценной системы прогресса по серии (Game Core: progress).
@@ -68,18 +68,29 @@ interface Props {
 export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Props) {
   const [entered, setEntered] = useState(false);
   const [tab, setTab] = useState<DayTab>(initialTab ?? 'tasks');
-  const [streakClaimed, setStreakClaimed] = useState(false);
   const applyCoinsDelta = useEconomyStore((s) => s.applyCoinsDelta);
   const applyPetDelta = usePetStore((s) => s.applyDelta);
   const completedTaskIds = useDayProgressStore((s) => s.completedTaskIds);
   const completeTask = useDayProgressStore((s) => s.completeTask);
+  const streakDays = useDayProgressStore((s) => s.streak);
+  const claimedStreakMilestones = useDayProgressStore((s) => s.claimedStreakMilestones);
+  const claimStreakMilestone = useDayProgressStore((s) => s.claimStreakMilestone);
   const isTaskDone = (id: string) => completedTaskIds.includes(id);
   const tasksDone = dayTasks.filter((t) => isTaskDone(t.id)).length;
+  // "Текущий день" — тот же счётчик, что и серия: без выполненных заданий
+  // сегодня отдельного дня-программы пока нет, это одна и та же цифра.
+  const currentDay = streakDays;
+
+  // Баннер бонуса — не постоянный, а разовое предложение на каждую веху серии
+  // (каждые STREAK_MILESTONE_STEP дней подряд), см. запрос: "появляется только
+  // при сериях кратных 5".
+  const streakMilestoneReached = streakDays > 0 && streakDays % STREAK_MILESTONE_STEP === 0;
+  const streakClaimed = claimedStreakMilestones.includes(streakDays);
 
   function claimStreakBonus() {
     if (streakClaimed) return;
     applyCoinsDelta(STREAK_BONUS_COINS, 'Бонус за серию дней');
-    setStreakClaimed(true);
+    claimStreakMilestone(streakDays);
   }
 
   // Выполнить задание "одной кнопкой" прямо здесь: применяет награду
@@ -189,7 +200,7 @@ export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Pro
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <IconFlame className="h-5 w-5 shrink-0" />
+              <IconFlame className="h-5 w-5 shrink-0" style={streakDays === 0 ? { opacity: 0.4 } : undefined} />
               <span className="text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
                 Серия дней
               </span>
@@ -198,11 +209,21 @@ export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Pro
               </span>
             </div>
             <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-tight" style={{ color: '#7b7a8c' }}>
-              Продолжай, чтобы получить особую награду!
+              {streakDays === 0
+                ? 'Выполни любое задание сегодня, чтобы начать серию!'
+                : 'Продолжай, чтобы получить особую награду!'}
             </p>
           </div>
 
-          <button className="flex shrink-0 items-center gap-0.5 transition active:scale-95">
+          {/* Раньше у этой кнопки не было onClick вообще — визуально выглядела
+              кликабельной (иконка + шеврон), но ничего не делала, что и
+              создавало ощущение "случайного" поведения. Теперь явно и всегда
+              ведёт на вкладку "Награды". */}
+          <button
+            onClick={() => setTab('rewards')}
+            className="flex shrink-0 items-center gap-0.5 transition active:scale-95"
+            aria-label="Награды"
+          >
             <IconGift className="h-10 w-10 drop-shadow" />
             <IconChevronRight className="h-4 w-4" style={{ color: '#b5aec7' }} />
           </button>
@@ -336,29 +357,32 @@ export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Pro
               })}
             </div>
 
-            {/* Баннер бонуса за серию */}
-            <button
-              onClick={claimStreakBonus}
-              disabled={streakClaimed}
-              className="mt-3 mb-1 flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition active:scale-[0.98] disabled:active:scale-100"
-              style={{
-                background: streakClaimed ? '#c9c2d8' : VIOLET,
-                boxShadow: streakClaimed ? undefined : '0 6px 16px rgba(92,90,216,0.30)',
-              }}
-            >
-              <IconGift className="h-9 w-9 shrink-0 drop-shadow" />
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-extrabold text-white">Бонус за серию дней!</div>
-                <div className="mt-0.5 text-[10.5px] leading-tight text-white/85">
-                  {streakClaimed
-                    ? `Получено +${STREAK_BONUS_COINS} монет`
-                    : 'Оставайся активным и получай особые награды'}
+            {/* Баннер бонуса — разовое предложение на каждую веху серии (каждые
+                STREAK_MILESTONE_STEP дней подряд), а не постоянный баннер */}
+            {streakMilestoneReached && (
+              <button
+                onClick={claimStreakBonus}
+                disabled={streakClaimed}
+                className="mt-3 mb-1 flex w-full items-center gap-3 rounded-[20px] p-3 text-left transition active:scale-[0.98] disabled:active:scale-100"
+                style={{
+                  background: streakClaimed ? '#c9c2d8' : VIOLET,
+                  boxShadow: streakClaimed ? undefined : '0 6px 16px rgba(92,90,216,0.30)',
+                }}
+              >
+                <IconGift className="h-9 w-9 shrink-0 drop-shadow" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-extrabold text-white">Серия {streakDays} дней подряд!</div>
+                  <div className="mt-0.5 text-[10.5px] leading-tight text-white/85">
+                    {streakClaimed
+                      ? `Получено +${STREAK_BONUS_COINS} монет`
+                      : 'Особая награда за упорство — забери её!'}
+                  </div>
                 </div>
-              </div>
-              <span className="shrink-0 rounded-full bg-white/20 px-3.5 py-1.5 text-[12px] font-bold text-white">
-                {streakClaimed ? 'Получено' : 'Получить'}
-              </span>
-            </button>
+                <span className="shrink-0 rounded-full bg-white/20 px-3.5 py-1.5 text-[12px] font-bold text-white">
+                  {streakClaimed ? 'Получено' : 'Получить'}
+                </span>
+              </button>
+            )}
           </>
         ) : (
           <div className="mt-10 flex flex-col items-center gap-2 px-6 text-center">

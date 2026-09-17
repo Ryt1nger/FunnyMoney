@@ -15,11 +15,6 @@ export interface DayTask {
   xp: number;
 }
 
-// Серия дней — отдельная система прогресса, ещё не спроектирована,
-// пока фиксированное демонстрационное значение.
-export const currentDay = 6;
-export const streakDays = 6;
-
 export const dayTasks: DayTask[] = [
   {
     id: 'feed',

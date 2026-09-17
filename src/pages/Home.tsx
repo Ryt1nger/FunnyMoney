@@ -23,10 +23,10 @@ import Inventory from './Inventory';
 import Shop from './Shop';
 import Stats from './Stats';
 import Day, { type DayTab } from './Day';
-import { streakDays } from '../data/dayData';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
+import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import {
   IconStar,
@@ -90,6 +90,7 @@ export default function Home() {
   const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
+  const streakDays = useDayProgressStore((s) => s.streak);
 
   const petName = pet?.name ?? 'Мишка';
   const health = pet?.health ?? 0;
@@ -264,9 +265,9 @@ export default function Home() {
             alt=""
             aria-hidden
             draggable={false}
-            className="pointer-events-none absolute left-1/2 h-[86%] w-auto select-none"
+            className="pointer-events-none absolute left-1/2 h-[67%] w-auto select-none"
             style={{
-              bottom: '10.6%',
+              bottom: '24.6%',
               transformOrigin: 'bottom center',
               transform: 'translateX(-52%) scaleY(-0.18) skewX(-22deg)',
               filter: 'brightness(0) blur(5px)',
@@ -275,7 +276,7 @@ export default function Home() {
           />
           {/* Плотное касание прямо под лапами */}
           <div
-            className="absolute bottom-[8.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
+            className="absolute bottom-[22.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
             style={{
               transform: 'translateX(-52%)',
               background:
@@ -287,7 +288,7 @@ export default function Home() {
             src={bearFull}
             alt={petName}
             draggable={false}
-            className="pointer-events-none absolute bottom-[4%] left-1/2 h-[92%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+            className="pointer-events-none absolute bottom-[18%] left-1/2 h-[72%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
           />
         </div>
 
@@ -388,22 +389,47 @@ export default function Home() {
             </div>
 
             <div
-              className="flex flex-1 items-center gap-2 rounded-[22px] px-3 py-2.5"
+              onClick={
+                streakDays === 0
+                  ? () => {
+                      setDayInitialTab('tasks');
+                      setTab('day');
+                      setSheet('day');
+                    }
+                  : undefined
+              }
+              className={`flex flex-1 items-center gap-2 rounded-[22px] px-3 py-2.5 ${
+                streakDays === 0 ? 'cursor-pointer transition active:scale-[0.98]' : ''
+              }`}
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
                 boxShadow:
                   'inset 0 3px 7px rgba(146,98,36,0.34), inset 0 -1px 2px rgba(255,255,255,0.30), 0 4px 10px rgba(0,0,0,0.18)',
               }}
             >
-              <IconFlame className="h-9 w-9 shrink-0 drop-shadow" />
-              <div className="leading-tight">
-                <div className="whitespace-nowrap text-[13px] font-bold" style={{ color: '#4a3a22' }}>
-                  {streakDays} {pluralDays(streakDays)}
+              <IconFlame
+                className="h-9 w-9 shrink-0 drop-shadow"
+                style={streakDays === 0 ? { opacity: 0.45 } : undefined}
+              />
+              {streakDays === 0 ? (
+                <div className="min-w-0 leading-tight">
+                  <div className="text-[11.5px] font-bold" style={{ color: '#4a3a22' }}>
+                    Начни серию!
+                  </div>
+                  <div className="text-[9.5px] font-semibold leading-snug" style={{ color: '#8a6a3a' }}>
+                    Выполни задание дня
+                  </div>
                 </div>
-                <div className="text-[12px] font-bold" style={{ color: '#4a3a22' }}>
-                  серия
+              ) : (
+                <div className="leading-tight">
+                  <div className="whitespace-nowrap text-[13px] font-bold" style={{ color: '#4a3a22' }}>
+                    {streakDays} {pluralDays(streakDays)}
+                  </div>
+                  <div className="text-[12px] font-bold" style={{ color: '#4a3a22' }}>
+                    серия
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -515,8 +541,12 @@ export default function Home() {
             activeRoomId={activeRoomId}
             onBack={() => setPreviewRoom(null)}
             onBuy={(room) => {
+              // Покупка/установка НЕ закрывает просмотр — комната куплена, но
+              // человек может захотеть тут же её установить или просто
+              // посмотреть дальше. Выйти можно только явной стрелкой "назад"
+              // (см. onBack выше), и тогда откроется магазин, откуда пришли
+              // (шторка sheet==='shop' всё это время остаётся открытой под просмотром).
               purchaseRoom(room);
-              setPreviewRoom(null);
             }}
           />
         </div>

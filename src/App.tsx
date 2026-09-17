@@ -6,6 +6,7 @@ import PageLoading from './pages/PageLoading';
 import { usePetStore } from './features/pet/petStore';
 import { useEconomyStore } from './features/economy/economyStore';
 import { bootstrapGame } from './services/bootstrap';
+import { startBackgroundMusic } from './services/backgroundMusic';
 
 const ONBOARDED_KEY = 'funnymoney_onboarded';
 
@@ -56,20 +57,33 @@ function App() {
   // погасить более новый экран загрузки поверх него.
   const overlayRunId = useRef(0);
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Таймер "оверлей уже непрозрачен" — момент, когда безопасно поменять экран
+  // под ним (см. onCovered ниже и баг: мигание главного экрана при переходе).
+  const coverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Показывает экран загрузки нужного вида, пока не пройдёт реальная асинхронная
   // работа `task` И не истечёт минимум `minMs` (что дольше — то и решает).
   // kind='startup' — заставка с большим лого (запуск приложения),
   // kind='transition' — экран с прогресс-баром + реальная проверка сохранённых данных.
-  async function showLoadingOverlay(kind: OverlayKind, minMs: number, task: () => Promise<void>) {
+  // onCovered (необязательный) вызывается, когда оверлей уже полностью
+  // непрозрачен — именно тут (а не раньше) безопасно поменять экран под ним,
+  // иначе новый экран на долю секунды "просвечивает" сквозь ещё прозрачный
+  // оверлей первым кадром.
+  async function showLoadingOverlay(kind: OverlayKind, minMs: number, task: () => Promise<void>, onCovered?: () => void) {
     const runId = ++overlayRunId.current;
     if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    if (coverTimer.current) clearTimeout(coverTimer.current);
     setOverlayKind(kind);
     setOverlay('in');
     setOverlayVisible(false);
     requestAnimationFrame(() => {
       if (overlayRunId.current === runId) setOverlayVisible(true);
     });
+    if (onCovered) {
+      coverTimer.current = setTimeout(() => {
+        if (overlayRunId.current === runId) onCovered();
+      }, FADE_MS);
+    }
 
     await Promise.all([task(), delay(minMs)]);
 
@@ -79,6 +93,10 @@ function App() {
     fadeTimer.current = setTimeout(() => {
       if (overlayRunId.current === runId) setOverlay('hidden');
     }, FADE_MS);
+
+    // Фоновую музыку включаем только после того, как заставка запуска реально
+    // отработала — на самом экране загрузки играть не должна.
+    if (kind === 'startup') startBackgroundMusic();
   }
 
   // Заставка при реальном запуске приложения — минимум 5 секунд, и за это время
@@ -87,13 +105,15 @@ function App() {
     showLoadingOverlay('startup', STARTUP_MIN_MS, bootstrapGame);
     return () => {
       if (fadeTimer.current) clearTimeout(fadeTimer.current);
+      if (coverTimer.current) clearTimeout(coverTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function goTo(next: Screen) {
-    setScreen(next);
-    showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame);
+    // Экран меняем не сразу, а только когда оверлей уже полностью закрыл его
+    // (onCovered) — иначе на первом кадре виден новый экран ещё без прикрытия.
+    showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame, () => setScreen(next));
   }
 
   function handleOnboardingComplete(age: number, petName: string) {
