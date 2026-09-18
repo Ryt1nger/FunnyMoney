@@ -33,7 +33,7 @@ import {
   IconPlus,
   IconGift,
   IconFlame,
-  IconBackpack,
+  IconBackpackLight,
 } from '../components/icons';
 
 // Уровень/опыт — отдельная прогресс-система уроков, которая ещё не подключена
@@ -249,11 +249,15 @@ export default function Home() {
             }}
             aria-label="Инвентарь"
           >
-            <IconBackpack className="h-6 w-6" />
+            <IconBackpackLight className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Медведь — занимает всё свободное место между метриками и карточкой */}
+        {/* Медведь — занимает всё свободное место между метриками и карточкой.
+            Карточка события и плашки серии верстаются НЕ как flex-соседи (иначе их
+            появление/исчезновение меняет высоту этого блока и медведь "прыгает"),
+            а как absolute-оверлей внутри него же — высота flex-1 и, соответственно,
+            позиция медведя (проценты ниже) остаются неизменными в любом состоянии. */}
         <div className="relative z-0 min-h-0 flex-1">
           {/* Контактная тень: у PNG снизу ~6% прозрачного поля, поэтому
               тень поднята на 5.5% высоты сцены — ровно под лапы */}
@@ -290,10 +294,10 @@ export default function Home() {
             draggable={false}
             className="pointer-events-none absolute bottom-[18%] left-1/2 h-[72%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
           />
-        </div>
 
-        {/* Карточка события + плашки — поверх фото */}
-        <div className="relative z-20 px-4">
+          {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,
+              не влияет на её высоту (см. комментарий выше). */}
+          <div className="absolute inset-x-0 bottom-0 z-20 px-4">
           {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
               давно не заходил на урок в течение дня (см. shouldShowLessonReminder). */}
           {showLessonReminder && (
@@ -431,6 +435,7 @@ export default function Home() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
 

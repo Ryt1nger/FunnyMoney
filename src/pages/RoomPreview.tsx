@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
 import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '../components/icons';
 import type { RoomProduct } from '../data/shopData';
+import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
@@ -56,6 +57,9 @@ export default function RoomPreview({ rooms, initialRoomId, coins, ownedRoomIds,
   const owned = ownedRoomIds.includes(room.id);
   const active = activeRoomId === room.id;
   const enough = coins >= room.price;
+  // Подтверждение — только для реальной покупки новой комнаты, а не для
+  // "Установить" уже купленную (это не трата монет, спрашивать не о чем).
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const go = (delta: number) => {
     setIndex((i) => (i + delta + rooms.length) % rooms.length);
@@ -156,7 +160,7 @@ export default function RoomPreview({ rooms, initialRoomId, coins, ownedRoomIds,
           </div>
 
           <button
-            onClick={() => onBuy(room)}
+            onClick={() => (owned ? onBuy(room) : setConfirmOpen(true))}
             disabled={active || (!owned && !enough)}
             className="mt-2.5 w-full rounded-full py-2.5 text-[14px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.99] disabled:opacity-60"
             style={{
@@ -171,6 +175,15 @@ export default function RoomPreview({ rooms, initialRoomId, coins, ownedRoomIds,
           </button>
         </div>
       </div>
+
+      <ConfirmPurchaseModal
+        item={confirmOpen ? { name: room.name, image: room.background, price: room.price } : null}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onBuy(room);
+        }}
+      />
     </div>
   );
 }

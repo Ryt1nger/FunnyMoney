@@ -17,7 +17,10 @@ interface Props {
 
 // Длительность анимации появления/скрытия — единая константа, чтобы плавный
 // уход не обрывался раньше времени размонтированием компонента.
-const TRANSITION_MS = 320;
+const TRANSITION_MS = 380;
+// Мягкое плавное замедление (стандартный material ease-out) — без резкого
+// "выброса" в начале, в отличие от прежней крутой кривой.
+const EASE = 'cubic-bezier(0.25, 0.8, 0.25, 1)';
 // Лёгкое размытие фона — заметно мягче, чем стандартный Tailwind backdrop-blur.
 const BACKDROP_BLUR_PX = 2;
 
@@ -36,8 +39,19 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRew
   useEffect(() => {
     if (open) {
       setMounted(true);
-      const id = requestAnimationFrame(() => setShown(true));
-      return () => cancelAnimationFrame(id);
+      // Двойной rAF: одного кадра иногда не хватает, чтобы браузер успел
+      // отрисовать закрытое (исходное) состояние ДО переключения в открытое —
+      // тогда переход "схлопывается" в один кадр и окно просто выскакивает
+      // без анимации. Два кадра гарантируют, что стартовый стиль реально
+      // попадёт в пейнт, и transition отыграет плавно (см. тот же приём в App.tsx).
+      let raf2 = 0;
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setShown(true));
+      });
+      return () => {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      };
     }
     setShown(false);
     const t = setTimeout(() => setMounted(false), TRANSITION_MS);
@@ -56,7 +70,7 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRew
           backdropFilter: `blur(${shown ? BACKDROP_BLUR_PX : 0}px)`,
           WebkitBackdropFilter: `blur(${shown ? BACKDROP_BLUR_PX : 0}px)`,
           opacity: shown ? 1 : 0,
-          transition: `opacity ${TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), -webkit-backdrop-filter ${TRANSITION_MS}ms ease, backdrop-filter ${TRANSITION_MS}ms ease`,
+          transition: `opacity ${TRANSITION_MS}ms ${EASE}, -webkit-backdrop-filter ${TRANSITION_MS}ms ease, backdrop-filter ${TRANSITION_MS}ms ease`,
         }}
       />
       <div className="absolute inset-0 flex items-center justify-center p-7">
@@ -66,9 +80,9 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRew
             background: '#fbefe1',
             border: '1px solid rgba(255,255,255,0.6)',
             boxShadow: '0 24px 48px rgba(20,10,30,0.35), 0 4px 14px rgba(20,10,30,0.18)',
-            transform: shown ? 'scale(1) translateY(0)' : 'scale(0.88) translateY(16px)',
+            transform: shown ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(14px)',
             opacity: shown ? 1 : 0,
-            transition: `transform ${TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${TRANSITION_MS}ms ease`,
+            transition: `transform ${TRANSITION_MS}ms ${EASE}, opacity ${TRANSITION_MS}ms ease`,
           }}
         >
           {/* Закрыть — крестик в углу, как в обычном модальном окне */}

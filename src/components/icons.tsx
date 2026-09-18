@@ -264,6 +264,7 @@ export function IconCart(props: IconProps) {
 }
 
 // Рюкзак — иконка кнопки инвентаря (Tabler Icons, MIT license).
+// currentColor — гибкая версия для мест, где цвет уже задаётся снаружи.
 export function IconBackpack(props: IconProps) {
   return (
     <svg
@@ -281,6 +282,18 @@ export function IconBackpack(props: IconProps) {
       <path d="M11 10h2" />
     </svg>
   );
+}
+
+// Две цветные версии рюкзака — светлая (белый штрих, для тёмных подложек)
+// и тёмная (тёмно-синий штрих в цвет заголовков, для светлых подложек).
+// Цвет зашит явно (не currentColor), чтобы не зависеть от наследования
+// и всегда читаться на своём фоне.
+export function IconBackpackLight(props: IconProps) {
+  return <IconBackpack stroke="#ffffff" {...props} />;
+}
+
+export function IconBackpackDark(props: IconProps) {
+  return <IconBackpack stroke="#2c2a5e" {...props} />;
 }
 
 export function IconFlag(props: IconProps) {

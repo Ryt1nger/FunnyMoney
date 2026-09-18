@@ -11,6 +11,7 @@ import { IconArrowLeft, IconPlus, IconCheck } from '../components/icons';
 import { productsByCategory, rooms, type RoomProduct, type ShopCategoryId, type ShopProduct } from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { purchaseProduct } from '../features/economy/purchase';
+import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
 
 const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
   { id: 'food', label: 'Еда', icon: catFood },
@@ -38,9 +39,20 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const products = category === 'interior' ? [] : productsByCategory(category);
+  // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
+  // при покупке чего угодно кроме еды"). Еда покупается сразу, без лишнего клика.
+  const [confirmProduct, setConfirmProduct] = useState<ShopProduct | null>(null);
 
   function handleBuy(product: ShopProduct) {
     purchaseProduct(product); // 'ok' | 'already_owned' | 'insufficient_funds' — кнопка сама отражает итог по инвентарю/балансу
+  }
+
+  function requestBuy(product: ShopProduct) {
+    if (product.category === 'food') {
+      handleBuy(product);
+    } else {
+      setConfirmProduct(product);
+    }
   }
 
   // фото шапки проявляется, кремовый лист выезжает снизу
@@ -50,7 +62,7 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
   }, []);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
+    <div className="relative flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       {/* Шапка с иллюстрацией магазина */}
       <div
         className="relative h-[170px] shrink-0 overflow-hidden bg-[#6d5a63] transition-opacity duration-500"
@@ -230,7 +242,7 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
                     </span>
                   </div>
                   <button
-                    onClick={() => !owned && handleBuy(p)}
+                    onClick={() => !owned && requestBuy(p)}
                     disabled={owned || !canAfford}
                     className="mt-2 flex w-full items-center justify-center gap-1 rounded-full py-[5px] text-[11px] font-bold text-white transition active:translate-y-[1px] active:scale-[0.98] disabled:active:translate-y-0 disabled:active:scale-100"
                     style={{
@@ -252,6 +264,15 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
           </div>
         )}
       </div>
+
+      <ConfirmPurchaseModal
+        item={confirmProduct ? { name: confirmProduct.name, image: confirmProduct.image, price: confirmProduct.price } : null}
+        onCancel={() => setConfirmProduct(null)}
+        onConfirm={() => {
+          if (confirmProduct) handleBuy(confirmProduct);
+          setConfirmProduct(null);
+        }}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import heroBg from '../assets/onboarding/hero-bg.jpg';
 import cakeIcon from '../assets/onboarding/cake.png';
 import bearHeadIcon from '../assets/onboarding/bear-head.png';
-import pawsIcon from '../assets/onboarding/paws.png';
+import pawsIcon from '../assets/onboarding/paws-trim.png';
 import { IconChevronLeft, IconChevronRight, IconArrowRight, IconDice } from '../components/icons';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -307,8 +307,16 @@ export default function Onboarding({ onComplete }: Props) {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-center gap-3 px-4 pb-5 pt-2">
-          <img src={pawsIcon} alt="" aria-hidden className="h-10 w-10 shrink-0 -scale-x-100 opacity-40" />
+        <div className="relative flex shrink-0 items-center justify-center pb-5 pt-2">
+          {/* Лапки — абсолютно позиционированы на фиксированном отступе от края экрана
+              (а не через gap рядом с кнопкой), чтобы расстояние край→лапка было
+              гарантированно одинаковым с обеих сторон независимо от ширины кнопки. */}
+          <img
+            src={pawsIcon}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute left-4 top-1/2 h-16 w-16 -translate-y-1/2 -scale-x-100 select-none opacity-25"
+          />
           <button
             onClick={() => canContinue && onComplete(age, name.trim())}
             disabled={!canContinue}
@@ -322,7 +330,12 @@ export default function Onboarding({ onComplete }: Props) {
             Продолжить
             <IconArrowRight className="h-4 w-4" />
           </button>
-          <img src={pawsIcon} alt="" aria-hidden className="h-10 w-10 shrink-0 opacity-40" />
+          <img
+            src={pawsIcon}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute right-4 top-1/2 h-16 w-16 -translate-y-1/2 select-none opacity-25"
+          />
         </div>
       </div>
     </div>

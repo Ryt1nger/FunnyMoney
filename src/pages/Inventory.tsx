@@ -4,7 +4,7 @@ import catFood from '../assets/icons/shop/cat-food.png';
 import catToys from '../assets/icons/shop/cat-toys.png';
 import catClothes from '../assets/icons/shop/cat-clothes.png';
 import MaskIcon from '../components/MaskIcon';
-import { IconArrowLeft, IconBackpack, IconCheck } from '../components/icons';
+import { IconArrowLeft, IconBackpackLight, IconCheck } from '../components/icons';
 import { shopProducts, type ShopCategoryId } from '../data/shopData';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -74,7 +74,7 @@ export default function Inventory({ bottomInset = 0, coins, ownedProductIds, onC
           </div>
         </div>
         <div className="mt-3 flex items-center gap-2">
-          <IconBackpack className="h-6 w-6 text-white" />
+          <IconBackpackLight className="h-6 w-6" />
           <h1 className="text-[22px] font-extrabold leading-none text-white">Инвентарь</h1>
         </div>
       </div>
