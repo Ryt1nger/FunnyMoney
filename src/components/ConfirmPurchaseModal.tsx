@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
-import { playSuccessSound } from '../services/soundEffects';
+import { playPurchaseSound } from '../services/soundEffects';
 import { hapticSuccess } from '../services/haptics';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -54,9 +54,9 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
   if (!mounted || !lastItem) return null;
 
   function confirm() {
-    // Настоящий отклик на покупку — звук и вибро (оба гейтятся своими
-    // настройками внутри сервисов, здесь не нужно ничего проверять).
-    playSuccessSound();
+    // Настоящий отклик на покупку — более чёткий "звон монеты" и вибро (оба
+    // гейтятся своими настройками внутри сервисов, здесь проверять не нужно).
+    playPurchaseSound();
     hapticSuccess();
     onConfirm();
   }
@@ -119,6 +119,9 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
           <div className="mt-4">
             <button
               onClick={confirm}
+              // У кнопки уже есть свой яркий звук покупки (playPurchaseSound) —
+              // общий тихий тап здесь звучал бы поверх него и мешался.
+              data-no-tap-sound
               className="flex w-full items-center justify-center gap-2 rounded-[18px] px-3.5 py-3 text-[14px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
               style={{ background: VIOLET, boxShadow: BTN_SHADOW }}
             >

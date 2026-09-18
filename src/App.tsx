@@ -7,6 +7,11 @@ import { usePetStore } from './features/pet/petStore';
 import { useEconomyStore } from './features/economy/economyStore';
 import { bootstrapGame } from './services/bootstrap';
 import { startBackgroundMusic } from './services/backgroundMusic';
+import { initGlobalTapSound } from './services/globalTapSound';
+
+// Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
+// тапа на любой кнопке приложения без ручной разводки по каждому месту.
+initGlobalTapSound();
 
 const ONBOARDED_KEY = 'funnymoney_onboarded';
 
@@ -51,7 +56,14 @@ function App() {
   // Видимость overlay отделена от overlay: сначала монтируем с opacity 0,
   // и только на следующий кадр переключаем в 1 — иначе браузер не успевает
   // отрисовать стартовый кадр и появление происходит рывком, без анимации.
-  const [overlayVisible, setOverlayVisible] = useState(false);
+  // НО это относится только к оверлею ПЕРЕХОДА между экранами, где под ним уже
+  // показан текущий экран и нужен плавный кросс-фейд. У самой первой, стартовой
+  // заставки нет "предыдущего" видимого экрана — она обязана быть полностью
+  // непрозрачной с первого же кадра, иначе на долю секунды успевает мелькнуть
+  // настоящий экран (онбординг/главная) под ещё прозрачным оверлеем. Поэтому
+  // по умолчанию — уже видима, а невидимый-первый-кадр-трюк применяется
+  // выборочно (см. showLoadingOverlay) только для kind === 'transition'.
+  const [overlayVisible, setOverlayVisible] = useState(true);
   // Токен последнего запуска showLoadingOverlay — если за время ожидания
   // запустили новый переход, старый обязан молча самоустраниться, а не
   // погасить более новый экран загрузки поверх него.
@@ -75,10 +87,19 @@ function App() {
     if (coverTimer.current) clearTimeout(coverTimer.current);
     setOverlayKind(kind);
     setOverlay('in');
-    setOverlayVisible(false);
-    requestAnimationFrame(() => {
-      if (overlayRunId.current === runId) setOverlayVisible(true);
-    });
+    if (kind === 'transition') {
+      // Оверлей перехода появляется поверх УЖЕ видимого экрана — плавный
+      // фейд-ин уместен и заметен (монтируем невидимым, на след. кадр — видимым).
+      setOverlayVisible(false);
+      requestAnimationFrame(() => {
+        if (overlayRunId.current === runId) setOverlayVisible(true);
+      });
+    } else {
+      // Стартовая заставка ничего собой не "открывает" — она должна быть
+      // непрозрачной сразу, без промежуточного невидимого кадра (иначе виден
+      // реальный экран под ней долю секунды — тот самый баг с миганием).
+      setOverlayVisible(true);
+    }
     if (onCovered) {
       coverTimer.current = setTimeout(() => {
         if (overlayRunId.current === runId) onCovered();

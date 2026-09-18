@@ -30,7 +30,6 @@ import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
-import { playTapSound } from '../services/soundEffects';
 import { hapticTap } from '../services/haptics';
 import {
   IconStar,
@@ -470,8 +469,9 @@ export default function Home() {
             active={tab}
             dotsEnabled={brightHintsEnabled}
             onChange={(next) => {
+              // Звук тапа на нижней навигации теперь общий (globalTapSound),
+              // здесь остаётся только вибро-отклик — специфика самой вкладки.
               hapticTap();
-              playTapSound();
               setTab(next);
               setSheet(next === 'home' ? null : next);
               if (next === 'day') setDayInitialTab('tasks');
