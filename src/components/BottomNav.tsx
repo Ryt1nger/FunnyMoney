@@ -16,7 +16,7 @@ const TABS: { id: TabId; label: string; icon: string; iconActive: string; dot?: 
   { id: 'lessons', label: 'Уроки', icon: navBook, iconActive: navBookActive },
   { id: 'day', label: 'День', icon: navCalendar, iconActive: navCalendarActive, dot: true },
   { id: 'shop', label: 'Магазин', icon: navShop, iconActive: navShopActive },
-  { id: 'stats', label: 'Статистика', icon: navChart, iconActive: navChartActive },
+  { id: 'stats', label: 'Рейтинг', icon: navChart, iconActive: navChartActive },
 ];
 
 const ACTIVE = '#5d6cfc';
@@ -35,7 +35,14 @@ interface Props {
  */
 export default function BottomNav({ active, onChange, dotsEnabled = true }: Props) {
   return (
-    <nav className="flex w-full items-stretch rounded-t-[26px] bg-[#f9efe0] px-1 pb-3 pt-2.5 shadow-[0_-6px_20px_rgba(0,0,0,0.12)]">
+    <nav
+      className="flex w-full items-stretch rounded-t-[26px] bg-[#f9efe0] px-1 pt-2.5 shadow-[0_-6px_20px_rgba(0,0,0,0.12)]"
+      // На Android теперь настоящий edge-to-edge (см. MainActivity) — жестовая
+      // панель телефона прозрачна и лежит поверх приложения, а не выше него.
+      // Добавляем её высоту (safe-area-inset-bottom) поверх обычного отступа,
+      // чтобы подписи вкладок не оказывались под системными кнопками/жестом.
+      style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+    >
       {TABS.map((tab) => {
         const isActive = active === tab.id;
         return (

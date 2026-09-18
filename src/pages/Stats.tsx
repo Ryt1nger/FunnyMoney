@@ -32,6 +32,8 @@ interface Props {
   bottomInset?: number;
   coins: number;
   onClose: () => void;
+  /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
+  onOpenEarnModal?: () => void;
 }
 
 // Центры колец и подписных ячеек подиума — замерены по пикселям ассета
@@ -127,7 +129,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
   );
 }
 
-export default function Stats({ bottomInset = 0, coins, onClose }: Props) {
+export default function Stats({ bottomInset = 0, coins, onClose, onOpenEarnModal }: Props) {
   const [entered, setEntered] = useState(false);
   const [fogOpacity, setFogOpacity] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -201,6 +203,7 @@ export default function Stats({ bottomInset = 0, coins, onClose }: Props) {
             <img src={coinIcon} alt="" className="h-6 w-6" />
             <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
             <button
+              onClick={onOpenEarnModal}
               className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
               style={{ background: VIOLET }}
             >
@@ -214,7 +217,7 @@ export default function Stats({ bottomInset = 0, coins, onClose }: Props) {
             className="text-[26px] font-extrabold leading-none text-white"
             style={{ textShadow: '0 2px 6px rgba(0,0,0,0.45)' }}
           >
-            Статистика
+            Рейтинг
           </h1>
           <p
             className="mt-1.5 whitespace-pre-line text-[13px] font-semibold leading-tight text-white/95"

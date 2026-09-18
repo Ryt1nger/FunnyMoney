@@ -24,6 +24,7 @@ import Shop from './Shop';
 import Stats from './Stats';
 import Settings from './Settings';
 import Day, { type DayTab } from './Day';
+import ProgressPage from './Progress';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
@@ -31,6 +32,7 @@ import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
+import { progressLevels } from '../data/progressLevels';
 import {
   IconStar,
   IconPlus,
@@ -38,13 +40,16 @@ import {
   IconFlame,
   IconBackpackLight,
   IconSettingsGear,
+  IconChevronRight,
 } from '../components/icons';
 
 // Уровень/опыт — отдельная прогресс-система уроков, которая ещё не подключена
 // (уроки пока заглушка), поэтому пока фиксированные значения для оформления шапки.
+// Порог XP берётся из общих данных уровней (src/data/progressLevels.ts) — тот же
+// источник, что показывает экран "Прогресс", чтобы шапка и экран не расходились.
 const LEVEL = 1;
 const XP = 0;
-const XP_TO_NEXT = 500;
+const XP_TO_NEXT = progressLevels[LEVEL - 1].xpThreshold;
 
 // Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
 // только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
@@ -85,7 +90,7 @@ function markLessonVisited() {
   }
 }
 
-type SheetId = TabId | 'inventory' | 'settings';
+type SheetId = TabId | 'inventory' | 'settings' | 'progress';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
@@ -153,7 +158,15 @@ export default function Home() {
           {/* Блок питомца — без плашки, прямо поверх фото (как в референсе).
               Пропорции от диаметра аватара D=52: цветок 0.56D, его центр на 1.217D,
               полоса XP начинается на 1.587D, её высота 0.187D. */}
-          <div className="flex items-center">
+          {/* Аватарка + полоса опыта — кликабельны и ведут на экран "Прогресс"
+              (5 уровней развития). Маленькая стрелочка справа — подсказка
+              ребёнку, что сюда можно нажать (сам блок иначе выглядел бы как
+              обычная неинтерактивная шапка). */}
+          <button
+            onClick={() => setSheet('progress')}
+            className="flex items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
+            aria-label="Открыть прогресс уровня"
+          >
             <div className="relative shrink-0">
               <img
                 src={bearAvatar}
@@ -194,7 +207,12 @@ export default function Home() {
                 {XP} / {XP_TO_NEXT} XP
               </div>
             </div>
-          </div>
+
+            <IconChevronRight
+              className="ml-1 h-4 w-4 shrink-0 self-center text-white drop-shadow"
+              style={{ opacity: 0.85 }}
+            />
+          </button>
 
           <div className="flex shrink-0 flex-col items-end gap-1.5">
             <div
@@ -492,6 +510,7 @@ export default function Home() {
           <LessonsPlaceholder
             bottomInset={navHeight}
             coins={coins}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -503,6 +522,7 @@ export default function Home() {
             coins={coins}
             ownedRoomIds={ownedRoomIds}
             onRoomSelect={(room) => setPreviewRoom(room)}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -512,6 +532,7 @@ export default function Home() {
           <Stats
             bottomInset={navHeight}
             coins={coins}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -522,6 +543,19 @@ export default function Home() {
             bottomInset={navHeight}
             coins={coins}
             initialTab={dayInitialTab}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
+            onClose={() => {
+              setSheet(null);
+              setTab('home');
+            }}
+          />
+        ) : sheet === 'progress' ? (
+          <ProgressPage
+            bottomInset={navHeight}
+            coins={coins}
+            level={LEVEL}
+            xp={XP}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={() => {
               setSheet(null);
               setTab('home');

@@ -63,9 +63,11 @@ interface Props {
   /** Вкладка, с которой открывается экран — например "Награды" по ссылке из окошка "+" */
   initialTab?: DayTab;
   onClose: () => void;
+  /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
+  onOpenEarnModal?: () => void;
 }
 
-export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Props) {
+export default function Day({ bottomInset = 0, coins, initialTab, onClose, onOpenEarnModal }: Props) {
   const [entered, setEntered] = useState(false);
   const [tab, setTab] = useState<DayTab>(initialTab ?? 'tasks');
   const applyCoinsDelta = useEconomyStore((s) => s.applyCoinsDelta);
@@ -150,6 +152,7 @@ export default function Day({ bottomInset = 0, coins, initialTab, onClose }: Pro
             <img src={coinIcon} alt="" className="h-6 w-6" />
             <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
             <button
+              onClick={onOpenEarnModal}
               className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
               style={{ background: VIOLET }}
             >

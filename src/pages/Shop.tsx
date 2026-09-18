@@ -32,9 +32,11 @@ interface Props {
   onClose: () => void;
   /** открыть просмотр комнаты перед покупкой — категория «Интерьер» продаёт фоны, а не мелкие предметы */
   onRoomSelect: (room: RoomProduct) => void;
+  /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
+  onOpenEarnModal?: () => void;
 }
 
-export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, onRoomSelect }: Props) {
+export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, onRoomSelect, onOpenEarnModal }: Props) {
   const [category, setCategory] = useState<ShopCategoryId>('food');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
@@ -100,6 +102,7 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
             <img src={coinIcon} alt="" className="h-[22px] w-[22px]" />
             <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
             <button
+              onClick={onOpenEarnModal}
               className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
               style={{ background: VIOLET }}
             >

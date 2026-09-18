@@ -17,9 +17,11 @@ interface Props {
   xp: number;
   xpToNext: number;
   onClose: () => void;
+  /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
+  onOpenEarnModal?: () => void;
 }
 
-export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose }: Props) {
+export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal }: Props) {
   const [entered, setEntered] = useState(false);
 
   // фото проявляется, кремовый лист выезжает снизу — вместо резкого показа
@@ -69,6 +71,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
             <img src={coinIcon} alt="" className="h-6 w-6" />
             <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
             <button
+              onClick={onOpenEarnModal}
               className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
               style={{ background: VIOLET }}
             >
