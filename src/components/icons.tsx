@@ -367,3 +367,98 @@ export function IconShieldCrown(props: IconProps) {
     </svg>
   );
 }
+
+// Кнопка настроек на главном экране (Home) — шестерёнка, стиль как у остальных
+// плоских иконок навигации (currentColor — управляется снаружи).
+export function IconSettingsGear(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M19.4 13.3c.1-.4.2-.9.2-1.3s-.1-.9-.2-1.3l1.9-1.4a.5.5 0 0 0 .1-.6l-1.8-3.1a.5.5 0 0 0-.6-.2l-2.2.9c-.7-.5-1.4-.9-2.2-1.2l-.3-2.3a.5.5 0 0 0-.5-.4h-3.6a.5.5 0 0 0-.5.4l-.3 2.3c-.8.3-1.5.7-2.2 1.2l-2.2-.9a.5.5 0 0 0-.6.2L2.6 8.7a.5.5 0 0 0 .1.6l1.9 1.4c-.1.4-.2.9-.2 1.3s.1.9.2 1.3l-1.9 1.4a.5.5 0 0 0-.1.6l1.8 3.1c.1.2.4.3.6.2l2.2-.9c.7.5 1.4.9 2.2 1.2l.3 2.3c0 .2.3.4.5.4h3.6c.2 0 .5-.2.5-.4l.3-2.3c.8-.3 1.5-.7 2.2-1.2l2.2.9c.2.1.5 0 .6-.2l1.8-3.1a.5.5 0 0 0-.1-.6l-1.9-1.4Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Нотка — переключатель фоновой музыки
+export function IconMusicNote(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M9 17.2a2.9 2.9 0 1 1 0-5.8 2.9 2.9 0 0 1 0 5.8Z" />
+      <path d="M11.9 14.3V4.6a.9.9 0 0 1 1.15-.87l5.2 1.5a.9.9 0 0 1 .65.87v2.1a.9.9 0 0 1-.65.87l-4.45 1.28v4.9h-1.9Z" />
+    </svg>
+  );
+}
+
+// Колокольчик — переключатель звуков игры / напоминаний
+export function IconBell(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M12 21.4c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2Z" />
+      <path d="M18.6 15.4c-.6-.7-1.1-2-1.1-4V9.9c0-3.1-1.9-5.4-4.5-6v-.7a1 1 0 1 0-2 0v.7c-2.6.6-4.5 2.9-4.5 6v1.5c0 2-.5 3.3-1.1 4-.5.6-.1 1.5.7 1.5h11.8c.8 0 1.2-.9.7-1.5Z" />
+    </svg>
+  );
+}
+
+// Речевой пузырь — переключатель голоса помощника
+export function IconChatBubble(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="M4 6.6c0-1.2 1-2.2 2.2-2.2h11.6c1.2 0 2.2 1 2.2 2.2v7.2c0 1.2-1 2.2-2.2 2.2H9.4l-3.6 3.1c-.5.4-1.3.1-1.3-.6v-2.5H6.2C5 16 4 15 4 13.8V6.6Z"
+        fill="currentColor"
+      />
+      <circle cx="8.3" cy="10.2" r="1" fill="#fff" />
+      <circle cx="12" cy="10.2" r="1" fill="#fff" />
+      <circle cx="15.7" cy="10.2" r="1" fill="#fff" />
+    </svg>
+  );
+}
+
+// Телефон с волнами — переключатель вибрации
+export function IconVibration(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <rect x="8.6" y="3.6" width="6.8" height="16.8" rx="1.8" fill="currentColor" />
+      <circle cx="12" cy="17.6" r="0.9" fill="#fff" />
+      <path d="M4.4 8.6c-1 1-1.6 2.2-1.6 3.4s.6 2.4 1.6 3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M19.6 8.6c1 1 1.6 2.2 1.6 3.4s-.6 2.4-1.6 3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Замок — родительская зона / раздел "для взрослых"
+export function IconLock(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <rect x="4.8" y="10.4" width="14.4" height="10" rx="2.4" fill="currentColor" />
+      <path
+        d="M7.6 10.4V7.6a4.4 4.4 0 1 1 8.8 0v2.8"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="15" r="1.5" fill="#fff" />
+    </svg>
+  );
+}
+
+// Будильник — переключатель напоминаний об уроке
+export function IconAlarmClock(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <circle cx="12" cy="13.4" r="7.4" fill="currentColor" />
+      <path d="M12 9.4v4.2l2.8 1.8" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4.6 4.6 2.4 6.8M19.4 4.6l2.2 2.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9 3.4h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}

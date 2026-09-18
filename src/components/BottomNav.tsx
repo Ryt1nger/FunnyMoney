@@ -25,13 +25,15 @@ const INACTIVE = '#847472';
 interface Props {
   active: TabId;
   onChange: (tab: TabId) => void;
+  /** настройка "Яркие подсказки" — красная точка на вкладке "День" гасится, если выключена */
+  dotsEnabled?: boolean;
 }
 
 /**
  * Иконки — оригинальные ассеты из листа дизайна, по два состояния на вкладку
  * (серое и синее). Никаких перекрасок: используем то, что нарисовано.
  */
-export default function BottomNav({ active, onChange }: Props) {
+export default function BottomNav({ active, onChange, dotsEnabled = true }: Props) {
   return (
     <nav className="flex w-full items-stretch rounded-t-[26px] bg-[#f9efe0] px-1 pb-3 pt-2.5 shadow-[0_-6px_20px_rgba(0,0,0,0.12)]">
       {TABS.map((tab) => {
@@ -48,7 +50,7 @@ export default function BottomNav({ active, onChange }: Props) {
                 alt=""
                 className="h-[25px] w-auto max-w-[26px] object-contain"
               />
-              {tab.dot && (
+              {tab.dot && dotsEnabled && (
                 <span className="absolute -right-0.5 -top-0.5 h-[7px] w-[7px] rounded-full bg-red-500" />
               )}
             </span>

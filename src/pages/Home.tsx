@@ -22,18 +22,23 @@ import LessonsPlaceholder from './LessonsPlaceholder';
 import Inventory from './Inventory';
 import Shop from './Shop';
 import Stats from './Stats';
+import Settings from './Settings';
 import Day, { type DayTab } from './Day';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useDayProgressStore } from '../features/progress/dayProgressStore';
+import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
+import { playTapSound } from '../services/soundEffects';
+import { hapticTap } from '../services/haptics';
 import {
   IconStar,
   IconPlus,
   IconGift,
   IconFlame,
   IconBackpackLight,
+  IconSettingsGear,
 } from '../components/icons';
 
 // Уровень/опыт — отдельная прогресс-система уроков, которая ещё не подключена
@@ -81,7 +86,7 @@ function markLessonVisited() {
   }
 }
 
-type SheetId = TabId | 'inventory';
+type SheetId = TabId | 'inventory' | 'settings';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
@@ -91,6 +96,8 @@ export default function Home() {
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const streakDays = useDayProgressStore((s) => s.streak);
+  const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
+  const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
 
   const petName = pet?.name ?? 'Мишка';
   const health = pet?.health ?? 0;
@@ -237,8 +244,21 @@ export default function Home() {
           />
         </div>
 
-        {/* Кнопка инвентаря — отдельной строкой под статистиками, прижата вправо */}
-        <div className="relative z-20 mt-2 flex justify-end px-4">
+        {/* Кнопки инвентаря и настроек — отдельной строкой под статистиками:
+            настройки слева, инвентарь справа (тот же визуальный стиль кнопки). */}
+        <div className="relative z-20 mt-2 flex justify-between px-4">
+          <button
+            onClick={() => setSheet('settings')}
+            className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+            style={{
+              background: 'rgba(26,20,40,0.30)',
+              borderColor: 'rgba(255,255,255,0.30)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+            }}
+            aria-label="Настройки"
+          >
+            <IconSettingsGear className="h-6 w-6" />
+          </button>
           <button
             onClick={() => setSheet('inventory')}
             className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
@@ -300,8 +320,9 @@ export default function Home() {
               не влияет на её высоту (см. комментарий выше). */}
           <div className="absolute inset-x-0 bottom-0 z-20 px-4">
           {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
-              давно не заходил на урок в течение дня (см. shouldShowLessonReminder). */}
-          {showLessonReminder && (
+              давно не заходил на урок в течение дня (см. shouldShowLessonReminder)
+              и напоминания не выключены в настройках. */}
+          {showLessonReminder && remindersEnabled && (
             <div
               className="relative rounded-[26px] border px-3.5 pb-3.5 pt-[30px] shadow-xl"
               style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
@@ -447,7 +468,10 @@ export default function Home() {
         >
           <BottomNav
             active={tab}
+            dotsEnabled={brightHintsEnabled}
             onChange={(next) => {
+              hapticTap();
+              playTapSound();
               setTab(next);
               setSheet(next === 'home' ? null : next);
               if (next === 'day') setDayInitialTab('tasks');
@@ -508,6 +532,14 @@ export default function Home() {
             bottomInset={navHeight}
             coins={coins}
             ownedProductIds={ownedProductIds}
+            onClose={() => {
+              setSheet(null);
+              setTab('home');
+            }}
+          />
+        ) : sheet === 'settings' ? (
+          <Settings
+            bottomInset={navHeight}
             onClose={() => {
               setSheet(null);
               setTab('home');

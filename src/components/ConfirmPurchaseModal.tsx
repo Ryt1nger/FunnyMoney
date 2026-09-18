@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
+import { playSuccessSound } from '../services/soundEffects';
+import { hapticSuccess } from '../services/haptics';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const BTN_SHADOW =
@@ -50,6 +52,14 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
   }, [item]);
 
   if (!mounted || !lastItem) return null;
+
+  function confirm() {
+    // Настоящий отклик на покупку — звук и вибро (оба гейтятся своими
+    // настройками внутри сервисов, здесь не нужно ничего проверять).
+    playSuccessSound();
+    hapticSuccess();
+    onConfirm();
+  }
 
   return (
     <div className="absolute inset-0 z-[65]">
@@ -108,7 +118,7 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
 
           <div className="mt-4">
             <button
-              onClick={onConfirm}
+              onClick={confirm}
               className="flex w-full items-center justify-center gap-2 rounded-[18px] px-3.5 py-3 text-[14px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
               style={{ background: VIOLET, boxShadow: BTN_SHADOW }}
             >
