@@ -269,18 +269,19 @@ export default function Home() {
             alt=""
             aria-hidden
             draggable={false}
-            className="pointer-events-none absolute left-1/2 h-[67%] w-auto select-none"
+            className="pointer-events-none absolute left-1/2 h-[58%] w-auto select-none"
             style={{
-              bottom: '24.6%',
+              bottom: '30.6%',
               transformOrigin: 'bottom center',
               transform: 'translateX(-52%) scaleY(-0.18) skewX(-22deg)',
               filter: 'brightness(0) blur(5px)',
               opacity: 0.5,
             }}
           />
-          {/* Плотное касание прямо под лапами */}
+          {/* Плотное касание прямо под лапами — задние лапы (на которых стоит медведь)
+              должны приходиться примерно на центр коврика, а не на его ближний край. */}
           <div
-            className="absolute bottom-[22.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
+            className="absolute bottom-[28.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
             style={{
               transform: 'translateX(-52%)',
               background:
@@ -292,7 +293,7 @@ export default function Home() {
             src={bearFull}
             alt={petName}
             draggable={false}
-            className="pointer-events-none absolute bottom-[18%] left-1/2 h-[72%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+            className="pointer-events-none absolute bottom-[24%] left-1/2 h-[62%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
           />
 
           {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,

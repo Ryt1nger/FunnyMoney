@@ -190,8 +190,8 @@ export default function Onboarding({ onComplete }: Props) {
           style={{ objectPosition: '50% 2%' }}
         />
         <div
-          className="pointer-events-none absolute inset-x-0 top-[19%] h-[40%]"
-          style={{ background: 'linear-gradient(180deg, rgba(15,14,30,0) 0%, rgba(15,14,30,0.55) 38%, rgba(15,14,30,0.32) 72%, rgba(15,14,30,0) 100%)' }}
+          className="pointer-events-none absolute inset-x-0 top-[10%] h-[32%]"
+          style={{ background: 'linear-gradient(180deg, rgba(15,14,30,0) 0%, rgba(15,14,30,0.62) 48%, rgba(15,14,30,0.34) 78%, rgba(15,14,30,0) 100%)' }}
         />
         <div className="absolute inset-x-0 top-[29%] max-w-[62%] px-5">
           <h1

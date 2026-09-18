@@ -106,22 +106,14 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
             {lastItem.name}
           </p>
 
-          <div className="mt-4 flex flex-col gap-2.5">
+          <div className="mt-4">
             <button
               onClick={onConfirm}
-              className="flex items-center justify-center gap-2 rounded-[18px] px-3.5 py-3 text-[14px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-[18px] px-3.5 py-3 text-[14px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
               style={{ background: VIOLET, boxShadow: BTN_SHADOW }}
             >
               Купить за {lastItem.price}
               <img src={coinIcon} alt="" className="h-[18px] w-[18px]" />
-            </button>
-
-            <button
-              onClick={onCancel}
-              className="rounded-[18px] px-3.5 py-2.5 text-[13px] font-bold transition active:scale-[0.98]"
-              style={{ color: '#9089a3' }}
-            >
-              Отмена
             </button>
           </div>
         </div>
