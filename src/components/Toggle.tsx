@@ -14,7 +14,11 @@ export default function Toggle({ checked, onChange, ...rest }: Props) {
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="relative h-[27px] w-[46px] shrink-0 rounded-full transition-colors duration-200"
+      // appearance-none/border-0/p-0/box-border сбрасывают нативные стили <button>
+      // (в некоторых браузерах у кнопки по умолчанию есть рамка и внутренний
+      // паддинг — из-за них трек считался шире/выше, чем на самом деле рисовался,
+      // и бегунок оказывался смещён и торчал за пределы капсулы).
+      className="relative box-border inline-flex h-[27px] w-[46px] shrink-0 appearance-none items-center rounded-full border-0 p-0 outline-none transition-colors duration-200"
       style={{
         background: checked ? undefined : '#e2d6c2',
         backgroundImage: checked ? VIOLET : undefined,
@@ -25,7 +29,7 @@ export default function Toggle({ checked, onChange, ...rest }: Props) {
       {...rest}
     >
       <span
-        className="absolute top-[2.5px] h-[22px] w-[22px] rounded-full bg-white shadow-md transition-transform duration-200"
+        className="pointer-events-none block h-[22px] w-[22px] rounded-full bg-white shadow-md transition-transform duration-200"
         style={{ transform: checked ? 'translateX(21px)' : 'translateX(3px)' }}
       />
     </button>

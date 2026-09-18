@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { IconArrowLeft, IconSettingsGear, IconMusicNote, IconBell, IconChatBubble, IconVibration, IconAlarmClock, IconStar, IconLock, IconChevronRight, IconShieldCrown } from '../components/icons';
 import Toggle from '../components/Toggle';
 import { useSettingsStore } from '../features/settings/settingsStore';
@@ -234,6 +234,14 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
 
   const [parentalView, setParentalView] = useState<'closed' | 'gate' | 'zone'>('closed');
 
+  // Тот же почерк входа, что и в Инвентаре: шапка мягко проявляется, а кремовая
+  // панель с настройками выезжает снизу — без этого шторка "включалась" рывком.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   if (parentalView === 'gate') {
     return (
       <ParentalGate
@@ -248,7 +256,10 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
-      <div className="relative shrink-0 overflow-hidden px-4 pb-5 pt-4" style={{ background: '#6d5a63' }}>
+      <div
+        className="relative shrink-0 overflow-hidden px-4 pb-5 pt-4 transition-opacity duration-500"
+        style={{ background: '#6d5a63', opacity: entered ? 1 : 0 }}
+      >
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
@@ -264,8 +275,12 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
       </div>
 
       <div
-        className="-mt-1 flex-1 overflow-y-auto rounded-t-[26px] bg-[#fbefe1] px-4 pt-1"
-        style={{ paddingBottom: bottomInset + 24 }}
+        className="-mt-1 flex-1 overflow-y-auto rounded-t-[26px] bg-[#fbefe1] px-4 pt-1 transition-transform duration-[420ms]"
+        style={{
+          paddingBottom: bottomInset + 24,
+          transform: entered ? 'translateY(0)' : 'translateY(100%)',
+          transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
       >
         <SectionLabel>Звук и отклик</SectionLabel>
         <div className="flex flex-col gap-2">
