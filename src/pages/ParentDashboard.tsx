@@ -1,21 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import bearAvatar from '../assets/pet/bear-avatar.png';
 import coinIcon from '../assets/icons/coin.png';
-import walletIcon from '../assets/icons/categories/wallet.png';
-import piggyIcon from '../assets/icons/categories/piggy.png';
-import bookIcon from '../assets/icons/categories/book.png';
-import cartIcon from '../assets/icons/categories/cart.png';
+import catFood from '../assets/icons/shop/cat-food.png';
+import catToys from '../assets/icons/shop/cat-toys.png';
+import catClothes from '../assets/icons/shop/cat-clothes.png';
+import catInterior from '../assets/icons/shop/cat-interior.png';
 import MaskIcon from '../components/MaskIcon';
 import Toggle from '../components/Toggle';
-import { IconArrowLeft, IconSettingsGear, IconCheck, IconChevronRight } from '../components/icons';
+import { IconArrowLeft, IconSettingsGear, IconChevronRight } from '../components/icons';
 import { progressLevels, CURRENT_LEVEL, CURRENT_XP } from '../data/progressLevels';
-import {
-  learningResults,
-  financialGrowthByMonth,
-  activityByWeek,
-  skillStats,
-  type SkillStatus,
-} from '../data/parentDashboardData';
+import { earnedByDay, earnedByWeek, purchasesByCategory, type PurchaseCategoryId, type ChartPoint } from '../data/parentDashboardData';
 import { dayTasks } from '../data/dayData';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
@@ -29,17 +23,11 @@ const VIOLET_SOLID = '#7574f0';
 const XP_TO_NEXT = progressLevels[CURRENT_LEVEL - 1].xpThreshold;
 const CURRENT_LEVEL_TITLE = progressLevels[CURRENT_LEVEL - 1].title;
 
-const SKILL_ICONS: Record<'wallet' | 'piggy' | 'book' | 'cart', string> = {
-  wallet: walletIcon,
-  piggy: piggyIcon,
-  book: bookIcon,
-  cart: cartIcon,
-};
-
-const SKILL_COLORS: Record<SkillStatus, { bar: string; badge: string; text: string }> = {
-  good: { bar: '#63d98b', badge: 'rgba(99,217,139,0.16)', text: '#3f9a63' },
-  medium: { bar: '#f2b23c', badge: 'rgba(242,178,60,0.18)', text: '#a9781f' },
-  needs_work: { bar: '#ef4060', badge: 'rgba(239,64,96,0.14)', text: '#c23a52' },
+const CATEGORY_ICONS: Record<PurchaseCategoryId, string> = {
+  food: catFood,
+  toys: catToys,
+  clothes: catClothes,
+  rooms: catInterior,
 };
 
 interface Props {
@@ -61,10 +49,10 @@ function SectionTitle({ children }: { children: ReactNode }) {
   );
 }
 
-/** Линия роста по неделям — 4 точки, значения подписаны прямо на графике (точек мало,
- * отдельная всплывающая подсказка тут не добавляет пользы). Один ряд — легенда не нужна,
- * название графика и так называет метрику. */
-function GrowthLineChart({ data }: { data: { label: string; value: number }[] }) {
+/** Линия по неделям — точек мало (4), значения подписаны прямо на графике вместо
+ * отдельной всплывающей подсказки. Один ряд — легенда не нужна, заголовок карточки
+ * и так называет метрику. Шкала считается от реальных данных, а не фиксирована. */
+function EarnedLineChart({ data }: { data: ChartPoint[] }) {
   const width = 300;
   const height = 108;
   const padX = 18;
@@ -72,10 +60,11 @@ function GrowthLineChart({ data }: { data: { label: string; value: number }[] })
   const padBottom = 20;
   const innerW = width - padX * 2;
   const innerH = height - padTop - padBottom;
+  const max = Math.max(...data.map((d) => d.value), 1);
 
   const points = data.map((d, i) => ({
     x: padX + (i / (data.length - 1)) * innerW,
-    y: padTop + innerH - (d.value / 100) * innerH,
+    y: padTop + innerH - (d.value / max) * innerH,
     ...d,
   }));
 
@@ -83,14 +72,13 @@ function GrowthLineChart({ data }: { data: { label: string; value: number }[] })
   const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${(padTop + innerH).toFixed(1)} L ${points[0].x.toFixed(1)} ${(padTop + innerH).toFixed(1)} Z`;
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Рост финансовой грамотности по неделям">
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Заработанные монеты по неделям">
       <defs>
         <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#8b88f4" stopOpacity="0.28" />
           <stop offset="100%" stopColor="#8b88f4" stopOpacity="0" />
         </linearGradient>
       </defs>
-      {/* базовая линия */}
       <line x1={padX} y1={padTop + innerH} x2={width - padX} y2={padTop + innerH} stroke="rgba(120,110,150,0.18)" strokeWidth="1" />
       <path d={areaPath} fill="url(#growthFill)" />
       <path d={linePath} fill="none" stroke={VIOLET_SOLID} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -98,7 +86,7 @@ function GrowthLineChart({ data }: { data: { label: string; value: number }[] })
         <g key={i}>
           <circle cx={p.x} cy={p.y} r="4" fill="#fff" stroke={VIOLET_SOLID} strokeWidth="2.5" />
           <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fontWeight="800" fill="#2c2a5e">
-            {p.value}%
+            {p.value}
           </text>
           <text x={p.x} y={height - 4} textAnchor="middle" fontSize="9" fill="#9a8f80">
             {p.label}
@@ -109,20 +97,20 @@ function GrowthLineChart({ data }: { data: { label: string; value: number }[] })
   );
 }
 
-/** Столбики активности по дням — простые div'ы, как остальные полосы прогресса в приложении. */
-function ActivityBarChart({ data }: { data: { label: string; value: number }[] }) {
+/** Столбики по дням — простые div'ы, как остальные полосы прогресса в приложении. */
+function EarnedBarChart({ data }: { data: ChartPoint[] }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
     <div className="flex h-[92px] items-end gap-2">
-      {data.map((d) => (
-        <div key={d.label} className="flex flex-1 flex-col items-center gap-1.5">
+      {data.map((d, i) => (
+        <div key={`${d.label}-${i}`} className="flex flex-1 flex-col items-center gap-1.5">
           <div className="flex h-[68px] w-full items-end overflow-hidden rounded-[8px]" style={{ background: 'rgba(120,110,150,0.12)' }}>
             <div
               className="w-full rounded-[8px]"
-              style={{ height: `${Math.max(6, (d.value / max) * 100)}%`, background: VIOLET }}
+              style={{ height: d.value > 0 ? `${Math.max(6, (d.value / max) * 100)}%` : '0%', background: VIOLET }}
             />
           </div>
-          <span className="text-[10px] font-semibold" style={{ color: '#9a8f80' }}>
+          <span className="text-[10px] font-semibold capitalize" style={{ color: '#9a8f80' }}>
             {d.label}
           </span>
         </div>
@@ -133,8 +121,11 @@ function ActivityBarChart({ data }: { data: { label: string; value: number }[] }
 
 function formatTxDate(timestamp: number) {
   const d = new Date(timestamp);
-  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' · ' +
-    d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return (
+    d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) +
+    ' · ' +
+    d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  );
 }
 
 export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }: Props) {
@@ -154,9 +145,9 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
 
   const petName = pet?.name ?? 'Мишка';
   const xpPercent = Math.min(100, Math.round((CURRENT_XP / XP_TO_NEXT) * 100));
-  // Покупки в комнатах — минус стартовая комната, которую владеешь по умолчанию,
-  // а не купил сам.
-  const purchasesCount = ownedProductIds.length + Math.max(0, ownedRoomIds.length - 1);
+  // Купленные комнаты — минус стартовая, которой владеешь по умолчанию, а не купил сам.
+  const boughtRoomsCount = Math.max(0, ownedRoomIds.length - 1);
+  const purchasesCount = ownedProductIds.length + boughtRoomsCount;
   const tasksDoneToday = completedTaskIds.length;
 
   const recentTransactions = useMemo(
@@ -164,31 +155,39 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
     [transactions],
   );
 
-  const growthDelta = financialGrowthByMonth[financialGrowthByMonth.length - 1].value - financialGrowthByMonth[0].value;
-  const weekXpTotal = activityByWeek.reduce((sum, d) => sum + d.value, 0);
+  const weekChart = useMemo(() => earnedByDay(transactions, 7), [transactions]);
+  const monthChart = useMemo(() => earnedByWeek(transactions, 4), [transactions]);
+  const categories = useMemo(() => purchasesByCategory(ownedProductIds, boughtRoomsCount), [ownedProductIds, boughtRoomsCount]);
+  const categoriesTotal = Math.max(1, categories.reduce((sum, c) => sum + c.count, 0));
+
+  const weekTotal = weekChart.reduce((sum, d) => sum + d.value, 0);
+  const monthDelta = monthChart[monthChart.length - 1].value - monthChart[0].value;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
-      {/* Шапка — как у остальных служебных экранов (Настройки/Инвентарь): сплошной
-          цвет, без фото, шестерёнка ведёт в старый служебный раздел (о приложении/сброс). */}
-      <div className="relative flex shrink-0 items-center justify-between px-4 pb-4 pt-4" style={{ background: '#6d5a63' }}>
+      {/* Шапка — тот же бежевый фон, что и весь экран, без отдельной плашки цвета. */}
+      <div className="flex shrink-0 items-center justify-between px-4 pb-3 pt-4">
         <button
           onClick={onBack}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-md transition active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 transition active:scale-95"
+          style={{ color: '#2c2a5e' }}
         >
           <IconArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[17px] font-extrabold text-white">Родительский кабинет</h1>
+        <h1 className="text-[17px] font-extrabold" style={{ color: '#2c2a5e' }}>
+          Родительский кабинет
+        </h1>
         <button
           onClick={onOpenZone}
           aria-label="Служебная информация"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/25 text-white backdrop-blur-md transition active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 transition active:scale-95"
+          style={{ color: '#2c2a5e' }}
         >
           <IconSettingsGear className="h-5 w-5" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4" style={{ paddingBottom: bottomInset + 24 }}>
+      <div className="flex-1 overflow-y-auto px-4 pb-4" style={{ paddingBottom: bottomInset + 24 }}>
         {/* Карточка ребёнка */}
         <SectionCard>
           <div className="flex items-center gap-3">
@@ -264,93 +263,66 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
           </SectionCard>
         </div>
 
-        {/* Результаты обучения */}
-        <SectionTitle>Результаты обучения</SectionTitle>
-        <SectionCard>
-          <div className="flex gap-2.5">
-            <div className="flex flex-1 items-center gap-2.5 rounded-[16px] p-2.5" style={{ background: 'rgba(99,217,139,0.10)' }}>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(99,217,139,0.22)' }}>
-                <IconCheck className="h-5 w-5" style={{ color: '#3f9a63' }} />
-              </span>
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold leading-tight" style={{ color: '#7b7a8c' }}>
-                  Успешные решения
-                </div>
-                <div className="text-[17px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
-                  {learningResults.successPercent}%
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-1 items-center gap-2.5 rounded-[16px] p-2.5" style={{ background: 'rgba(239,64,96,0.08)' }}>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[16px]" style={{ background: 'rgba(239,64,96,0.16)' }}>
-                ⚠️
-              </span>
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold leading-tight" style={{ color: '#7b7a8c' }}>
-                  Ошибки
-                </div>
-                <div className="text-[17px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
-                  {learningResults.errorPercent}%
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: '#3f9a63' }}>
-            <span>↗</span>
-            На {learningResults.improvementVsLastMonth}% лучше, чем месяц назад
-          </div>
-        </SectionCard>
-
-        {/* График — линия роста за месяц или столбики активности за неделю (тот же переключатель выше) */}
-        <SectionTitle>{period === 'month' ? 'Рост финансовой грамотности' : 'Учебный прогресс'}</SectionTitle>
+        {/* График заработанных монет — по дням за неделю или по неделям за месяц */}
+        <SectionTitle>Заработано монет</SectionTitle>
         <SectionCard>
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-[13px] font-bold" style={{ color: '#3f9a63' }}>
-              {period === 'month' ? `+${growthDelta}% за 4 недели` : `+${weekXpTotal} XP за неделю`}
+            <span
+              className="text-[13px] font-bold"
+              style={{ color: period === 'month' ? (monthDelta >= 0 ? '#3f9a63' : '#c23a52') : '#3f9a63' }}
+            >
+              {period === 'month'
+                ? `${monthDelta >= 0 ? '+' : ''}${monthDelta} монет за 4 недели`
+                : `+${weekTotal} монет за неделю`}
             </span>
-            {period === 'week' && (
+            {period === 'week' && weekTotal > 0 && (
               <span
                 className="rounded-full px-2.5 py-1 text-[10.5px] font-bold"
                 style={{ background: 'rgba(99,217,139,0.16)', color: '#3f9a63' }}
               >
-                ▲ Хороший темп
+                Есть активность
               </span>
             )}
           </div>
-          {period === 'month' ? <GrowthLineChart data={financialGrowthByMonth} /> : <ActivityBarChart data={activityByWeek} />}
+          {period === 'month' ? <EarnedLineChart data={monthChart} /> : <EarnedBarChart data={weekChart} />}
         </SectionCard>
 
-        {/* Финансовые навыки */}
-        <SectionTitle>Что уже получается</SectionTitle>
+        {/* Покупки по категориям — реальные данные из инвентаря */}
+        <SectionTitle>Покупки по категориям</SectionTitle>
         <SectionCard>
-          <div className="flex flex-col gap-3">
-            {skillStats.map((s) => {
-              const colors = SKILL_COLORS[s.status];
-              return (
-                <div key={s.id}>
+          {purchasesCount === 0 ? (
+            <p className="text-[12.5px] leading-snug" style={{ color: '#9a8f80' }}>
+              Пока ничего не куплено — покупки появятся здесь.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {categories.map((c) => (
+                <div key={c.id}>
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: colors.badge }}>
-                      <MaskIcon src={SKILL_ICONS[s.icon]} color={colors.text} size={16} />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(139,136,244,0.14)' }}>
+                      <MaskIcon src={CATEGORY_ICONS[c.id]} color={VIOLET_SOLID} size={16} />
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold" style={{ color: s.status === 'needs_work' ? colors.text : '#2c2a5e' }}>
-                      {s.label}
-                      {s.note && <span className="ml-1 font-semibold" style={{ color: colors.text }}>— {s.note}</span>}
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold" style={{ color: '#2c2a5e' }}>
+                      {c.label}
                     </span>
                     <span className="shrink-0 text-[12.5px] font-extrabold" style={{ color: '#2c2a5e' }}>
-                      {s.percent}%
+                      {c.count}
                     </span>
                   </div>
                   <div className="ml-[42px] mt-1.5 h-[7px] overflow-hidden rounded-full" style={{ background: 'rgba(120,110,150,0.16)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${s.percent}%`, background: colors.bar }} />
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${(c.count / categoriesTotal) * 100}%`, background: VIOLET_SOLID }}
+                    />
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
         {/* Покупки и монеты — реальные данные из economyStore */}
-        <SectionTitle>Покупки и монеты</SectionTitle>
+        <SectionTitle>Монеты</SectionTitle>
         <SectionCard>
           <div className="flex items-center gap-2.5">
             <div className="min-w-0 flex-1">
@@ -399,10 +371,7 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
                         {formatTxDate(tx.timestamp)}
                       </div>
                     </div>
-                    <span
-                      className="shrink-0 text-[12.5px] font-extrabold"
-                      style={{ color: tx.amount >= 0 ? '#3f9a63' : '#c23a52' }}
-                    >
+                    <span className="shrink-0 text-[12.5px] font-extrabold" style={{ color: tx.amount >= 0 ? '#3f9a63' : '#c23a52' }}>
                       {tx.amount >= 0 ? '+' : ''}
                       {tx.amount}
                     </span>
@@ -425,11 +394,7 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
                 Окно «Точно купить?» перед каждой покупкой (кроме еды)
               </div>
             </div>
-            <Toggle
-              checked={purchaseConfirmationEnabled}
-              onChange={setPurchaseConfirmationEnabled}
-              aria-label="Подтверждение покупок"
-            />
+            <Toggle checked={purchaseConfirmationEnabled} onChange={setPurchaseConfirmationEnabled} aria-label="Подтверждение покупок" />
           </div>
         </SectionCard>
         <p className="mt-2 px-1 text-[11px] leading-snug" style={{ color: '#a99a83' }}>

@@ -1,65 +1,74 @@
-// Данные для родительского кабинета, которые пока НЕЛЬЗЯ посчитать по-настоящему —
-// в приложении ещё нет ни реальных уроков (см. "Уроки скоро откроются" на Home),
-// ни истории решений по сценариям. Здесь — иллюстративные показатели по мотивам
-// макета, чтобы дашборд выглядел завершённым уже сейчас. Когда появится реальная
-// система уроков/сценариев с историей, эти данные нужно будет заменить на честный
-// подсчёт (см. TODO у каждого блока).
-
-/** TODO: заменить на % решений с isOptimal=true по реальной истории сценариев. */
-export const learningResults = {
-  successPercent: 82,
-  errorPercent: 18,
-  /** На сколько % лучше, чем месяц назад — тоже иллюстративное значение. */
-  improvementVsLastMonth: 14,
-};
+// Аналитика для родительского кабинета — считается из настоящих данных игры
+// (история транзакций economyStore, купленные товары inventoryStore), без
+// выдуманных чисел. Раньше здесь была демо-заглушка (иллюстративные проценты
+// "успешных решений", "финансовой грамотности" и т.п.) — её убрали, как только
+// стало ясно, какие метрики можно посчитать честно уже сейчас.
+import type { Transaction } from '../types';
+import { shopProducts } from './shopData';
 
 export interface ChartPoint {
   label: string;
   value: number;
 }
 
-/** TODO: реальный процент "финансовой грамотности" по неделям — нужна метрика с формулой. */
-export const financialGrowthByMonth: ChartPoint[] = [
-  { label: '1 неделя', value: 54 },
-  { label: '2 неделя', value: 68 },
-  { label: '3 неделя', value: 76 },
-  { label: '4 неделя', value: 82 },
-];
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** TODO: реальный XP по дням — нужна история начислений с датами (сейчас есть только сумма). */
-export const activityByWeek: ChartPoint[] = [
-  { label: 'Пн', value: 30 },
-  { label: 'Вт', value: 70 },
-  { label: 'Ср', value: 45 },
-  { label: 'Чт', value: 95 },
-  { label: 'Пт', value: 60 },
-  { label: 'Сб', value: 35 },
-  { label: 'Вс', value: 20 },
-];
-
-export type SkillStatus = 'good' | 'medium' | 'needs_work';
-
-export interface SkillStat {
-  id: string;
-  label: string;
-  percent: number;
-  status: SkillStatus;
-  icon: 'wallet' | 'piggy' | 'book' | 'cart';
-  /** Показывается только для needs_work — подсказка родителю, что делать. */
-  note?: string;
+function startOfDay(ts: number): number {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 
-/** TODO: реальная разбивка по topic сценариев (см. src/data/scenarios.ts), когда их станет больше одного. */
-export const skillStats: SkillStat[] = [
-  { id: 'needs-wants', label: 'Потребности и желания', percent: 90, status: 'good', icon: 'wallet' },
-  { id: 'savings', label: 'Накопления', percent: 72, status: 'good', icon: 'piggy' },
-  { id: 'budgeting', label: 'Планирование бюджета', percent: 58, status: 'medium', icon: 'book' },
-  {
-    id: 'impulse',
-    label: 'Импульсивные покупки',
-    percent: 42,
-    status: 'needs_work',
-    icon: 'cart',
-    note: 'Нужно повторить',
-  },
-];
+/** Монеты, заработанные по дням — последние `days` дней, сегодня включительно. */
+export function earnedByDay(transactions: Transaction[], days: number): ChartPoint[] {
+  const todayStart = startOfDay(Date.now());
+  const buckets = Array.from({ length: days }, (_, i) => {
+    const start = todayStart - (days - 1 - i) * DAY_MS;
+    return { start, end: start + DAY_MS, total: 0 };
+  });
+  for (const tx of transactions) {
+    if (tx.amount <= 0) continue; // только заработанное, не траты
+    const bucket = buckets.find((b) => tx.timestamp >= b.start && tx.timestamp < b.end);
+    if (bucket) bucket.total += tx.amount;
+  }
+  return buckets.map((b) => ({
+    label: new Date(b.start).toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', ''),
+    value: b.total,
+  }));
+}
+
+/** Монеты, заработанные по неделям — последние `weeks` семидневных окон, до сегодня включительно. */
+export function earnedByWeek(transactions: Transaction[], weeks: number): ChartPoint[] {
+  const todayEnd = startOfDay(Date.now()) + DAY_MS;
+  const weekMs = 7 * DAY_MS;
+  const buckets = Array.from({ length: weeks }, (_, i) => {
+    const end = todayEnd - (weeks - 1 - i) * weekMs;
+    return { start: end - weekMs, end, total: 0 };
+  });
+  for (const tx of transactions) {
+    if (tx.amount <= 0) continue;
+    const bucket = buckets.find((b) => tx.timestamp >= b.start && tx.timestamp < b.end);
+    if (bucket) bucket.total += tx.amount;
+  }
+  return buckets.map((b, i) => ({ label: `${i + 1} нед.`, value: b.total }));
+}
+
+export type PurchaseCategoryId = 'food' | 'toys' | 'clothes' | 'rooms';
+
+export interface PurchaseCategoryStat {
+  id: PurchaseCategoryId;
+  label: string;
+  count: number;
+}
+
+/** Реальная разбивка покупок по категориям — из инвентаря, а не проценты "на глаз". */
+export function purchasesByCategory(ownedProductIds: string[], boughtRoomsCount: number): PurchaseCategoryStat[] {
+  const owned = shopProducts.filter((p) => ownedProductIds.includes(p.id));
+  const countOf = (cat: 'food' | 'toys' | 'clothes') => owned.filter((p) => p.category === cat).length;
+  return [
+    { id: 'food', label: 'Еда', count: countOf('food') },
+    { id: 'toys', label: 'Игрушки', count: countOf('toys') },
+    { id: 'clothes', label: 'Одежда', count: countOf('clothes') },
+    { id: 'rooms', label: 'Комнаты', count: boughtRoomsCount },
+  ];
+}

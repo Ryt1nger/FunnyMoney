@@ -14,6 +14,9 @@ const ONBOARDED_KEY = 'funnymoney_onboarded';
 interface Props {
   bottomInset?: number;
   onClose: () => void;
+  /** Сообщает наверх (Home), нужно ли на время спрятать нижнее меню —
+   * родительский кабинет/зона занимают весь экран, и таб-бар поверх них лишний. */
+  onFullScreenChange?: (active: boolean) => void;
 }
 
 interface RowProps {
@@ -218,7 +221,7 @@ function ParentalZone({ onBack }: { onBack: () => void }) {
 }
 
 /** Экран настроек — реально управляет звуком, музыкой, вибрацией, голосом и напоминаниями. */
-export default function Settings({ bottomInset = 0, onClose }: Props) {
+export default function Settings({ bottomInset = 0, onClose, onFullScreenChange }: Props) {
   const musicEnabled = useSettingsStore((s) => s.musicEnabled);
   const soundsEnabled = useSettingsStore((s) => s.soundsEnabled);
   const assistantVoiceEnabled = useSettingsStore((s) => s.assistantVoiceEnabled);
@@ -234,6 +237,14 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
   const setBrightHints = useSettingsStore((s) => s.setBrightHintsEnabled);
 
   const [parentalView, setParentalView] = useState<'closed' | 'gate' | 'dashboard' | 'zone'>('closed');
+
+  // Пока открыт родительский кабинет/зона — прячем нижнее меню (Home), оно
+  // здесь не нужно и перекрывает контент. Возвращаем меню при выходе из
+  // раздела и при размонтировании экрана целиком.
+  useEffect(() => {
+    onFullScreenChange?.(parentalView !== 'closed');
+    return () => onFullScreenChange?.(false);
+  }, [parentalView, onFullScreenChange]);
 
   // Тот же почерк входа, что и в Инвентаре: шапка мягко проявляется, а кремовая
   // панель с настройками выезжает снизу — без этого шторка "включалась" рывком.

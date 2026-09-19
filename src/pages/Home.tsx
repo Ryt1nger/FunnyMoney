@@ -134,6 +134,8 @@ export default function Home() {
   const [previewRoom, setPreviewRoom] = useState<RoomProduct | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const [navHeight, setNavHeight] = useState(74);
+  // Родительский кабинет/зона занимают весь экран — на время убираем нижнее меню.
+  const [navHidden, setNavHidden] = useState(false);
 
   // высота навигации меряется по факту — шторка останавливается ровно над ней
   useLayoutEffect(() => {
@@ -478,10 +480,13 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Навигация — прижата к низу кадра, поверх фото */}
+        {/* Навигация — прижата к низу кадра, поверх фото. Прячем на время
+            родительского кабинета/зоны (см. onFullScreenChange у Settings) —
+            высоту меряем один раз при монтировании, так что navHeight остаётся
+            корректным для отступов шторок даже когда меню скрыто. */}
         <div
           ref={navRef}
-          className="relative z-50 pt-3"
+          className={`relative z-50 pt-3 ${navHidden ? 'hidden' : ''}`}
         >
           <BottomNav
             active={tab}
@@ -579,6 +584,7 @@ export default function Home() {
               setSheet(null);
               setTab('home');
             }}
+            onFullScreenChange={setNavHidden}
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-[#fbefe1] text-[15px] font-bold" style={{ color: '#7b7a8c' }}>
