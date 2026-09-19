@@ -17,9 +17,10 @@ export const ECONOMY_RULES = {
   recoveryCoins: 200,
   // За полноценное прохождение одного урока.
   practiceRewardCoins: 150,
-  practiceRewardXp: 10,
+  // За полный урок: 5 практик × 30 XP = 150 XP.
+  practiceRewardXp: 30,
   maxPracticeRewardCoins: 150,
-  maxPracticeRewardXp: 50,
+  maxPracticeRewardXp: 150,
   planRewardXp: 10,
   requiredSavingsDeposit: 100,
   savingsDepositXp: 15,

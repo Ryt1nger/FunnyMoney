@@ -8,7 +8,7 @@ FunnyMoney (рабочее название продукта — «Питоме�
 
 Полный документ по 12 пунктам раздела 5 ТЗ находится в [`docs/commission-documentation.md`](docs/commission-documentation.md). PDF-копия для передачи комиссии собирается рядом с ним в `docs/commission-documentation.pdf`.
 
-Готовый устанавливаемый debug APK для демонстрации: [скачать FunnyMoney.apk с Google Drive](https://drive.google.com/file/d/1QWdiboJPbyM1LzLnPA9nWJBOxwRc9R_I/view?usp=sharing). Файл размещён на Google Drive, поскольку его размер превышает ограничение GitHub в 100 МБ. APK подписан локальным debug-ключом и предназначен для проверки прототипа; release APK требует отдельного ключа комиссии.
+Готовый устанавливаемый debug APK для демонстрации: [скачать FunnyMoney.apk с cloud mail](https://cloud.mail.ru/public/irJD/1U5KcK8qE). Файл размещён в облачном хранилище, поскольку его размер превышает ограничение GitHub в 100 МБ. APK подписан локальным debug-ключом и предназначен для проверки прототипа; release APK требует отдельного ключа комиссии.
 
 В документе отдельно отмечены пункты, которые нельзя подтверждать без финальной проверки: подписанный release APK, физическое Android-устройство, итоговый номер сборки, отчёт по доступности и карточка RuStore.
 

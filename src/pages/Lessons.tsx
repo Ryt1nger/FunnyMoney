@@ -98,6 +98,10 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   // входе в приложение целиком.
   useEffect(() => {
     const tutorial = useTutorialStore.getState();
+    // Home остаётся смонтированным, пока открыта шторка уроков. Если его
+    // обучение было прервано переходом в этот раздел, невидимые стены
+    // TutorialOverlay продолжают перехватывать нажатия по карточкам.
+    if (tutorial.active && tutorial.tourId !== 'lessons') tutorial.finish();
     // Не оставляем подсказку поверх списка после прохождения первого урока:
     // её spotlight намеренно блокирует все карточки, кроме первой.
     if (completedLessonIds.includes('what-is-money')) {
@@ -126,7 +130,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
     // Полная награда урока (ECONOMY_RULES.practiceRewardCoins/Xp) делится поровну
     // между сценами практики — так же, как уже считает счётчик "макс. наград"
     // (maxPracticeRewardXp/practiceRewardXp = число сцен) и как подписаны карточки
-    // уроков ("+150", "+10 XP × 5").
+    // уроков ("+150", "+30 XP × 5").
     const coinsPerScene = Math.round(ECONOMY_RULES.practiceRewardCoins / scenesCount);
     const paid = progress.claimPracticeReward(lessonId, ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp);
     if (paid) {
@@ -399,7 +403,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                   </span>
                 )}
               </div>
-              <div className={`relative z-10 min-w-0 flex-1 pr-24 ${themeLocked ? 'opacity-75' : ''}`}>
+              <div className={`pointer-events-none relative z-10 min-w-0 flex-1 pr-24 ${themeLocked ? 'opacity-75' : ''}`}>
                 <div className="text-[13px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                   {lesson.title}
                 </div>
@@ -438,7 +442,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
               ) : (
                 <button
                   onClick={() => { if (LESSON_COMPONENTS[lesson.id]) startLesson(lesson.id); }}
-                  className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+                  className="absolute bottom-2.5 right-2.5 z-20 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                   style={lessonCompleted ? {
                     background: GREEN,
                     boxShadow:
