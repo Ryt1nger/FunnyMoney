@@ -34,9 +34,20 @@ interface Props {
   onRoomSelect: (room: RoomProduct) => void;
   /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
   onOpenEarnModal?: () => void;
+  /** родительский контроль (родительский кабинет): если выключено — покупки
+   * (кроме еды, она и так без подтверждения) проходят сразу, без окна "точно купить?" */
+  confirmationEnabled?: boolean;
 }
 
-export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, onRoomSelect, onOpenEarnModal }: Props) {
+export default function Shop({
+  bottomInset = 0,
+  coins,
+  ownedRoomIds,
+  onClose,
+  onRoomSelect,
+  onOpenEarnModal,
+  confirmationEnabled = true,
+}: Props) {
   const [category, setCategory] = useState<ShopCategoryId>('food');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
@@ -50,7 +61,17 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
   }
 
   function requestBuy(product: ShopProduct) {
-    if (product.category === 'food') {
+    if (ownedProductIds.includes(product.id)) return;
+    // Не хватает монет — вместо попытки покупки сразу показываем то же окно
+    // "как заработать монеты", что и по кнопке "+" у баланса.
+    if (coins < product.price) {
+      onOpenEarnModal?.();
+      return;
+    }
+    // Еда — всегда без подтверждения (её и так покупают часто и по мелочи).
+    // Остальное — подтверждение по умолчанию, но родитель может отключить
+    // его в родительском кабинете (confirmationEnabled).
+    if (product.category === 'food' || !confirmationEnabled) {
       handleBuy(product);
     } else {
       setConfirmProduct(product);
@@ -245,8 +266,8 @@ export default function Shop({ bottomInset = 0, coins, ownedRoomIds, onClose, on
                     </span>
                   </div>
                   <button
-                    onClick={() => !owned && requestBuy(p)}
-                    disabled={owned || !canAfford}
+                    onClick={() => requestBuy(p)}
+                    disabled={owned}
                     className="mt-2 flex w-full items-center justify-center gap-1 rounded-full py-[5px] text-[11px] font-bold text-white transition active:translate-y-[1px] active:scale-[0.98] disabled:active:translate-y-0 disabled:active:scale-100"
                     style={{
                       background: owned ? '#9bd6a8' : canAfford ? VIOLET : '#c9c2d8',

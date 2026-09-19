@@ -32,7 +32,7 @@ import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
-import { progressLevels } from '../data/progressLevels';
+import { progressLevels, CURRENT_LEVEL, CURRENT_XP } from '../data/progressLevels';
 import {
   IconStar,
   IconPlus,
@@ -43,12 +43,11 @@ import {
   IconChevronRight,
 } from '../components/icons';
 
-// Уровень/опыт — отдельная прогресс-система уроков, которая ещё не подключена
-// (уроки пока заглушка), поэтому пока фиксированные значения для оформления шапки.
-// Порог XP берётся из общих данных уровней (src/data/progressLevels.ts) — тот же
-// источник, что показывает экран "Прогресс", чтобы шапка и экран не расходились.
-const LEVEL = 1;
-const XP = 0;
+// Уровень/опыт — общие константы из src/data/progressLevels.ts, тот же
+// источник, что показывают экран "Прогресс" и родительский кабинет, чтобы
+// цифры нигде не расходились.
+const LEVEL = CURRENT_LEVEL;
+const XP = CURRENT_XP;
 const XP_TO_NEXT = progressLevels[LEVEL - 1].xpThreshold;
 
 // Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
@@ -102,6 +101,7 @@ export default function Home() {
   const streakDays = useDayProgressStore((s) => s.streak);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
+  const purchaseConfirmationEnabled = useSettingsStore((s) => s.purchaseConfirmationEnabled);
 
   const petName = pet?.name ?? 'Мишка';
   const health = pet?.health ?? 0;
@@ -523,6 +523,7 @@ export default function Home() {
             ownedRoomIds={ownedRoomIds}
             onRoomSelect={(room) => setPreviewRoom(room)}
             onOpenEarnModal={() => setEarnModalOpen(true)}
+            confirmationEnabled={purchaseConfirmationEnabled}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -620,6 +621,8 @@ export default function Home() {
               // (шторка sheet==='shop' всё это время остаётся открытой под просмотром).
               purchaseRoom(room);
             }}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
+            confirmationEnabled={purchaseConfirmationEnabled}
           />
         </div>
       )}

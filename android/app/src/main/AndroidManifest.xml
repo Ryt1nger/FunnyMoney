@@ -39,4 +39,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Без этого разрешения navigator.vibrate() в WebView Android молча ничего
+         не делает (ни ошибки, ни исключения) — из-за этого не работала вибрация
+         на покупках и тапах, хотя JS-код был написан верно. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

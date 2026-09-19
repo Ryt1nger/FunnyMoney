@@ -18,6 +18,12 @@ interface Props {
   onBack: () => void;
   /** купить/установить — компонент сам решает по owned/active, что означает нажатие */
   onBuy: (room: RoomProduct) => void;
+  /** плюсик у баланса — то же окно "как заработать монеты", что и на главной;
+   * открывается вместо покупки, если монет не хватает */
+  onOpenEarnModal?: () => void;
+  /** родительский контроль (родительский кабинет): если выключено — покупка
+   * комнаты проходит сразу, без окна "точно купить?" */
+  confirmationEnabled?: boolean;
 }
 
 /**
@@ -47,7 +53,17 @@ function RoomBackground({ src }: { src: string }) {
  * Предпросмотр комнаты перед покупкой: только фон комнаты и кнопка покупки.
  * Фоны листаются стрелками влево/вправо по кругу, как карусель, не закрывая просмотр.
  */
-export default function RoomPreview({ rooms, initialRoomId, coins, ownedRoomIds, activeRoomId, onBack, onBuy }: Props) {
+export default function RoomPreview({
+  rooms,
+  initialRoomId,
+  coins,
+  ownedRoomIds,
+  activeRoomId,
+  onBack,
+  onBuy,
+  onOpenEarnModal,
+  confirmationEnabled = true,
+}: Props) {
   const [index, setIndex] = useState(() => {
     const i = rooms.findIndex((r) => r.id === initialRoomId);
     return i >= 0 ? i : 0;
@@ -160,8 +176,25 @@ export default function RoomPreview({ rooms, initialRoomId, coins, ownedRoomIds,
           </div>
 
           <button
-            onClick={() => (owned ? onBuy(room) : setConfirmOpen(true))}
-            disabled={active || (!owned && !enough)}
+            onClick={() => {
+              if (active) return;
+              if (owned) {
+                onBuy(room);
+                return;
+              }
+              // Не хватает монет — вместо попытки покупки показываем то же
+              // окно "как заработать монеты", что и по кнопке "+" у баланса.
+              if (!enough) {
+                onOpenEarnModal?.();
+                return;
+              }
+              if (confirmationEnabled) {
+                setConfirmOpen(true);
+              } else {
+                onBuy(room);
+              }
+            }}
+            disabled={active}
             className="mt-2.5 w-full rounded-full py-2.5 text-[14px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.99] disabled:opacity-60"
             style={{
               background: active || (!owned && !enough) ? 'linear-gradient(180deg, #b9b6c9 0%, #9d9ab0 100%)' : VIOLET,

@@ -14,6 +14,9 @@ export interface SettingsState {
   remindersEnabled: boolean;
   /** яркие подсказки — точка-индикатор на вкладке "День" и бейджи событий */
   brightHintsEnabled: boolean;
+  /** родительский контроль: спрашивать подтверждение перед любой покупкой
+   * (кроме еды — она всегда покупается сразу, см. Shop.tsx) */
+  purchaseConfirmationEnabled: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -23,6 +26,7 @@ interface SettingsStore extends SettingsState {
   setVibrationEnabled: (value: boolean) => void;
   setRemindersEnabled: (value: boolean) => void;
   setBrightHintsEnabled: (value: boolean) => void;
+  setPurchaseConfirmationEnabled: (value: boolean) => void;
   /** Перечитывает состояние из storage — реальная проверка на межстраничном экране загрузки. */
   hydrate: () => void;
 }
@@ -37,6 +41,7 @@ const defaultState: SettingsState = {
   vibrationEnabled: true,
   remindersEnabled: true,
   brightHintsEnabled: true,
+  purchaseConfirmationEnabled: true,
 };
 
 function isValidSettingsState(value: unknown): value is SettingsState {
@@ -48,7 +53,8 @@ function isValidSettingsState(value: unknown): value is SettingsState {
     typeof v.assistantVoiceEnabled === 'boolean' &&
     typeof v.vibrationEnabled === 'boolean' &&
     typeof v.remindersEnabled === 'boolean' &&
-    typeof v.brightHintsEnabled === 'boolean'
+    typeof v.brightHintsEnabled === 'boolean' &&
+    typeof v.purchaseConfirmationEnabled === 'boolean'
   );
 }
 
@@ -96,6 +102,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const next = { ...get(), brightHintsEnabled: value };
     persist(next);
     set({ brightHintsEnabled: value });
+  },
+  setPurchaseConfirmationEnabled: (value) => {
+    const next = { ...get(), purchaseConfirmationEnabled: value };
+    persist(next);
+    set({ purchaseConfirmationEnabled: value });
   },
 
   hydrate: () => {

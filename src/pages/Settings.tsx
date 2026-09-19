@@ -5,6 +5,7 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 import { setMusicEnabled } from '../services/backgroundMusic';
 import { stopAssistantVoice } from '../services/assistantVoice';
 import { storage } from '../services/storage';
+import ParentDashboard from './ParentDashboard';
 
 // Тот же ключ, что и в App.tsx (ONBOARDED_KEY) — держим значение синхронно
 // вручную, отдельного общего модуля-константы под него в проекте пока нет.
@@ -232,7 +233,7 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
   const setReminders = useSettingsStore((s) => s.setRemindersEnabled);
   const setBrightHints = useSettingsStore((s) => s.setBrightHintsEnabled);
 
-  const [parentalView, setParentalView] = useState<'closed' | 'gate' | 'zone'>('closed');
+  const [parentalView, setParentalView] = useState<'closed' | 'gate' | 'dashboard' | 'zone'>('closed');
 
   // Тот же почерк входа, что и в Инвентаре: шапка мягко проявляется, а кремовая
   // панель с настройками выезжает снизу — без этого шторка "включалась" рывком.
@@ -245,13 +246,22 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
   if (parentalView === 'gate') {
     return (
       <ParentalGate
-        onPass={() => setParentalView('zone')}
+        onPass={() => setParentalView('dashboard')}
         onCancel={() => setParentalView('closed')}
       />
     );
   }
+  if (parentalView === 'dashboard') {
+    return (
+      <ParentDashboard
+        bottomInset={bottomInset}
+        onBack={() => setParentalView('closed')}
+        onOpenZone={() => setParentalView('zone')}
+      />
+    );
+  }
   if (parentalView === 'zone') {
-    return <ParentalZone onBack={() => setParentalView('closed')} />;
+    return <ParentalZone onBack={() => setParentalView('dashboard')} />;
   }
 
   return (
@@ -351,10 +361,10 @@ export default function Settings({ bottomInset = 0, onClose }: Props) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[13.5px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
-              Родительская зона
+              Родительский кабинет
             </div>
             <div className="mt-0.5 text-[10.5px] leading-snug" style={{ color: '#9a8f80' }}>
-              Сброс прогресса и служебная информация
+              Прогресс, покупки и родительский контроль
             </div>
           </div>
           <IconChevronRight className="h-5 w-5 shrink-0" style={{ color: '#c9bda6' }} />
