@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import heroBg from '../assets/onboarding/hero-bg.jpg';
+import splashLogo from '../assets/onboarding/splash-logo.png';
 import cakeIcon from '../assets/onboarding/cake.png';
 import bearHeadIcon from '../assets/onboarding/bear-head.png';
 import pawsIcon from '../assets/onboarding/paws-trim.png';
@@ -179,8 +180,10 @@ export default function Onboarding({ onComplete }: Props) {
           Высота — flex-1 (не aspect-ratio): герой забирает ровно то место, которое
           останется после кремовой панели снизу. Панель сама минимальной высоты —
           под свой контент, без скролла — поэтому чем компактнее панель, тем выше герой,
-          как на макете. Затемнение — в самом верху картинки (под лого и заголовком),
-          плавно сходит на нет книзу. */}
+          как на макете. Затемнение просто закрывает верх картинки целиком (включая
+          вшитый в картинку логотип) — а поверх него отдельным слоем рисуется чистый
+          логотип (splash-logo.png), поэтому больше не нужно подгонять положение
+          затемнения так, чтобы не задеть логотип: он всегда рисуется НАД затемнением. */}
       <div className="relative w-full min-h-0 flex-1 overflow-hidden">
         <img
           src={heroBg}
@@ -189,8 +192,13 @@ export default function Onboarding({ onComplete }: Props) {
           style={{ objectPosition: '50% 2%' }}
         />
         <div
-          className="pointer-events-none absolute inset-x-0 top-[15%] h-[35%]"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[40%]"
           style={{ background: 'linear-gradient(180deg, rgba(15,14,30,0.62) 0%, rgba(15,14,30,0.34) 60%, rgba(15,14,30,0) 100%)' }}
+        />
+        <img
+          src={splashLogo}
+          alt="Funny Money"
+          className="pointer-events-none absolute left-[5%] top-[3%] w-[36%] select-none drop-shadow-lg"
         />
         <div className="absolute inset-x-0 top-[29%] max-w-[62%] px-5">
           <h1

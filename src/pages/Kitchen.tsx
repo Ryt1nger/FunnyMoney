@@ -1,6 +1,5 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import bearFull from '../assets/pet/bear-main.png';
-import bearEating from '../assets/pet/poses/eating.png';
 import bearAvatar from '../assets/pet/bear-avatar.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
@@ -16,7 +15,6 @@ import {
   IconBackpackLight,
   IconHeart,
   IconSmile,
-  IconHandPointing,
 } from '../components/icons';
 import { rooms, roomsBySection, shopProducts, type ShopProduct } from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
@@ -80,7 +78,6 @@ export default function Kitchen({
     .map((product) => ({ product, qty: foodQty[product.id] ?? 0 }));
 
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [feeding, setFeeding] = useState(false);
   const bearZoneRef = useRef<HTMLDivElement>(null);
 
   const background =
@@ -109,11 +106,7 @@ export default function Kitchen({
         e.clientY <= rect.bottom
       ) {
         const ok = feedPet(current.product);
-        if (ok) {
-          hapticTap();
-          setFeeding(true);
-          setTimeout(() => setFeeding(false), 900);
-        }
+        if (ok) hapticTap();
       }
       return null;
     });
@@ -253,45 +246,38 @@ export default function Kitchen({
       </div>
 
       {/* Медведь — цель перетаскивания еды. Вся зона (не только силуэт) считается
-          «попаданием», чтобы кормление не требовало ювелирной точности от ребёнка. */}
+          «попаданием», чтобы кормление не требовало ювелирной точности от ребёнка.
+          Поза статична (без анимации смены при кормлении) — по просьбе: медведь
+          остаётся в том же виде, что и сейчас. */}
       <div ref={bearZoneRef} className="relative z-0 min-h-0 flex-1">
-        <div
-          className="absolute left-1/2 top-[10%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg transition-opacity"
-          style={{ opacity: 1 }}
-        >
+        <div className="absolute left-1/2 top-[8%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
             <IconHeart className="h-4 w-4" style={{ color: '#ef4060' }} />
-            {feeding ? 'Ням-ням!' : 'Покорми меня!'}
+            Покорми меня!
           </div>
           <div className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1.5 rotate-45 bg-white" />
         </div>
 
         <img
-          src={feeding ? bearEating : bearFull}
+          src={bearFull}
           alt={petName}
           draggable={false}
-          className="pointer-events-none absolute bottom-[8%] left-1/2 h-[56%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[76%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
       </div>
 
-      {/* Поднос «Моя еда» — короткая шторка снизу с горизонтальной лентой еды. */}
+      {/* Поднос «Моя еда» — короткая шторка снизу с горизонтальной лентой еды.
+          Высота — по контенту (не в % экрана), чтобы карточки никогда не
+          обрезались нижней навигацией на разных размерах экрана. */}
       <div
         className="relative z-20 shrink-0 rounded-t-[26px] bg-[#fbefe1] px-4 pt-2 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]"
-        style={{ height: '23%', minHeight: 168, paddingBottom: bottomInset + 10 }}
+        style={{ paddingBottom: bottomInset + 14 }}
       >
         <div className="mx-auto h-[4px] w-[38px] rounded-full" style={{ background: '#e6d6bf' }} />
 
-        <div className="mt-2 flex items-center justify-between">
-          <h2 className="text-[15px] font-extrabold" style={{ color: '#2c2a5e' }}>
-            Моя еда
-          </h2>
-          {foodItems.length > 0 && (
-            <div className="flex items-center gap-1 text-[10.5px] font-semibold" style={{ color: '#7b7a8c' }}>
-              <IconHandPointing className="h-3.5 w-3.5" />
-              Потяни еду к {petName}
-            </div>
-          )}
-        </div>
+        <h2 className="mt-2 text-[15px] font-extrabold" style={{ color: '#2c2a5e' }}>
+          Моя еда
+        </h2>
 
         {foodItems.length === 0 ? (
           <p className="mt-3 text-[12px] leading-snug" style={{ color: '#7b7a8c' }}>
