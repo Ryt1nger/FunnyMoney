@@ -179,9 +179,8 @@ export default function Onboarding({ onComplete }: Props) {
           Высота — flex-1 (не aspect-ratio): герой забирает ровно то место, которое
           останется после кремовой панели снизу. Панель сама минимальной высоты —
           под свой контент, без скролла — поэтому чем компактнее панель, тем выше герой,
-          как на макете. Лёгкое затемнение только сверху — под заголовком, чтобы текст
-          было видно, но не через весь фон; лого (самый верх картинки) остаётся
-          незатемнённым. */}
+          как на макете. Затемнение — в самом верху картинки (под лого и заголовком),
+          плавно сходит на нет книзу. */}
       <div className="relative w-full min-h-0 flex-1 overflow-hidden">
         <img
           src={heroBg}
@@ -190,8 +189,8 @@ export default function Onboarding({ onComplete }: Props) {
           style={{ objectPosition: '50% 2%' }}
         />
         <div
-          className="pointer-events-none absolute inset-x-0 top-[10%] h-[32%]"
-          style={{ background: 'linear-gradient(180deg, rgba(15,14,30,0) 0%, rgba(15,14,30,0.62) 48%, rgba(15,14,30,0.34) 78%, rgba(15,14,30,0) 100%)' }}
+          className="pointer-events-none absolute inset-x-0 top-0 h-[42%]"
+          style={{ background: 'linear-gradient(180deg, rgba(15,14,30,0.62) 0%, rgba(15,14,30,0.34) 55%, rgba(15,14,30,0) 100%)' }}
         />
         <div className="absolute inset-x-0 top-[29%] max-w-[62%] px-5">
           <h1

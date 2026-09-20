@@ -234,7 +234,10 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
           }}
         />
 
-        <div className="relative flex items-start justify-between px-4 pt-4">
+        <div
+          className="relative flex items-start justify-between px-4"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+        >
           <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"

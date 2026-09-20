@@ -155,7 +155,10 @@ export default function Home() {
 
       <div className="relative flex h-full flex-col">
         {/* Шапка: питомец + монеты */}
-        <div className="relative z-20 flex items-start justify-between gap-3 px-4 pt-5">
+        <div
+          className="relative z-20 flex items-start justify-between gap-3 px-4"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
+        >
           {/* Блок питомца — без плашки, прямо поверх фото (как в референсе).
               Пропорции от диаметра аватара D=52: цветок 0.56D, его центр на 1.217D,
               полоса XP начинается на 1.587D, её высота 0.187D. */}

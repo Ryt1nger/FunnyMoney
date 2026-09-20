@@ -86,7 +86,10 @@ export default function RoomPreview({
       <RoomBackground src={room.background} />
 
       {/* Верхняя строка: назад, название комнаты и баланс монет */}
-      <div className="relative flex items-center gap-3 px-4 pt-5">
+      <div
+        className="relative flex items-center gap-3 px-4"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
+      >
         <button
           onClick={onBack}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"

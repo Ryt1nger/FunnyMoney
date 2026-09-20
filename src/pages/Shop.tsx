@@ -120,7 +120,12 @@ export default function Shop({
           }}
         />
 
-        <div className="relative flex items-start justify-between px-4 pt-4">
+        {/* pt заменён на calc с env(safe-area-inset-top) — на телефонах с "чёлкой"/
+            статус-баром кнопка иначе оказывается под системным интерфейсом и не нажимается. */}
+        <div
+          className="relative flex items-start justify-between px-4"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+        >
           <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"

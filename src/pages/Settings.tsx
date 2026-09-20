@@ -163,7 +163,10 @@ function ParentalZone({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex h-full flex-col bg-[#fbefe1]">
-      <div className="flex items-center gap-3 px-4 pt-4">
+      <div
+        className="flex items-center gap-3 px-4"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+      >
         <button
           onClick={onBack}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-black/5 transition active:scale-95"
@@ -328,8 +331,12 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
     return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       <div
-        className="relative shrink-0 overflow-hidden px-4 pb-5 pt-4 transition-opacity duration-500"
-        style={{ background: '#6d5a63', opacity: entered ? 1 : 0 }}
+        className="relative shrink-0 overflow-hidden px-4 pb-5 transition-opacity duration-500"
+        style={{
+          background: '#6d5a63',
+          opacity: entered ? 1 : 0,
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+        }}
       >
         <div className="flex items-center gap-3">
           <button
