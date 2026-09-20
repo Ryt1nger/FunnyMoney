@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
-import catFood from '../assets/icons/shop/cat-food.png';
 import catToys from '../assets/icons/shop/cat-toys.png';
 import catClothes from '../assets/icons/shop/cat-clothes.png';
 import MaskIcon from '../components/MaskIcon';
@@ -11,8 +10,9 @@ const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
 // Комнаты сюда не входят — это фон/оформление, а не «товар» в привычном
 // смысле; инвентарь показывает только предметы, сгруппированные как в магазине.
-const CATEGORIES: { id: Exclude<ShopCategoryId, 'popular' | 'interior'>; label: string; icon: string }[] = [
-  { id: 'food', label: 'Еда', icon: catFood },
+// Еда тоже не входит — она расходуется и живёт в подносе «Моя еда» на экране
+// «Кухня» (см. Kitchen.tsx), а не в инвентаре как разовая покупка.
+const CATEGORIES: { id: Exclude<ShopCategoryId, 'popular' | 'interior' | 'food'>; label: string; icon: string }[] = [
   { id: 'toys', label: 'Игрушки', icon: catToys },
   { id: 'clothes', label: 'Одежда', icon: catClothes },
 ];
@@ -43,7 +43,7 @@ export default function Inventory({ bottomInset = 0, coins, ownedProductIds, onC
   // пусто, а в других что-то куплено, показывать пустой экран смысла нет.
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]['id']>(() => {
     const firstWithItems = CATEGORIES.find((c) => ownedProducts.some((p) => p.category === c.id));
-    return firstWithItems?.id ?? 'food';
+    return firstWithItems?.id ?? 'toys';
   });
 
   const products = ownedProducts.filter((p) => p.category === category);

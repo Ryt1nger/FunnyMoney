@@ -463,6 +463,21 @@ export function IconAlarmClock(props: IconProps) {
   );
 }
 
+// Рука с указующим пальцем — подсказка «потяни еду к питомцу» на экране кухни.
+export function IconHandPointing(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="M10.4 4.3c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v6.2l.9-.2c.9-.2 1.8.2 2.3 1l2.4 3.7c.4.6.5 1.3.4 2l-.5 2.6c-.2 1-1.1 1.7-2.1 1.7h-5.8c-.8 0-1.6-.4-2.1-1.1l-2.6-3.9c-.5-.8-.3-1.9.5-2.4.7-.4 1.5-.3 2.1.3l.7.7V4.3Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 // Ложка + вилка — вход в столовую (кормление питомца).
 export function IconCutlery(props: IconProps) {
   return (

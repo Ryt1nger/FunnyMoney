@@ -20,6 +20,7 @@ import BottomSheet from '../components/BottomSheet';
 import EarnCoinsModal from '../components/EarnCoinsModal';
 import LessonsPlaceholder from './LessonsPlaceholder';
 import Inventory from './Inventory';
+import Kitchen from './Kitchen';
 import Shop from './Shop';
 import Stats from './Stats';
 import Settings from './Settings';
@@ -83,7 +84,7 @@ function markLessonVisited() {
   }
 }
 
-type SheetId = TabId | 'inventory' | 'settings' | 'progress';
+type SheetId = TabId | 'inventory' | 'settings' | 'progress' | 'kitchen';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
@@ -97,6 +98,7 @@ export default function Home() {
   const wealthScore = useEconomyStore((s) => s.wealthScore);
   const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
+  const activeKitchenRoomId = useInventoryStore((s) => s.activeKitchenRoomId);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const streakDays = useDayProgressStore((s) => s.streak);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
@@ -295,13 +297,11 @@ export default function Home() {
             </button>
           </div>
           <button
-            // Столовая как отдельный экран ещё не построена — пока временно ведёт
-            // в магазин на вкладку "Еда", чтобы кнопка не была нерабочей.
-            // Когда появится экран кормления, заменить на его открытие.
-            onClick={() => {
-              setTab('shop');
-              setSheet('shop');
-            }}
+            // Кухня — отдельный экран кормления (не фон главного экрана,
+            // см. inventoryStore.activeKitchenRoomId). Открывается шторкой,
+            // как и остальные разделы; вкладка нижней навигации не меняется,
+            // так как своей вкладки у кухни нет.
+            onClick={() => setSheet('kitchen')}
             className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
             style={{
               background: 'rgba(26,20,40,0.30)',
@@ -590,6 +590,27 @@ export default function Home() {
               setTab('home');
             }}
           />
+        ) : sheet === 'kitchen' ? (
+          <Kitchen
+            bottomInset={navHeight}
+            coins={coins}
+            level={level}
+            xp={xp}
+            xpToNext={xpToNext}
+            petName={petName}
+            health={health}
+            happiness={happiness}
+            wealth={wealth}
+            activeKitchenRoomId={activeKitchenRoomId}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
+            onOpenProgress={() => setSheet('progress')}
+            onOpenSettings={() => setSheet('settings')}
+            onOpenInventory={() => setSheet('inventory')}
+            onClose={() => {
+              setSheet(null);
+              setTab('home');
+            }}
+          />
         ) : sheet === 'inventory' ? (
           <Inventory
             bottomInset={navHeight}
@@ -639,7 +660,7 @@ export default function Home() {
             initialRoomId={previewRoom.id}
             coins={coins}
             ownedRoomIds={ownedRoomIds}
-            activeRoomId={activeRoomId}
+            activeRoomId={previewRoom.section === 'kitchen' ? activeKitchenRoomId : activeRoomId}
             onBack={() => setPreviewRoom(null)}
             onBuy={(room) => {
               // Покупка/установка НЕ закрывает просмотр — комната куплена, но

@@ -65,6 +65,7 @@ export default function Shop({
   const [interiorSection, setInteriorSection] = useState<RoomSection>('playroom');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
+  const foodQty = useInventoryStore((s) => s.foodQty);
   const products = category === 'interior' ? [] : productsByCategory(category);
   const interiorRooms = roomsBySection(interiorSection);
   // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
@@ -76,7 +77,8 @@ export default function Shop({
   }
 
   function requestBuy(product: ShopProduct) {
-    if (ownedProductIds.includes(product.id)) return;
+    // Еда — расходник, покупается сколько угодно раз (запас копится); остальное — один раз.
+    if (product.category !== 'food' && ownedProductIds.includes(product.id)) return;
     // Не хватает монет — вместо попытки покупки сразу показываем то же окно
     // "как заработать монеты", что и по кнопке "+" у баланса.
     if (coins < product.price) {
@@ -285,7 +287,9 @@ export default function Shop({
         ) : (
           <div className="mt-2.5 grid grid-cols-3 gap-2.5">
             {products.map((p) => {
-              const owned = ownedProductIds.includes(p.id);
+              const isFood = p.category === 'food';
+              const owned = !isFood && ownedProductIds.includes(p.id);
+              const qty = foodQty[p.id] ?? 0;
               const canAfford = coins >= p.price;
               return (
                 <div
@@ -295,6 +299,14 @@ export default function Shop({
                 >
                   <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
                     <img src={p.image} alt="" className="max-h-[66px] w-auto object-contain" />
+                    {isFood && qty > 0 && (
+                      <span
+                        className="absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-extrabold text-white"
+                        style={{ background: 'rgba(70,52,66,0.72)' }}
+                      >
+                        ×{qty}
+                      </span>
+                    )}
                   </div>
                   <div
                     className="min-h-[26px] text-[10.5px] font-bold leading-tight"

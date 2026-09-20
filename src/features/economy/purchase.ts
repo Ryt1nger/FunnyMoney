@@ -27,7 +27,11 @@ function completeShopTaskOnce() {
  */
 export function purchaseProduct(product: ShopProduct): PurchaseResult {
   const inventory = useInventoryStore.getState();
-  if (inventory.isProductOwned(product.id)) return 'already_owned';
+  const isFood = product.category === 'food';
+  // Еда — расходник: её можно покупать снова и снова, запас копится (foodQty),
+  // а не блокируется как «уже куплено» — иначе после первой пачки её нельзя
+  // было бы пополнить. Остальные категории по-прежнему покупаются один раз.
+  if (!isFood && inventory.isProductOwned(product.id)) return 'already_owned';
 
   const { coins, applyCoinsDelta } = useEconomyStore.getState();
   if (coins < product.price) return 'insufficient_funds';
@@ -35,7 +39,11 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
   applyCoinsDelta(-product.price, `Покупка: ${product.name}`);
   inventory.addOwnedProduct(product.id);
 
-  if (product.effects?.health || product.effects?.happiness) {
+  if (isFood) {
+    // Эффект еды (здоровье/счастье) применяется не при покупке, а при
+    // кормлении на экране «Кухня» — см. features/economy/feed.ts.
+    inventory.addFoodQty(product.id, 1);
+  } else if (product.effects?.health || product.effects?.happiness) {
     usePetStore.getState().applyDelta({
       health: product.effects.health,
       happiness: product.effects.happiness,
@@ -48,11 +56,17 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
   return 'ok';
 }
 
-/** Покупка/установка фона комнаты — тратит монеты только если комната ещё не куплена. */
+/** Покупка/установка фона комнаты — тратит монеты только если комната ещё не куплена.
+ *  Игровая и кухня — независимые «активные фоны» (см. inventoryStore), поэтому
+ *  здесь всегда учитывается раздел комнаты (room.section). */
 export function purchaseRoom(room: RoomProduct): PurchaseResult {
   const inventory = useInventoryStore.getState();
   if (inventory.ownedRoomIds.includes(room.id)) {
-    inventory.setActiveRoom(room.id);
+    if (room.section === 'kitchen') {
+      inventory.setActiveKitchenRoom(room.id);
+    } else {
+      inventory.setActiveRoom(room.id);
+    }
     return 'already_owned';
   }
 
@@ -62,10 +76,27 @@ export function purchaseRoom(room: RoomProduct): PurchaseResult {
   if (room.price > 0) {
     applyCoinsDelta(-room.price, `Комната: ${room.name}`);
   }
-  inventory.addOwnedRoom(room.id);
+  inventory.addOwnedRoom(room.id, room.section);
 
   // Покупка комнаты — тоже реальная покупка в магазине, засчитывает задание дня.
   completeShopTaskOnce();
 
   return 'ok';
+}
+
+/** Кормление питомца едой из инвентаря — тратит одну единицу и применяет её
+ *  эффект (здоровье/счастье) питомцу. Вызывается с экрана «Кухня». */
+export function feedPet(product: ShopProduct): boolean {
+  const inventory = useInventoryStore.getState();
+  const ok = inventory.consumeFood(product.id);
+  if (!ok) return false;
+
+  if (product.effects?.health || product.effects?.happiness) {
+    usePetStore.getState().applyDelta({
+      health: product.effects.health,
+      happiness: product.effects.happiness,
+    });
+  }
+
+  return true;
 }
