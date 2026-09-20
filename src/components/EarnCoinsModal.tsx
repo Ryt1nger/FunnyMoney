@@ -11,8 +11,8 @@ interface Props {
   onClose: () => void;
   /** Открыть раздел уроков */
   onOpenLessons: () => void;
-  /** Открыть раздел наград (вкладка "Награды" на экране "День") */
-  onOpenRewards: () => void;
+  /** Открыть задания дня (экран "День") */
+  onOpenTasks: () => void;
 }
 
 // Длительность анимации появления/скрытия — единая константа, чтобы плавный
@@ -32,7 +32,7 @@ const BACKDROP_BLUR_PX = 2;
  * (overflow-hidden контейнера) и в браузере на десктопе перекрывает всю
  * страницу целиком, а не только приложение.
  */
-export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRewards }: Props) {
+export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenTasks }: Props) {
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
 
@@ -113,7 +113,7 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRew
             Как заработать монеты?
           </h2>
           <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-            Проходи уроки или забирай награды за выполненные задания дня
+            Проходи уроки или выполняй задания дня — за них тоже дают монеты
           </p>
 
           <div className="mt-4 flex flex-col gap-2.5">
@@ -130,7 +130,7 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRew
             </button>
 
             <button
-              onClick={onOpenRewards}
+              onClick={onOpenTasks}
               className="flex items-center gap-3 rounded-[18px] px-3.5 py-3 text-left transition active:scale-[0.98]"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
@@ -142,7 +142,7 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenRew
                 <IconGift className="h-5 w-5" />
               </span>
               <span className="text-[14px] font-bold" style={{ color: '#7d6034' }}>
-                Награды
+                Задания
               </span>
               <IconChevronRight className="ml-auto h-4 w-4" style={{ color: '#c2a876' }} />
             </button>

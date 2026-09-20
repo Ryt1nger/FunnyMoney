@@ -5,6 +5,10 @@ export interface DayProgressState {
   /** дата в формате YYYY-MM-DD — прогресс за день (список заданий) сбрасывается при смене даты */
   date: string;
   completedTaskIds: string[];
+  /** Задания, где ребёнок уже сделал само действие (ушёл кормить/играть/укладывать
+   *  питомца), но ещё не забрал награду — кнопка на экране "День" в этот момент
+   *  зелёная ("Получить"). Сбрасывается вместе с completedTaskIds при смене дня. */
+  startedTaskIds: string[];
   /** серия дней подряд, когда было выполнено хотя бы одно задание — переживает смену даты,
    *  сбрасывается только если пропущен целый день */
   streak: number;
@@ -17,6 +21,11 @@ export interface DayProgressState {
 
 interface DayProgressStore extends DayProgressState {
   isCompleted: (taskId: string) => boolean;
+  /** Действие по заданию уже сделано, но награда ещё не забрана. */
+  isStarted: (taskId: string) => boolean;
+  /** Отметить, что ребёнок ушёл выполнять действие задания (например, кормить питомца) —
+   *  до реального получения награды, см. startedTaskIds. */
+  startTask: (taskId: string) => void;
   completeTask: (taskId: string) => void;
   /** Забрать бонус за веху серии (каждые STREAK_MILESTONE_STEP дней) — не даёт забрать дважды. */
   claimStreakMilestone: (streak: number) => void;
@@ -48,15 +57,23 @@ export function isValidDayProgressState(value: unknown): value is DayProgressSta
 }
 
 function freshState(): DayProgressState {
-  return { date: todayKey(), completedTaskIds: [], streak: 0, lastActiveDate: null, claimedStreakMilestones: [] };
+  return {
+    date: todayKey(),
+    completedTaskIds: [],
+    startedTaskIds: [],
+    streak: 0,
+    lastActiveDate: null,
+    claimedStreakMilestones: [],
+  };
 }
 
-// Старые сохранения (до появления серии) не содержат streak/lastActiveDate/claimedStreakMilestones —
+// Старые сохранения (до появления серии/startedTaskIds) не содержат новые поля —
 // подставляем безопасные значения по умолчанию, чтобы не терять уже выполненные сегодня задания.
 function withStreakDefaults(v: Record<string, unknown>): DayProgressState {
   return {
     date: v.date as string,
     completedTaskIds: v.completedTaskIds as string[],
+    startedTaskIds: Array.isArray(v.startedTaskIds) ? (v.startedTaskIds as string[]) : [],
     streak: typeof v.streak === 'number' ? v.streak : 0,
     lastActiveDate: typeof v.lastActiveDate === 'string' ? v.lastActiveDate : null,
     claimedStreakMilestones: Array.isArray(v.claimedStreakMilestones) ? (v.claimedStreakMilestones as number[]) : [],
@@ -84,8 +101,11 @@ function loadInitial(): DayProgressState {
   const saved = storage.get<Record<string, unknown>>(STORAGE_KEY);
   if (saved && isValidDayProgressState(saved)) {
     const normalized = normalizeStreak(withStreakDefaults(saved));
-    // Новый день — список заданий обнуляем, но серию (уже нормализованную выше) не трогаем.
-    if (normalized.date !== todayKey()) return { ...normalized, date: todayKey(), completedTaskIds: [] };
+    // Новый день — список заданий (и незабранных "начатых") обнуляем, серию
+    // (уже нормализованную выше) не трогаем.
+    if (normalized.date !== todayKey()) {
+      return { ...normalized, date: todayKey(), completedTaskIds: [], startedTaskIds: [] };
+    }
     return normalized;
   }
   return freshState(); // повреждённые данные — начинаем заново
@@ -96,11 +116,31 @@ export const useDayProgressStore = create<DayProgressStore>((set, get) => ({
 
   isCompleted: (taskId) => get().completedTaskIds.includes(taskId),
 
+  isStarted: (taskId) => get().startedTaskIds.includes(taskId),
+
+  startTask: (taskId) => {
+    const state = get();
+    let base: DayProgressState =
+      state.date === todayKey() ? state : { ...state, date: todayKey(), completedTaskIds: [], startedTaskIds: [] };
+    base = normalizeStreak(base);
+    if (base.startedTaskIds.includes(taskId) || base.completedTaskIds.includes(taskId)) {
+      if (base !== state) {
+        persist(base);
+        set(base);
+      }
+      return;
+    }
+    const next: DayProgressState = { ...base, startedTaskIds: [...base.startedTaskIds, taskId] };
+    persist(next);
+    set(next);
+  },
+
   completeTask: (taskId) => {
     const state = get();
     // Если наступил новый день (в т.ч. пока приложение было открыто) — сначала сбрасываем
     // список заданий (серию — только если реально пропущен день, см. normalizeStreak).
-    let base: DayProgressState = state.date === todayKey() ? state : { ...state, date: todayKey(), completedTaskIds: [] };
+    let base: DayProgressState =
+      state.date === todayKey() ? state : { ...state, date: todayKey(), completedTaskIds: [], startedTaskIds: [] };
     base = normalizeStreak(base);
     if (base.completedTaskIds.includes(taskId)) {
       if (base !== state) {
@@ -122,6 +162,8 @@ export const useDayProgressStore = create<DayProgressStore>((set, get) => ({
     const next: DayProgressState = {
       ...base,
       completedTaskIds: [...base.completedTaskIds, taskId],
+      // Награда забрана — задание больше не "ждёт получения".
+      startedTaskIds: base.startedTaskIds.filter((id) => id !== taskId),
       streak,
       lastActiveDate,
     };
@@ -144,7 +186,10 @@ export const useDayProgressStore = create<DayProgressStore>((set, get) => ({
     const saved = storage.get<Record<string, unknown>>(STORAGE_KEY);
     if (saved && isValidDayProgressState(saved)) {
       const normalized = normalizeStreak(withStreakDefaults(saved));
-      const next = normalized.date !== todayKey() ? { ...normalized, date: todayKey(), completedTaskIds: [] } : normalized;
+      const next =
+        normalized.date !== todayKey()
+          ? { ...normalized, date: todayKey(), completedTaskIds: [], startedTaskIds: [] }
+          : normalized;
       persist(next);
       set(next);
     } else {

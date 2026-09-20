@@ -23,7 +23,7 @@ import Inventory from './Inventory';
 import Shop from './Shop';
 import Stats from './Stats';
 import Settings from './Settings';
-import Day, { type DayTab } from './Day';
+import Day from './Day';
 import ProgressPage from './Progress';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
@@ -113,9 +113,8 @@ export default function Home() {
   const [sheet, setSheet] = useState<SheetId | null>(null);
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
-  // уроки, либо в раздел наград на экране "День".
+  // уроки, либо на задания дня.
   const [earnModalOpen, setEarnModalOpen] = useState(false);
-  const [dayInitialTab, setDayInitialTab] = useState<DayTab>('tasks');
 
   function openLessonsFromReminder() {
     setTab('lessons');
@@ -312,7 +311,11 @@ export default function Home() {
             style={{
               bottom: '35.6%',
               transformOrigin: 'bottom center',
-              transform: 'translateX(-52%) scaleY(-0.18) skewX(-22deg)',
+              // skewX считается ДО отражения (scaleY(-0.18) идёт позже в списке,
+              // но применяется к точке раньше skewX — CSS-функции работают
+              // справа налево), поэтому чтобы тень легла влево, знак угла
+              // нужно взять положительным, а не отрицательным.
+              transform: 'translateX(-52%) scaleY(-0.18) skewX(22deg)',
               filter: 'brightness(0) blur(5px)',
               opacity: 0.5,
             }}
@@ -548,7 +551,6 @@ export default function Home() {
           <Day
             bottomInset={navHeight}
             coins={coins}
-            initialTab={dayInitialTab}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={() => {
               setSheet(null);
@@ -602,9 +604,8 @@ export default function Home() {
           setTab('lessons');
           setSheet('lessons');
         }}
-        onOpenRewards={() => {
+        onOpenTasks={() => {
           setEarnModalOpen(false);
-          setDayInitialTab('rewards');
           setTab('day');
           setSheet('day');
         }}

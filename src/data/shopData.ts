@@ -29,9 +29,7 @@ import imgBallBluePaw from '../assets/items/toys/ball-blue-paw.png';
 import imgRopeKnot from '../assets/items/toys/rope-knot.png';
 import imgTeddyBearBrown from '../assets/items/toys/teddy-bear-brown.png';
 import imgDuckYellow from '../assets/items/toys/duck-yellow.png';
-import imgMousePlushGray from '../assets/items/toys/mouse-plush-gray.png';
 import imgFeatherWand from '../assets/items/toys/feather-wand.png';
-import imgTunnelBlue from '../assets/items/toys/tunnel-blue.png';
 import imgCarrotPlush from '../assets/items/toys/carrot-plush.png';
 import imgFrisbeeBlue from '../assets/items/toys/frisbee-blue.png';
 import imgLaserPointer from '../assets/items/toys/laser-pointer.png';
@@ -42,18 +40,14 @@ import imgMouseRobot from '../assets/items/toys/mouse-robot.png';
 import imgPompomPink from '../assets/items/toys/pompom-pink.png';
 import imgSpinnerBlue from '../assets/items/toys/spinner-blue.png';
 import imgFishPlushBlue from '../assets/items/toys/fish-plush-blue.png';
-import imgBallLauncher from '../assets/items/toys/ball-launcher.png';
 import imgCameraPet from '../assets/items/toys/camera-pet.png';
-import imgFeederUfo from '../assets/items/toys/feeder-ufo.png';
 import imgFeederRobotCat from '../assets/items/toys/feeder-robot-cat.png';
 import imgScratchingPost from '../assets/items/toys/scratching-post.png';
-import imgCactusPlush from '../assets/items/toys/cactus-plush.png';
 import imgYarnBall from '../assets/items/toys/yarn-ball.png';
 import imgBoneBiscuit from '../assets/items/toys/bone-biscuit.png';
 import imgOctopusPlushPurple from '../assets/items/toys/octopus-plush-purple.png';
 import imgDroneToy from '../assets/items/toys/drone-toy.png';
 import imgBallsSpikyPair from '../assets/items/toys/balls-spiky-pair.png';
-import imgBoomerangBlue from '../assets/items/toys/boomerang-blue.png';
 import imgHoodieBluePaw from '../assets/items/clothing/hoodie-blue-paw.png';
 import imgHoodieDinoGreen from '../assets/items/clothing/hoodie-dino-green.png';
 import imgJacketVarsityBlue from '../assets/items/clothing/jacket-varsity-blue.png';
@@ -66,12 +60,8 @@ import imgBeanieRed from '../assets/items/clothing/beanie-red.png';
 import imgHatBearYellow from '../assets/items/clothing/hat-bear-yellow.png';
 import imgHatPinkBow from '../assets/items/clothing/hat-pink-bow.png';
 import imgHatDinoGreen from '../assets/items/clothing/hat-dino-green.png';
-import imgHeadbandDino from '../assets/items/clothing/headband-dino.png';
 import imgBandanaRedPaw from '../assets/items/clothing/bandana-red-paw.png';
-import imgCollarBlueBone from '../assets/items/clothing/collar-blue-bone.png';
-import imgCollarOrangePaw from '../assets/items/clothing/collar-orange-paw.png';
 import imgCollarRedBell from '../assets/items/clothing/collar-red-bell.png';
-import imgCollarBlueTag from '../assets/items/clothing/collar-blue-tag.png';
 import imgGlassesBluePaw from '../assets/items/clothing/glasses-blue-paw.png';
 import imgGlassesPinkHeart from '../assets/items/clothing/glasses-pink-heart.png';
 import imgGlassesStarGold from '../assets/items/clothing/glasses-star-gold.png';
@@ -367,15 +357,6 @@ export const shopProducts: ShopProduct[] = [
     effects: { happiness: 11 },
   },
   {
-    id: 'mouse-plush-gray',
-    name: 'Плюшевая мышка',
-    price: 100,
-    image: imgMousePlushGray,
-    category: 'toys',
-    favorite: true,
-    effects: { happiness: 11 },
-  },
-  {
     id: 'feather-wand',
     name: 'Дразнилка с перьями',
     price: 130,
@@ -383,15 +364,6 @@ export const shopProducts: ShopProduct[] = [
     category: 'toys',
     favorite: true,
     effects: { happiness: 14 },
-  },
-  {
-    id: 'tunnel-blue',
-    name: 'Игровой туннель',
-    price: 260,
-    image: imgTunnelBlue,
-    category: 'toys',
-    favorite: true,
-    effects: { happiness: 22 },
   },
   {
     id: 'carrot-plush',
@@ -484,15 +456,6 @@ export const shopProducts: ShopProduct[] = [
     effects: { happiness: 11 },
   },
   {
-    id: 'ball-launcher',
-    name: 'Пускатель мячиков',
-    price: 320,
-    image: imgBallLauncher,
-    category: 'toys',
-    favorite: true,
-    effects: { happiness: 26 },
-  },
-  {
     id: 'camera-pet',
     name: 'Камера для питомца',
     price: 350,
@@ -500,15 +463,6 @@ export const shopProducts: ShopProduct[] = [
     category: 'toys',
     favorite: true,
     effects: { happiness: 24 },
-  },
-  {
-    id: 'feeder-ufo',
-    name: 'Кормушка-тарелка',
-    price: 300,
-    image: imgFeederUfo,
-    category: 'toys',
-    favorite: true,
-    effects: { happiness: 22 },
   },
   {
     id: 'feeder-robot-cat',
@@ -527,15 +481,6 @@ export const shopProducts: ShopProduct[] = [
     category: 'toys',
     favorite: true,
     effects: { happiness: 21 },
-  },
-  {
-    id: 'cactus-plush',
-    name: 'Плюшевый кактус',
-    price: 120,
-    image: imgCactusPlush,
-    category: 'toys',
-    favorite: true,
-    effects: { happiness: 12 },
   },
   {
     id: 'yarn-ball',
@@ -581,15 +526,6 @@ export const shopProducts: ShopProduct[] = [
     category: 'toys',
     favorite: true,
     effects: { happiness: 9 },
-  },
-  {
-    id: 'boomerang-blue',
-    name: 'Бумеранг',
-    price: 115,
-    image: imgBoomerangBlue,
-    category: 'toys',
-    favorite: true,
-    effects: { happiness: 12 },
   },
   {
     id: 'hoodie-blue-paw',
@@ -701,37 +637,10 @@ export const shopProducts: ShopProduct[] = [
     effects: { happiness: 9 },
   },
   {
-    id: 'headband-dino',
-    name: 'Ободок-динозавр',
-    price: 130,
-    image: imgHeadbandDino,
-    category: 'clothes',
-    favorite: true,
-    effects: { happiness: 6 },
-  },
-  {
     id: 'bandana-red-paw',
     name: 'Бандана',
     price: 120,
     image: imgBandanaRedPaw,
-    category: 'clothes',
-    favorite: true,
-    effects: { happiness: 6 },
-  },
-  {
-    id: 'collar-blue-bone',
-    name: 'Ошейник с косточкой',
-    price: 140,
-    image: imgCollarBlueBone,
-    category: 'clothes',
-    favorite: true,
-    effects: { happiness: 6 },
-  },
-  {
-    id: 'collar-orange-paw',
-    name: 'Ошейник с лапкой',
-    price: 135,
-    image: imgCollarOrangePaw,
     category: 'clothes',
     favorite: true,
     effects: { happiness: 6 },
@@ -744,15 +653,6 @@ export const shopProducts: ShopProduct[] = [
     category: 'clothes',
     favorite: true,
     effects: { happiness: 6 },
-  },
-  {
-    id: 'collar-blue-tag',
-    name: 'Ошейник с жетоном',
-    price: 150,
-    image: imgCollarBlueTag,
-    category: 'clothes',
-    favorite: true,
-    effects: { happiness: 7 },
   },
   {
     id: 'glasses-blue-paw',

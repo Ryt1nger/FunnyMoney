@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { IconArrowLeft, IconSettingsGear, IconMusicNote, IconBell, IconChatBubble, IconVibration, IconAlarmClock, IconStar, IconLock, IconChevronRight, IconShieldCrown } from '../components/icons';
 import Toggle from '../components/Toggle';
 import { useSettingsStore } from '../features/settings/settingsStore';
@@ -17,6 +17,18 @@ interface Props {
   /** Сообщает наверх (Home), нужно ли на время спрятать нижнее меню —
    * родительский кабинет/зона занимают весь экран, и таб-бар поверх них лишний. */
   onFullScreenChange?: (active: boolean) => void;
+}
+
+type ParentalView = 'closed' | 'gate' | 'dashboard' | 'zone';
+
+/** Длительность кросс-фейда между экранами родительского доступа — держим
+ * её одним числом, чтобы CSS-transition и таймер очистки слоя не разъехались. */
+const VIEW_TRANSITION_MS = 300;
+
+interface ViewSlot {
+  id: number;
+  key: ParentalView;
+  phase: 'entering' | 'active' | 'leaving';
 }
 
 interface RowProps {
@@ -236,7 +248,7 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
   const setReminders = useSettingsStore((s) => s.setRemindersEnabled);
   const setBrightHints = useSettingsStore((s) => s.setBrightHintsEnabled);
 
-  const [parentalView, setParentalView] = useState<'closed' | 'gate' | 'dashboard' | 'zone'>('closed');
+  const [parentalView, setParentalView] = useState<ParentalView>('closed');
 
   // Пока открыт родительский кабинет/зона — прячем нижнее меню (Home), оно
   // здесь не нужно и перекрывает контент. Возвращаем меню при выходе из
@@ -254,28 +266,66 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
     return () => cancelAnimationFrame(id);
   }, []);
 
-  if (parentalView === 'gate') {
-    return (
-      <ParentalGate
-        onPass={() => setParentalView('dashboard')}
-        onCancel={() => setParentalView('closed')}
-      />
-    );
-  }
-  if (parentalView === 'dashboard') {
-    return (
-      <ParentDashboard
-        bottomInset={bottomInset}
-        onBack={() => setParentalView('closed')}
-        onOpenZone={() => setParentalView('zone')}
-      />
-    );
-  }
-  if (parentalView === 'zone') {
-    return <ParentalZone onBack={() => setParentalView('dashboard')} />;
+  // Плавный переход между "основными настройками", проверкой, кабинетом и
+  // служебной зоной — раньше смена вида была мгновенной подменой всего дерева
+  // (early return), экран будто дёргался. Держим старый слой на экране, пока
+  // новый проявляется поверх него (кросс-фейд + лёгкий сдвиг), затем убираем.
+  const [viewSlots, setViewSlots] = useState<ViewSlot[]>(() => [
+    { id: 0, key: parentalView, phase: 'active' },
+  ]);
+  const nextSlotId = useRef(1);
+  const isFirstViewRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstViewRender.current) {
+      isFirstViewRender.current = false;
+      return;
+    }
+    const id = nextSlotId.current++;
+    setViewSlots((prev) => [
+      ...prev.map((slot) => ({ ...slot, phase: 'leaving' as const })),
+      { id, key: parentalView, phase: 'entering' as const },
+    ]);
+
+    const raf = requestAnimationFrame(() => {
+      setViewSlots((prev) => prev.map((slot) => (slot.id === id ? { ...slot, phase: 'active' } : slot)));
+    });
+    const timeout = setTimeout(() => {
+      setViewSlots((prev) => prev.filter((slot) => slot.id === id));
+    }, VIEW_TRANSITION_MS);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+    };
+  }, [parentalView]);
+
+  function renderParentalView(key: ParentalView): ReactNode {
+    if (key === 'gate') {
+      return (
+        <ParentalGate
+          onPass={() => setParentalView('dashboard')}
+          onCancel={() => setParentalView('closed')}
+        />
+      );
+    }
+    if (key === 'dashboard') {
+      return (
+        <ParentDashboard
+          bottomInset={bottomInset}
+          onBack={() => setParentalView('closed')}
+          onOpenZone={() => setParentalView('zone')}
+        />
+      );
+    }
+    if (key === 'zone') {
+      return <ParentalZone onBack={() => setParentalView('dashboard')} />;
+    }
+    return renderMainSettings();
   }
 
-  return (
+  function renderMainSettings(): ReactNode {
+    return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       <div
         className="relative shrink-0 overflow-hidden px-4 pb-5 pt-4 transition-opacity duration-500"
@@ -381,6 +431,32 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
           <IconChevronRight className="h-5 w-5 shrink-0" style={{ color: '#c9bda6' }} />
         </button>
       </div>
+    </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      {viewSlots.map((slot) => (
+        <div
+          key={slot.id}
+          className="absolute inset-0 transition-all"
+          style={{
+            transitionDuration: `${VIEW_TRANSITION_MS}ms`,
+            transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            opacity: slot.phase === 'active' ? 1 : 0,
+            transform:
+              slot.phase === 'active'
+                ? 'translateY(0) scale(1)'
+                : slot.phase === 'leaving'
+                  ? 'translateY(-1.5%) scale(0.985)'
+                  : 'translateY(1.5%) scale(0.985)',
+            pointerEvents: slot.phase === 'active' ? 'auto' : 'none',
+          }}
+        >
+          {renderParentalView(slot.key)}
+        </div>
+      ))}
     </div>
   );
 }
