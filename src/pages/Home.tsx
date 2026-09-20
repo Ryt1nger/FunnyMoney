@@ -40,6 +40,7 @@ import {
   IconFlame,
   IconBackpackLight,
   IconSettingsGear,
+  IconCutlery,
   IconChevronRight,
 } from '../components/icons';
 
@@ -261,32 +262,52 @@ export default function Home() {
           />
         </div>
 
-        {/* Кнопки инвентаря и настроек — отдельной строкой под статистиками:
-            настройки слева, инвентарь справа (тот же визуальный стиль кнопки). */}
-        <div className="relative z-20 mt-2 flex justify-between px-4">
+        {/* Кнопки под статистиками: слева стопкой настройки и (под ними) инвентарь,
+            справа — вход в столовую (кормление питомца). Тот же визуальный стиль кнопки. */}
+        <div className="relative z-20 mt-2 flex items-start justify-between px-4">
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setSheet('settings')}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Настройки"
+            >
+              <IconSettingsGear className="h-6 w-6" />
+            </button>
+            <button
+              onClick={() => setSheet('inventory')}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Инвентарь"
+            >
+              <IconBackpackLight className="h-6 w-6" />
+            </button>
+          </div>
           <button
-            onClick={() => setSheet('settings')}
+            // Столовая как отдельный экран ещё не построена — пока временно ведёт
+            // в магазин на вкладку "Еда", чтобы кнопка не была нерабочей.
+            // Когда появится экран кормления, заменить на его открытие.
+            onClick={() => {
+              setTab('shop');
+              setSheet('shop');
+            }}
             className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
             style={{
               background: 'rgba(26,20,40,0.30)',
               borderColor: 'rgba(255,255,255,0.30)',
               boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
             }}
-            aria-label="Настройки"
+            aria-label="Столовая"
           >
-            <IconSettingsGear className="h-6 w-6" />
-          </button>
-          <button
-            onClick={() => setSheet('inventory')}
-            className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-            style={{
-              background: 'rgba(26,20,40,0.30)',
-              borderColor: 'rgba(255,255,255,0.30)',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-            }}
-            aria-label="Инвентарь"
-          >
-            <IconBackpackLight className="h-6 w-6" />
+            <IconCutlery className="h-6 w-6" />
           </button>
         </div>
 
