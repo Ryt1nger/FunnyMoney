@@ -795,6 +795,12 @@ import roomDay from '../assets/backgrounds/room-day.jpg';
 import roomDay2 from '../assets/backgrounds/room-day-2.jpg';
 import roomGreen from '../assets/backgrounds/room-green.jpg';
 import roomNight from '../assets/backgrounds/room-night.jpg';
+import roomKitchenCitrus from '../assets/backgrounds/room-kitchen-citrus.jpg';
+import roomKitchenPaw from '../assets/backgrounds/room-kitchen-paw.jpg';
+import roomKitchenGreen from '../assets/backgrounds/room-kitchen-green.jpg';
+
+/** Раздел интерьера в магазине: игровая (обычные комнаты) или кухня (столовая). */
+export type RoomSection = 'playroom' | 'kitchen';
 
 export interface RoomProduct {
   id: string;
@@ -805,6 +811,8 @@ export interface RoomProduct {
   background: string;
   /** стартовая комната уже принадлежит игроку */
   owned?: boolean;
+  /** раздел вкладки «Интерьер» в магазине — «Игровая» или «Кухня» */
+  section: RoomSection;
 }
 
 export const rooms: RoomProduct[] = [
@@ -815,6 +823,7 @@ export const rooms: RoomProduct[] = [
     price: 0,
     background: roomDay,
     owned: true,
+    section: 'playroom',
   },
   {
     id: 'room-day-2',
@@ -822,6 +831,7 @@ export const rooms: RoomProduct[] = [
     description: 'Больше света и места для игр',
     price: 800,
     background: roomDay2,
+    section: 'playroom',
   },
   {
     id: 'room-green',
@@ -829,6 +839,7 @@ export const rooms: RoomProduct[] = [
     description: 'Мягкий ковёр и много растений',
     price: 1000,
     background: roomGreen,
+    section: 'playroom',
   },
   {
     id: 'room-night',
@@ -836,5 +847,34 @@ export const rooms: RoomProduct[] = [
     description: 'Звёзды на ковре и ночник',
     price: 1200,
     background: roomNight,
+    section: 'playroom',
+  },
+  {
+    id: 'room-kitchen-citrus',
+    name: 'Цветочная кухня',
+    description: 'Голубой кафель и корзинка мандаринов',
+    price: 900,
+    background: roomKitchenCitrus,
+    section: 'kitchen',
+  },
+  {
+    id: 'room-kitchen-paw',
+    name: 'Кухня с лапками',
+    description: 'Голубые шкафчики и посуда с лапками',
+    price: 900,
+    background: roomKitchenPaw,
+    section: 'kitchen',
+  },
+  {
+    id: 'room-kitchen-green',
+    name: 'Зелёная кухня',
+    description: 'Много растений и уютный свет',
+    price: 900,
+    background: roomKitchenGreen,
+    section: 'kitchen',
   },
 ];
+
+export function roomsBySection(section: RoomSection): RoomProduct[] {
+  return rooms.filter((r) => r.section === section);
+}

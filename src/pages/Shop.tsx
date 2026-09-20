@@ -8,7 +8,14 @@ import catClothes from '../assets/icons/shop/cat-clothes.png';
 import catInterior from '../assets/icons/shop/cat-interior.png';
 import MaskIcon from '../components/MaskIcon';
 import { IconArrowLeft, IconPlus, IconCheck } from '../components/icons';
-import { productsByCategory, rooms, type RoomProduct, type ShopCategoryId, type ShopProduct } from '../data/shopData';
+import {
+  productsByCategory,
+  roomsBySection,
+  type RoomProduct,
+  type RoomSection,
+  type ShopCategoryId,
+  type ShopProduct,
+} from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { purchaseProduct } from '../features/economy/purchase';
 import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
@@ -18,6 +25,11 @@ const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
   { id: 'toys', label: 'Игрушки', icon: catToys },
   { id: 'clothes', label: 'Одежда', icon: catClothes },
   { id: 'interior', label: 'Интерьер', icon: catInterior },
+];
+
+const INTERIOR_SECTIONS: { id: RoomSection; label: string }[] = [
+  { id: 'playroom', label: 'Игровая' },
+  { id: 'kitchen', label: 'Кухня' },
 ];
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -49,9 +61,12 @@ export default function Shop({
   confirmationEnabled = true,
 }: Props) {
   const [category, setCategory] = useState<ShopCategoryId>('food');
+  // Подраздел вкладки «Интерьер» — игровая (обычные комнаты) или кухня (столовая).
+  const [interiorSection, setInteriorSection] = useState<RoomSection>('playroom');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const products = category === 'interior' ? [] : productsByCategory(category);
+  const interiorRooms = roomsBySection(interiorSection);
   // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
   // при покупке чего угодно кроме еды"). Еда покупается сразу, без лишнего клика.
   const [confirmProduct, setConfirmProduct] = useState<ShopProduct | null>(null);
@@ -193,10 +208,33 @@ export default function Shop({
           </h2>
         </div>
 
-        {/* Интерьер продаёт фоны комнаты целиком: тап открывает превью с медведем перед покупкой */}
+        {/* Интерьер продаёт фоны комнаты целиком: тап открывает превью с медведем перед покупкой.
+            Разделён на подразделы — игровая и кухня (столовая для кормления питомца). */}
+        {category === 'interior' && (
+          <div className="mt-3 flex gap-2">
+            {INTERIOR_SECTIONS.map(({ id, label }) => {
+              const active = interiorSection === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setInteriorSection(id)}
+                  className="rounded-full px-3.5 py-1.5 text-[12px] font-bold transition"
+                  style={
+                    active
+                      ? { background: VIOLET, color: '#ffffff', boxShadow: '0 3px 8px rgba(92,90,216,0.28)' }
+                      : { background: 'rgba(255,255,255,0.6)', color: '#6f6355' }
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {category === 'interior' ? (
           <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            {rooms.map((room) => {
+            {interiorRooms.map((room) => {
               const owned = ownedRoomIds.includes(room.id);
               return (
                 <button

@@ -6,7 +6,7 @@ import bearSilhouette from '../assets/pet/bear-main-trim.png';
 import bearAvatar from '../assets/pet/bear-avatar.png';
 import bgRoom from '../assets/backgrounds/room-day.jpg';
 import RoomPreview from './RoomPreview';
-import { rooms, type RoomProduct } from '../data/shopData';
+import { rooms, roomsBySection, type RoomProduct } from '../data/shopData';
 import boneToy from '../assets/items/toys/bone-toy-card.png';
 import boneBlob from '../assets/ui/bone-blob.png';
 import levelFlower from '../assets/ui/level-flower.png';
@@ -460,7 +460,6 @@ export default function Home() {
               onClick={
                 streakDays === 0
                   ? () => {
-                      setDayInitialTab('tasks');
                       setTab('day');
                       setSheet('day');
                     }
@@ -520,7 +519,6 @@ export default function Home() {
               hapticTap();
               setTab(next);
               setSheet(next === 'home' ? null : next);
-              if (next === 'day') setDayInitialTab('tasks');
             }}
           />
         </div>
@@ -634,7 +632,7 @@ export default function Home() {
       {previewRoom && (
         <div className="absolute inset-0 z-50">
           <RoomPreview
-            rooms={rooms}
+            rooms={roomsBySection(previewRoom.section)}
             initialRoomId={previewRoom.id}
             coins={coins}
             ownedRoomIds={ownedRoomIds}
