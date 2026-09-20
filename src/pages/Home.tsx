@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import bearFull from '../assets/pet/bear-main.png';
 // обрезанный по силуэту вариант — только для отбрасываемой тени,
 // иначе прозрачное поле PNG превращается после отражения в зазор
@@ -70,6 +70,12 @@ const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 // сама кухня (см. PageLoading — полоса заполняется ровно за этот срок).
 const KITCHEN_LOADING_MS = 2000;
 
+// Свайп вверх с главного экрана открывает раздел уроков — тот же простой
+// порог, что и на кухне (см. Kitchen.tsx), но срабатывает только когда
+// поверх главного экрана ничего не открыто (иначе жест мешал бы шторкам,
+// превью комнаты, окошку заработка монет и экрану загрузки кухни).
+const SWIPE_UP_THRESHOLD = 70;
+
 function shouldShowLessonReminder() {
   try {
     const raw = localStorage.getItem(LAST_LESSON_VISIT_KEY);
@@ -127,6 +133,10 @@ export default function Home() {
   // тем, как реально открыть шторку кухни.
   const [kitchenLoading, setKitchenLoading] = useState(false);
   const kitchenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Магазин, открытый корзинкой с экрана кухни, показывает только «Еду» и
+  // «Интерьер» (и только кухонный подраздел интерьера) — из нижнего меню он
+  // как обычно открывается полным (см. onChange у BottomNav ниже).
+  const [shopKitchenOnly, setShopKitchenOnly] = useState(false);
 
   function openKitchen() {
     setKitchenLoading(true);
@@ -169,11 +179,39 @@ export default function Home() {
   }, []);
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
 
+  const swipeUpRef = useRef<{ startX: number; startY: number } | null>(null);
+  // Жест активен только когда над главным экраном ничего не открыто —
+  // иначе свайп внутри шторки/превью/модалки/экрана загрузки случайно
+  // триггерил бы переход на уроки.
+  const swipeUpGestureActive = sheet === null && !previewRoom && !earnModalOpen && !kitchenLoading;
+
+  function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!swipeUpGestureActive) return;
+    swipeUpRef.current = { startX: e.clientX, startY: e.clientY };
+  }
+
+  function handleRootPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    const start = swipeUpRef.current;
+    swipeUpRef.current = null;
+    if (!start || !swipeUpGestureActive) return;
+    const dy = start.startY - e.clientY; // положительно — свайп вверх
+    const dx = Math.abs(e.clientX - start.startX);
+    if (dy > SWIPE_UP_THRESHOLD && dy > dx) {
+      hapticTap();
+      setTab('lessons');
+      setSheet('lessons');
+    }
+  }
+
   return (
     // Фото комнаты — фон ВСЕГО экрана. Контент раскладывается колонкой
     // на всю высоту кадра: шапка сверху, навигация прижата к низу,
     // медведь занимает всё свободное место между ними.
-    <div className="relative h-full w-full overflow-hidden bg-[#b9835a]">
+    <div
+      className="relative h-full w-full overflow-hidden bg-[#b9835a]"
+      onPointerDown={handleRootPointerDown}
+      onPointerUp={handleRootPointerUp}
+    >
       <img
         src={rooms.find((r) => r.id === activeRoomId)?.background ?? bgRoom}
         alt=""
@@ -547,6 +585,9 @@ export default function Home() {
               hapticTap();
               setTab(next);
               setSheet(next === 'home' ? null : next);
+              // Магазин из нижнего меню — всегда полный, без кухонного ограничения
+              // (в отличие от корзинки на экране кухни, см. openKitchenShop).
+              if (next === 'shop') setShopKitchenOnly(false);
             }}
           />
         </div>
@@ -575,12 +616,14 @@ export default function Home() {
             bottomInset={navHeight}
             coins={coins}
             ownedRoomIds={ownedRoomIds}
+            kitchenOnly={shopKitchenOnly}
             onRoomSelect={(room) => setPreviewRoom(room)}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             confirmationEnabled={purchaseConfirmationEnabled}
             onClose={() => {
               setSheet(null);
               setTab('home');
+              setShopKitchenOnly(false);
             }}
           />
         ) : sheet === 'stats' ? (
@@ -630,6 +673,7 @@ export default function Home() {
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onOpenProgress={() => setSheet('progress')}
             onOpenShop={() => {
+              setShopKitchenOnly(true);
               setTab('shop');
               setSheet('shop');
             }}

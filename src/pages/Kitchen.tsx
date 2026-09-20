@@ -20,10 +20,14 @@ import { rooms, roomsBySection, shopProducts, type ShopProduct } from '../data/s
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { feedPet } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
+import { playFeedCrunchSound } from '../services/feedSound';
 
 // Фон кухни по умолчанию — если своя кухня ещё не куплена/не установлена,
 // показываем первую из каталога (см. shopData: rooms, section 'kitchen').
 const DEFAULT_KITCHEN_BG = roomsBySection('kitchen')[0].background;
+
+// Свайп вверх по кухне (не по еде) — открыть магазин.
+const SWIPE_UP_THRESHOLD = 70;
 
 interface Props {
   bottomInset?: number;
@@ -86,6 +90,9 @@ export default function Kitchen({
   // обрезало/прятало fixed-плашку. absolute от собственного корня от этой
   // проблемы не зависит.
   const rootRef = useRef<HTMLDivElement>(null);
+  // Свайп вверх по кухне (кроме перетаскивания еды — те карточки сами
+  // останавливают всплытие своего pointerdown, см. ниже) открывает магазин.
+  const swipeUpRef = useRef<{ startX: number; startY: number } | null>(null);
 
   const background =
     rooms.find((r) => r.id === activeKitchenRoomId)?.background ?? DEFAULT_KITCHEN_BG;
@@ -97,7 +104,23 @@ export default function Kitchen({
     return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
   }
 
+  function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    swipeUpRef.current = { startX: e.clientX, startY: e.clientY };
+  }
+
+  function handleRootPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    const start = swipeUpRef.current;
+    swipeUpRef.current = null;
+    if (!start) return;
+    const dy = start.startY - e.clientY; // положительно — свайп вверх
+    const dx = Math.abs(e.clientX - start.startX);
+    if (dy > SWIPE_UP_THRESHOLD && dy > dx) onOpenShop();
+  }
+
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>, product: ShopProduct) {
+    // Не даём жесту всплыть выше — иначе шторка (BottomSheet) может принять
+    // перетаскивание еды за свайп вниз/вверх по разделу.
+    e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
   }
@@ -119,14 +142,22 @@ export default function Kitchen({
         e.clientY <= rect.bottom
       ) {
         const ok = feedPet(current.product);
-        if (ok) hapticTap();
+        if (ok) {
+          hapticTap();
+          playFeedCrunchSound();
+        }
       }
       return null;
     });
   }
 
   return (
-    <div ref={rootRef} className="relative flex h-full w-full flex-col overflow-hidden bg-[#b9835a]">
+    <div
+      ref={rootRef}
+      onPointerDown={handleRootPointerDown}
+      onPointerUp={handleRootPointerUp}
+      className="relative flex h-full w-full flex-col overflow-hidden bg-[#b9835a]"
+    >
       <img src={background} alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
 
       {/* Шапка — тот же вид, что и на главной: аватар/уровень, монеты; плюс кнопка назад. */}
@@ -230,22 +261,10 @@ export default function Kitchen({
         />
       </div>
 
-      {/* Вместо настроек/инвентаря на кухне — переход обратно в игровую (домик)
-          и переход в магазин на раздел «Еда» (корзинка). Тот же стиль кнопки,
-          что и на главной. */}
+      {/* Вместо настроек/инвентаря на кухне — переход в магазин на раздел «Еда»
+          (корзинка, слева) и переход обратно в игровую (домик, справа).
+          Тот же стиль кнопки, что и на главной. */}
       <div className="relative z-20 mt-2 flex items-center justify-between px-4">
-        <button
-          onClick={onClose}
-          className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-          style={{
-            background: 'rgba(26,20,40,0.30)',
-            borderColor: 'rgba(255,255,255,0.30)',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-          }}
-          aria-label="В игровую"
-        >
-          <IconHome className="h-6 w-6" />
-        </button>
         <button
           onClick={onOpenShop}
           className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
@@ -257,6 +276,18 @@ export default function Kitchen({
           aria-label="Магазин еды"
         >
           <IconCart className="h-6 w-6" />
+        </button>
+        <button
+          onClick={onClose}
+          className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+          style={{
+            background: 'rgba(26,20,40,0.30)',
+            borderColor: 'rgba(255,255,255,0.30)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+          }}
+          aria-label="В игровую"
+        >
+          <IconHome className="h-6 w-6" />
         </button>
       </div>
 
@@ -273,11 +304,16 @@ export default function Kitchen({
           <div className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1.5 rotate-45 bg-white" />
         </div>
 
+        {/* Размер — в vh (доле высоты экрана), а не в % от этой flex-зоны:
+            высота подноса «Моя еда» под ним авто-подстраивается под контент
+            (см. ниже), из-за чего flex-зона медведя может слегка «дышать» —
+            в vh-единицах медведь от этого не меняется в размере (как и на
+            главной, где он тоже не зависит от соседних блоков). */}
         <img
           src={bearFull}
           alt={petName}
           draggable={false}
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[76%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
       </div>
 

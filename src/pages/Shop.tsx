@@ -49,6 +49,10 @@ interface Props {
   /** родительский контроль (родительский кабинет): если выключено — покупки
    * (кроме еды, она и так без подтверждения) проходят сразу, без окна "точно купить?" */
   confirmationEnabled?: boolean;
+  /** Открыт корзинкой с экрана кухни — показываем только «Еду» и кухонный
+   *  интерьер (без игрушек/одежды/игровой комнаты). Из нижнего меню магазин
+   *  как обычно полный (по умолчанию false). */
+  kitchenOnly?: boolean;
 }
 
 export default function Shop({
@@ -59,15 +63,18 @@ export default function Shop({
   onRoomSelect,
   onOpenEarnModal,
   confirmationEnabled = true,
+  kitchenOnly = false,
 }: Props) {
+  const categories = kitchenOnly ? CATEGORIES.filter((c) => c.id === 'food' || c.id === 'interior') : CATEGORIES;
   const [category, setCategory] = useState<ShopCategoryId>('food');
   // Подраздел вкладки «Интерьер» — игровая (обычные комнаты) или кухня (столовая).
-  const [interiorSection, setInteriorSection] = useState<RoomSection>('playroom');
+  // В режиме kitchenOnly выбора нет — всегда кухня.
+  const [interiorSection, setInteriorSection] = useState<RoomSection>(kitchenOnly ? 'kitchen' : 'playroom');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const foodQty = useInventoryStore((s) => s.foodQty);
   const products = category === 'interior' ? [] : productsByCategory(category);
-  const interiorRooms = roomsBySection(interiorSection);
+  const interiorRooms = roomsBySection(kitchenOnly ? 'kitchen' : interiorSection);
   // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
   // при покупке чего угодно кроме еды"). Еда покупается сразу, без лишнего клика.
   const [confirmProduct, setConfirmProduct] = useState<ShopProduct | null>(null);
@@ -182,9 +189,10 @@ export default function Shop({
           transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
-        {/* Полоса категорий — единый блок с разделителями, как в макете */}
+        {/* Полоса категорий — единый блок с разделителями, как в макете.
+            С кухни (kitchenOnly) видно только «Еду» и «Интерьер». */}
         <div className="flex overflow-hidden rounded-[20px] bg-white/60 p-1.5">
-          {CATEGORIES.map(({ id, label, icon }, i) => {
+          {categories.map(({ id, label, icon }, i) => {
             const active = category === id;
             return (
               <button
@@ -211,13 +219,14 @@ export default function Shop({
         {/* Заголовок подборки */}
         <div className="mt-4 flex items-center">
           <h2 className="text-[17px] font-extrabold" style={{ color: '#2c2a5e' }}>
-            {CATEGORIES.find((c) => c.id === category)?.label}
+            {categories.find((c) => c.id === category)?.label}
           </h2>
         </div>
 
         {/* Интерьер продаёт фоны комнаты целиком: тап открывает превью с медведем перед покупкой.
-            Разделён на подразделы — игровая и кухня (столовая для кормления питомца). */}
-        {category === 'interior' && (
+            Разделён на подразделы — игровая и кухня (столовая для кормления питомца).
+            В режиме kitchenOnly выбора нет (всегда кухня) — переключатель не нужен. */}
+        {category === 'interior' && !kitchenOnly && (
           <div className="mt-3 flex gap-2">
             {INTERIOR_SECTIONS.map(({ id, label }) => {
               const active = interiorSection === id;
