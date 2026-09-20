@@ -8,7 +8,7 @@ import catInterior from '../assets/icons/shop/cat-interior.png';
 import MaskIcon from '../components/MaskIcon';
 import Toggle from '../components/Toggle';
 import { IconArrowLeft, IconSettingsGear, IconChevronRight } from '../components/icons';
-import { progressLevels, CURRENT_LEVEL, CURRENT_XP } from '../data/progressLevels';
+import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import { earnedByDay, earnedByWeek, purchasesByCategory, type PurchaseCategoryId, type ChartPoint } from '../data/parentDashboardData';
 import { dayTasks } from '../data/dayData';
 import { usePetStore } from '../features/pet/petStore';
@@ -19,9 +19,6 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const VIOLET_SOLID = '#7574f0';
-
-const XP_TO_NEXT = progressLevels[CURRENT_LEVEL - 1].xpThreshold;
-const CURRENT_LEVEL_TITLE = progressLevels[CURRENT_LEVEL - 1].title;
 
 const CATEGORY_ICONS: Record<PurchaseCategoryId, string> = {
   food: catFood,
@@ -144,7 +141,13 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const petName = pet?.name ?? 'Мишка';
-  const xpPercent = Math.min(100, Math.round((CURRENT_XP / XP_TO_NEXT) * 100));
+  // Реальные уровень/опыт — раньше здесь были захардкоженные CURRENT_LEVEL/
+  // CURRENT_XP (всегда 1/0), теперь берём из petStore (см. addXp в Day.tsx).
+  const currentLevel = pet?.level ?? 1;
+  const currentXp = pet?.xp ?? 0;
+  const xpToNext = progressLevels[Math.min(currentLevel, MAX_LEVEL) - 1].xpThreshold;
+  const currentLevelTitle = progressLevels[Math.min(currentLevel, MAX_LEVEL) - 1].title;
+  const xpPercent = Math.min(100, Math.round((currentXp / xpToNext) * 100));
   // Купленные комнаты — минус стартовая, которой владеешь по умолчанию, а не купил сам.
   const boughtRoomsCount = Math.max(0, ownedRoomIds.length - 1);
   const purchasesCount = ownedProductIds.length + boughtRoomsCount;
@@ -197,14 +200,14 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
                 {petName}
               </div>
               <div className="text-[12.5px] font-semibold" style={{ color: '#7b7a8c' }}>
-                Уровень {CURRENT_LEVEL} · {CURRENT_LEVEL_TITLE}
+                Уровень {currentLevel} · {currentLevelTitle}
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-[8px] flex-1 overflow-hidden rounded-full" style={{ background: 'rgba(120,110,150,0.18)' }}>
                   <div className="h-full rounded-full" style={{ width: `${xpPercent}%`, background: VIOLET }} />
                 </div>
                 <span className="shrink-0 text-[11px] font-bold" style={{ color: '#5c5876' }}>
-                  {CURRENT_XP} / {XP_TO_NEXT} XP
+                  {currentXp} / {xpToNext} XP
                 </span>
               </div>
             </div>

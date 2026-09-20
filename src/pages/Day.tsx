@@ -90,6 +90,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
   const [entered, setEntered] = useState(false);
   const applyCoinsDelta = useEconomyStore((s) => s.applyCoinsDelta);
   const applyPetDelta = usePetStore((s) => s.applyDelta);
+  const addXp = usePetStore((s) => s.addXp);
   const completedTaskIds = useDayProgressStore((s) => s.completedTaskIds);
   const startedTaskIds = useDayProgressStore((s) => s.startedTaskIds);
   const startTask = useDayProgressStore((s) => s.startTask);
@@ -128,6 +129,10 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
     if (task.rewardCoins) {
       applyCoinsDelta(task.rewardCoins, `Задание дня: ${task.title}`);
     }
+    // Раньше опыт нигде не накапливался (XP на экране "Прогресс" был
+    // захардкожен) — теперь реально начисляется в petStore при каждой
+    // полученной награде.
+    addXp(task.xp);
     completeTask(task.id);
   }
 

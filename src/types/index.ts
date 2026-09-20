@@ -15,6 +15,8 @@ export interface PetState {
   species: PetSpecies;
   name: string;
   level: number;
+  /** Суммарный накопленный опыт — реальный счётчик за задания дня, см. petStore.addXp. */
+  xp: number;
   health: number; // 0-100
   happiness: number; // 0-100
   mood: PetMood;

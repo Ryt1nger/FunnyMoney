@@ -1,11 +1,15 @@
 import { create } from 'zustand';
 import type { PetSpecies, PetState } from '../../types';
 import { storage } from '../../services/storage';
+import { progressLevels, MAX_LEVEL } from '../../data/progressLevels';
 
 interface PetStore {
   pet: PetState | null;
   createPet: (species: PetSpecies, name: string) => void;
   applyDelta: (delta: { health?: number; happiness?: number }) => void;
+  /** Начисляет опыт (например, за задание дня) и пересчитывает уровень по порогам
+   *  из progressLevels — единственное место, где xp/level реально меняются. */
+  addXp: (amount: number) => void;
   setMood: (mood: PetState['mood']) => void;
   renamePet: (name: string) => void;
   /** Перечитывает состояние из storage — реальная проверка на межстраничном экране загрузки. */
@@ -16,6 +20,16 @@ const STORAGE_KEY = 'pet';
 
 function clamp(value: number): number {
   return Math.max(0, Math.min(100, value));
+}
+
+// Уровень = сколько порогов xpThreshold уже пройдено (+1), но не выше MAX_LEVEL —
+// та же логика чтения progressLevels, что использует экран "Прогресс".
+function levelForXp(xp: number): number {
+  let level = 1;
+  for (const entry of progressLevels) {
+    if (xp >= entry.xpThreshold) level = Math.min(entry.level + 1, MAX_LEVEL);
+  }
+  return level;
 }
 
 export function isValidPetState(value: unknown): value is PetState {
@@ -30,9 +44,16 @@ export function isValidPetState(value: unknown): value is PetState {
   );
 }
 
+// Старые сохранения (до появления реального опыта) не содержат xp — считаем его
+// нулевым и пересчитываем level от этого нуля, ничего не теряя и не ломая.
+function normalizePet(pet: PetState): PetState {
+  const xp = typeof pet.xp === 'number' ? pet.xp : 0;
+  return { ...pet, xp, level: levelForXp(xp) };
+}
+
 function loadInitial(): PetState | null {
   const saved = storage.get<PetState>(STORAGE_KEY);
-  return saved && isValidPetState(saved) ? saved : null;
+  return saved && isValidPetState(saved) ? normalizePet(saved) : null;
 }
 
 export const usePetStore = create<PetStore>((set, get) => ({
@@ -44,6 +65,7 @@ export const usePetStore = create<PetStore>((set, get) => ({
       species,
       name,
       level: 1,
+      xp: 0,
       health: 100,
       happiness: 50,
       mood: 'neutral',
@@ -61,6 +83,15 @@ export const usePetStore = create<PetStore>((set, get) => ({
       health: clamp(current.health + (delta.health ?? 0)),
       happiness: clamp(current.happiness + (delta.happiness ?? 0)),
     };
+    storage.set(STORAGE_KEY, next);
+    set({ pet: next });
+  },
+
+  addXp: (amount) => {
+    const current = get().pet;
+    if (!current || amount <= 0) return;
+    const xp = current.xp + amount;
+    const next: PetState = { ...current, xp, level: levelForXp(xp) };
     storage.set(STORAGE_KEY, next);
     set({ pet: next });
   },
@@ -84,7 +115,7 @@ export const usePetStore = create<PetStore>((set, get) => ({
   hydrate: () => {
     const saved = storage.get<PetState>(STORAGE_KEY);
     if (saved && isValidPetState(saved)) {
-      set({ pet: saved });
+      set({ pet: normalizePet(saved) });
     } else if (saved) {
       storage.remove(STORAGE_KEY);
       set({ pet: null });

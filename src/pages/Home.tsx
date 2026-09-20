@@ -32,7 +32,7 @@ import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
-import { progressLevels, CURRENT_LEVEL, CURRENT_XP } from '../data/progressLevels';
+import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import {
   IconStar,
   IconPlus,
@@ -42,13 +42,6 @@ import {
   IconSettingsGear,
   IconChevronRight,
 } from '../components/icons';
-
-// Уровень/опыт — общие константы из src/data/progressLevels.ts, тот же
-// источник, что показывают экран "Прогресс" и родительский кабинет, чтобы
-// цифры нигде не расходились.
-const LEVEL = CURRENT_LEVEL;
-const XP = CURRENT_XP;
-const XP_TO_NEXT = progressLevels[LEVEL - 1].xpThreshold;
 
 // Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
 // только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
@@ -93,6 +86,12 @@ type SheetId = TabId | 'inventory' | 'settings' | 'progress';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
+  // Реальные уровень/опыт питомца — раньше здесь были захардкоженные
+  // CURRENT_LEVEL/CURRENT_XP (всегда 1/0), из-за чего опыт с заданий дня
+  // нигде не накапливался. Теперь берём из petStore (см. addXp в Day.tsx).
+  const level = pet?.level ?? 1;
+  const xp = pet?.xp ?? 0;
+  const xpToNext = progressLevels[Math.min(level, MAX_LEVEL) - 1].xpThreshold;
   const coins = useEconomyStore((s) => s.coins);
   const wealthScore = useEconomyStore((s) => s.wealthScore);
   const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
@@ -140,7 +139,7 @@ export default function Home() {
   useLayoutEffect(() => {
     if (navRef.current) setNavHeight(navRef.current.offsetHeight);
   }, []);
-  const xpPercent = Math.min(100, Math.round((XP / XP_TO_NEXT) * 100));
+  const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
 
   return (
     // Фото комнаты — фон ВСЕГО экрана. Контент раскладывается колонкой
@@ -177,7 +176,7 @@ export default function Home() {
               <div className="absolute -right-[15px] top-1/2 flex h-[24px] w-[24px] -translate-y-1/2 items-center justify-center drop-shadow">
                 <img src={levelFlower} alt="" className="absolute inset-0 h-full w-full" />
                 <span className="relative text-[11px] font-extrabold" style={{ color: '#2c2a5e' }}>
-                  {LEVEL}
+                  {level}
                 </span>
               </div>
             </div>
@@ -205,7 +204,7 @@ export default function Home() {
                 className="mt-1 text-[11px] font-medium leading-none text-white"
                 style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
               >
-                {XP} / {XP_TO_NEXT} XP
+                {xp} / {xpToNext} XP
               </div>
             </div>
 
@@ -561,8 +560,8 @@ export default function Home() {
           <ProgressPage
             bottomInset={navHeight}
             coins={coins}
-            level={LEVEL}
-            xp={XP}
+            level={level}
+            xp={xp}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={() => {
               setSheet(null);
