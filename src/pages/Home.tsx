@@ -75,6 +75,10 @@ const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 // анимации — небольшой запас на всякий случай.
 const SCREEN_LOADING_MS = 1500;
 
+// Плавное появление/исчезновение самого экрана загрузки (отдельно от
+// длительности его показа выше) — чтобы не выглядело резким "миганием".
+const SCREEN_LOADING_FADE_MS = 200;
+
 // Свайп вверх с главного экрана открывает раздел уроков — тот же простой
 // порог, что и на кухне (см. Kitchen.tsx), но срабатывает только когда
 // поверх главного экрана ничего не открыто (иначе жест мешал бы шторкам,
@@ -138,30 +142,55 @@ export default function Home() {
   // null — не показан; 'kitchen'/'home' — какой переход сейчас скрыт под ним.
   const [screenLoading, setScreenLoading] = useState<'kitchen' | 'home' | null>(null);
   const screenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Отдельно от screenLoading (который определяет, ЧТО сейчас скрыто под
+  // загрузкой и когда переход считается завершённым) — состояние самого
+  // оверлея: мигание убрано, экран загрузки плавно появляется и исчезает,
+  // а не пропадает вместе со сменой экрана резким скачком.
+  const [loadingMounted, setLoadingMounted] = useState(false);
+  const [loadingShown, setLoadingShown] = useState(false);
+  const loadingUnmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (screenLoading !== null) {
+      if (loadingUnmountTimer.current) {
+        clearTimeout(loadingUnmountTimer.current);
+        loadingUnmountTimer.current = null;
+      }
+      setLoadingMounted(true);
+      const id = requestAnimationFrame(() => setLoadingShown(true));
+      return () => cancelAnimationFrame(id);
+    }
+    // screenLoading стал null — сначала плавно гасим (transition-opacity в
+    // разметке ниже), и только после завершения затухания убираем оверлей
+    // из DOM целиком.
+    setLoadingShown(false);
+    loadingUnmountTimer.current = setTimeout(() => setLoadingMounted(false), SCREEN_LOADING_FADE_MS);
+    return () => {
+      if (loadingUnmountTimer.current) clearTimeout(loadingUnmountTimer.current);
+    };
+  }, [screenLoading]);
   // Магазин, открытый корзинкой с экрана кухни, показывает только «Еду» и
   // «Интерьер» (и только кухонный подраздел интерьера) — из нижнего меню он
   // как обычно открывается полным (см. onChange у BottomNav ниже).
   const [shopKitchenOnly, setShopKitchenOnly] = useState(false);
-  // Если магазин/прогресс открыты С КУХНИ (кнопка-корзинка / аватар в шапке
-  // кухни), закрытие этого раздела должно вернуть на кухню, а не на главную —
-  // иначе пользователя "выкидывало" из процесса кормления на домашний экран.
-  const [returnToKitchen, setReturnToKitchen] = useState(false);
+  // Активная "комната" — главная или кухня. Меняется ТОЛЬКО явными иконками
+  // (кухня на главной, домик на кухне) или свайпом вниз с кухни — и никогда
+  // при открытии/закрытии обычных разделов (уроки/магазин/день/рейтинг/
+  // прогресс), даже если их открыли из нижнего меню, находясь на кухне.
+  // Благодаря этому закрытие такого раздела всегда возвращает туда, откуда
+  // его открыли (см. baseSheet ниже), а не всегда на главную.
+  const [room, setRoom] = useState<'home' | 'kitchen'>('home');
+  const baseSheet: SheetId | null = room === 'kitchen' ? 'kitchen' : null;
 
   function closeSheet() {
-    if (returnToKitchen) {
-      setReturnToKitchen(false);
-      setShopKitchenOnly(false);
-      setSheet('kitchen');
-      setTab('home');
-      return;
-    }
     // Кухню закрываем свайпом вниз/тапом по фону так же, как и кнопкой-домиком
     // внутри неё самой — с экраном загрузки (см. closeKitchen).
     if (sheet === 'kitchen') {
       closeKitchen();
       return;
     }
-    setSheet(null);
+    // Закрытие обычного раздела не меняет активную комнату.
+    setSheet(baseSheet);
     setTab('home');
   }
 
@@ -170,6 +199,7 @@ export default function Home() {
   // SCREEN_LOADING_MS выше).
   function openKitchen() {
     setScreenLoading('kitchen');
+    setRoom('kitchen');
     setSheet('kitchen');
     if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
     screenLoadingTimer.current = setTimeout(() => {
@@ -181,6 +211,7 @@ export default function Home() {
   // шторка кухни начинает закрываться сразу, а не после экрана загрузки.
   function closeKitchen() {
     setScreenLoading('home');
+    setRoom('home');
     setSheet(null);
     setTab('home');
     if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
@@ -274,10 +305,7 @@ export default function Home() {
               ребёнку, что сюда можно нажать (сам блок иначе выглядел бы как
               обычная неинтерактивная шапка). */}
           <button
-            onClick={() => {
-              setReturnToKitchen(false);
-              setSheet('progress');
-            }}
+            onClick={() => setSheet('progress')}
             className="flex items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
             aria-label="Открыть прогресс уровня"
           >
@@ -628,12 +656,12 @@ export default function Home() {
               // Звук тапа на нижней навигации теперь общий (globalTapSound),
               // здесь остаётся только вибро-отклик — специфика самой вкладки.
               hapticTap();
-              // Переход по нижнему меню — это всегда навигация в новый раздел,
-              // а не возврат на кухню (даже если магазин/прогресс сейчас
-              // открыты именно с кухни, см. returnToKitchen выше).
-              setReturnToKitchen(false);
               setTab(next);
-              setSheet(next === 'home' ? null : next);
+              // Вкладка "Главная" в нижнем меню — это НЕ переход в комнату
+              // "главная" (комнаты переключаются только явными иконками
+              // кухни/домика, см. room выше), а просто "закрыть текущий
+              // раздел" — возвращаемся в ту комнату, что была активна.
+              setSheet(next === 'home' ? baseSheet : next);
               // Магазин из нижнего меню — всегда полный, без кухонного ограничения
               // (в отличие от корзинки на экране кухни, см. openKitchenShop).
               if (next === 'shop') setShopKitchenOnly(false);
@@ -698,13 +726,9 @@ export default function Home() {
             wealth={wealth}
             activeKitchenRoomId={activeKitchenRoomId}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onOpenProgress={() => {
-              setReturnToKitchen(true);
-              setSheet('progress');
-            }}
+            onOpenProgress={() => setSheet('progress')}
             onOpenShop={() => {
               setShopKitchenOnly(true);
-              setReturnToKitchen(true);
               setTab('shop');
               setSheet('shop');
             }}
@@ -715,18 +739,12 @@ export default function Home() {
             bottomInset={navHeight}
             coins={coins}
             ownedProductIds={ownedProductIds}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeSheet}
           />
         ) : sheet === 'settings' ? (
           <Settings
             bottomInset={navHeight}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeSheet}
             onFullScreenChange={setNavHidden}
           />
         ) : (
@@ -742,13 +760,11 @@ export default function Home() {
         onClose={() => setEarnModalOpen(false)}
         onOpenLessons={() => {
           setEarnModalOpen(false);
-          setReturnToKitchen(false);
           setTab('lessons');
           setSheet('lessons');
         }}
         onOpenTasks={() => {
           setEarnModalOpen(false);
-          setReturnToKitchen(false);
           setTab('day');
           setSheet('day');
         }}
@@ -782,8 +798,11 @@ export default function Home() {
           переход между экранами в App.tsx. Целевая шторка уже открывается/
           закрывается ПОД ним (см. openKitchen/closeKitchen) — когда экран
           загрузки исчезает, переход уже полностью завершён. */}
-      {screenLoading !== null && (
-        <div className="absolute inset-0 z-[70]">
+      {loadingMounted && (
+        <div
+          className="absolute inset-0 z-[70] transition-opacity"
+          style={{ opacity: loadingShown ? 1 : 0, transitionDuration: `${SCREEN_LOADING_FADE_MS}ms` }}
+        >
           <PageLoading durationMs={SCREEN_LOADING_MS} />
         </div>
       )}

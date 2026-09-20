@@ -8,7 +8,6 @@ import smileMetricIcon from '../assets/icons/metrics/smile-3d.png';
 import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import GlassMetric from '../components/GlassMetric';
 import {
-  IconArrowLeft,
   IconPlus,
   IconChevronRight,
   IconHomeOutline,
@@ -160,19 +159,13 @@ export default function Kitchen({
     >
       <img src={background} alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
 
-      {/* Шапка — тот же вид, что и на главной: аватар/уровень, монеты; плюс кнопка назад. */}
+      {/* Шапка — тот же вид, что и на главной: аватар/уровень, монеты. Отдельной
+          кнопки "назад" нет — на главную ведут домик в кнопках ниже, свайп
+          вниз или свайп-жест кухни (см. onClose/handleRootPointerUp). */}
       <div
         className="relative z-20 flex items-start gap-2 px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
       >
-        <button
-          onClick={onClose}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"
-          aria-label="Назад"
-        >
-          <IconArrowLeft className="h-5 w-5" />
-        </button>
-
         <button
           onClick={onOpenProgress}
           className="flex min-w-0 flex-1 items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
@@ -335,7 +328,7 @@ export default function Kitchen({
             Еды пока нет — загляни в магазин и купи что-нибудь для {petName}.
           </p>
         ) : (
-          <div className="mt-2.5 flex touch-pan-x gap-2 overflow-x-auto pb-1">
+          <div className="mt-2.5 flex touch-pan-x gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {foodItems.map(({ product, qty }) => (
               <div
                 key={product.id}
