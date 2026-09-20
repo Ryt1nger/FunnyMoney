@@ -92,19 +92,24 @@ export default function Progress({ bottomInset = 0, coins, level, xp, onClose, o
         className="relative flex-1 overflow-hidden bg-[#7d6270] transition-opacity duration-500"
         style={{ opacity: entered ? 1 : 0 }}
       >
-        <img
-          src={heroImg}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ objectPosition: '68% 45%' }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(90deg, rgba(70,52,66,0.92) 0%, rgba(70,52,66,0.72) 38%, rgba(70,52,66,0) 62%)',
-          }}
-        />
+        {/* Само фото — в исходном масштабе (баннер широкий и невысокий), иначе
+            object-cover в увеличенной шапке слишком сильно обрезает и "зумит"
+            картинку. Место ниже фото до кремовой секции — просто фон блока. */}
+        <div className="absolute inset-x-0 top-0 h-[170px] overflow-hidden">
+          <img
+            src={heroImg}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: '68% 45%' }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(70,52,66,0.92) 0%, rgba(70,52,66,0.72) 38%, rgba(70,52,66,0) 62%)',
+            }}
+          />
+        </div>
 
         <div className="relative flex items-start justify-between px-4 pt-4">
           <button
