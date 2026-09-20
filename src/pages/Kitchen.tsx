@@ -11,8 +11,8 @@ import {
   IconArrowLeft,
   IconPlus,
   IconChevronRight,
-  IconSettingsGear,
-  IconBackpackLight,
+  IconHome,
+  IconCart,
   IconHeart,
   IconSmile,
 } from '../components/icons';
@@ -38,8 +38,8 @@ interface Props {
   activeKitchenRoomId: string;
   onOpenEarnModal?: () => void;
   onOpenProgress: () => void;
-  onOpenSettings: () => void;
-  onOpenInventory: () => void;
+  /** Иконка-корзинка под метриками — открывает магазин сразу на разделе «Еда». */
+  onOpenShop: () => void;
   onClose: () => void;
 }
 
@@ -68,8 +68,7 @@ export default function Kitchen({
   activeKitchenRoomId,
   onOpenEarnModal,
   onOpenProgress,
-  onOpenSettings,
-  onOpenInventory,
+  onOpenShop,
   onClose,
 }: Props) {
   const foodQty = useInventoryStore((s) => s.foodQty);
@@ -79,19 +78,33 @@ export default function Kitchen({
 
   const [drag, setDrag] = useState<DragState | null>(null);
   const bearZoneRef = useRef<HTMLDivElement>(null);
+  // Корень экрана — плавающая копия карточки координируется относительно него
+  // (position: absolute), а не относительно окна (position: fixed): Kitchen
+  // рендерится внутри шторки BottomSheet, у которой есть CSS transform
+  // (анимация выезда) — transform на предке создаёт свой containing block
+  // для fixed-элементов, и вместе с overflow-hidden на той же шторке это
+  // обрезало/прятало fixed-плашку. absolute от собственного корня от этой
+  // проблемы не зависит.
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const background =
     rooms.find((r) => r.id === activeKitchenRoomId)?.background ?? DEFAULT_KITCHEN_BG;
 
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
 
+  function toLocalPoint(clientX: number, clientY: number) {
+    const rect = rootRef.current?.getBoundingClientRect();
+    return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+  }
+
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>, product: ShopProduct) {
     e.currentTarget.setPointerCapture(e.pointerId);
-    setDrag({ product, x: e.clientX, y: e.clientY });
+    setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
   }
 
   function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
-    setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+    if (!drag) return;
+    setDrag((d) => (d ? { ...d, ...toLocalPoint(e.clientX, e.clientY) } : d));
   }
 
   function handlePointerUp(e: ReactPointerEvent<HTMLDivElement>) {
@@ -113,7 +126,7 @@ export default function Kitchen({
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#b9835a]">
+    <div ref={rootRef} className="relative flex h-full w-full flex-col overflow-hidden bg-[#b9835a]">
       <img src={background} alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
 
       {/* Шапка — тот же вид, что и на главной: аватар/уровень, монеты; плюс кнопка назад. */}
@@ -217,31 +230,33 @@ export default function Kitchen({
         />
       </div>
 
-      {/* Настройки слева, инвентарь справа — тот же стиль кнопки, что и на главной */}
+      {/* Вместо настроек/инвентаря на кухне — переход обратно в игровую (домик)
+          и переход в магазин на раздел «Еда» (корзинка). Тот же стиль кнопки,
+          что и на главной. */}
       <div className="relative z-20 mt-2 flex items-center justify-between px-4">
         <button
-          onClick={onOpenSettings}
+          onClick={onClose}
           className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
           style={{
             background: 'rgba(26,20,40,0.30)',
             borderColor: 'rgba(255,255,255,0.30)',
             boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
           }}
-          aria-label="Настройки"
+          aria-label="В игровую"
         >
-          <IconSettingsGear className="h-6 w-6" />
+          <IconHome className="h-6 w-6" />
         </button>
         <button
-          onClick={onOpenInventory}
+          onClick={onOpenShop}
           className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
           style={{
             background: 'rgba(26,20,40,0.30)',
             borderColor: 'rgba(255,255,255,0.30)',
             boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
           }}
-          aria-label="Инвентарь"
+          aria-label="Магазин еды"
         >
-          <IconBackpackLight className="h-6 w-6" />
+          <IconCart className="h-6 w-6" />
         </button>
       </div>
 
@@ -323,13 +338,14 @@ export default function Kitchen({
         )}
       </div>
 
-      {/* Плавающая копия карточки — следует за пальцем поверх всего экрана. */}
+      {/* Плавающая копия карточки — следует за пальцем/курсором поверх экрана кухни.
+          absolute от rootRef, а не fixed от окна — см. комментарий у rootRef выше. */}
       {drag && (
         <img
           src={drag.product.image}
           alt=""
           draggable={false}
-          className="pointer-events-none fixed z-[999] h-[60px] w-[60px] object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute z-[999] h-[60px] w-[60px] object-contain drop-shadow-2xl"
           style={{ left: drag.x - 30, top: drag.y - 60, transform: 'scale(1.1)' }}
         />
       )}

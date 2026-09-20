@@ -21,6 +21,7 @@ import EarnCoinsModal from '../components/EarnCoinsModal';
 import LessonsPlaceholder from './LessonsPlaceholder';
 import Inventory from './Inventory';
 import Kitchen from './Kitchen';
+import PageLoading from './PageLoading';
 import Shop from './Shop';
 import Stats from './Stats';
 import Settings from './Settings';
@@ -63,6 +64,11 @@ function pluralDays(n: number) {
 
 const LAST_LESSON_VISIT_KEY = 'funnymoney_last_lesson_visit_at';
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
+
+// Переход на кухню — как между экранами приложения (App.tsx): короткий экран
+// загрузки с прогресс-баром держится минимум это время, прежде чем откроется
+// сама кухня (см. PageLoading — полоса заполняется ровно за этот срок).
+const KITCHEN_LOADING_MS = 2000;
 
 function shouldShowLessonReminder() {
   try {
@@ -117,6 +123,25 @@ export default function Home() {
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
   // уроки, либо на задания дня.
   const [earnModalOpen, setEarnModalOpen] = useState(false);
+  // Переход на кухню — короткий экран загрузки (см. KITCHEN_LOADING_MS) перед
+  // тем, как реально открыть шторку кухни.
+  const [kitchenLoading, setKitchenLoading] = useState(false);
+  const kitchenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function openKitchen() {
+    setKitchenLoading(true);
+    if (kitchenLoadingTimer.current) clearTimeout(kitchenLoadingTimer.current);
+    kitchenLoadingTimer.current = setTimeout(() => {
+      setKitchenLoading(false);
+      setSheet('kitchen');
+    }, KITCHEN_LOADING_MS);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (kitchenLoadingTimer.current) clearTimeout(kitchenLoadingTimer.current);
+    };
+  }, []);
 
   function openLessonsFromReminder() {
     setTab('lessons');
@@ -301,7 +326,7 @@ export default function Home() {
             // см. inventoryStore.activeKitchenRoomId). Открывается шторкой,
             // как и остальные разделы; вкладка нижней навигации не меняется,
             // так как своей вкладки у кухни нет.
-            onClick={() => setSheet('kitchen')}
+            onClick={openKitchen}
             className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
             style={{
               background: 'rgba(26,20,40,0.30)',
@@ -604,8 +629,10 @@ export default function Home() {
             activeKitchenRoomId={activeKitchenRoomId}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onOpenProgress={() => setSheet('progress')}
-            onOpenSettings={() => setSheet('settings')}
-            onOpenInventory={() => setSheet('inventory')}
+            onOpenShop={() => {
+              setTab('shop');
+              setSheet('shop');
+            }}
             onClose={() => {
               setSheet(null);
               setTab('home');
@@ -673,6 +700,14 @@ export default function Home() {
             onOpenEarnModal={() => setEarnModalOpen(true)}
             confirmationEnabled={purchaseConfirmationEnabled}
           />
+        </div>
+      )}
+
+      {/* Экран загрузки перед кухней — поверх абсолютно всего (включая нижнюю
+          навигацию и открытые шторки), как переход между экранами в App.tsx. */}
+      {kitchenLoading && (
+        <div className="absolute inset-0 z-[70]">
+          <PageLoading durationMs={KITCHEN_LOADING_MS} />
         </div>
       )}
     </div>
