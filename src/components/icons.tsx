@@ -466,9 +466,23 @@ export function IconAlarmClock(props: IconProps) {
 // Ложка + вилка — вход в столовую (кормление питомца).
 export function IconCutlery(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M8.1 2.4c.5 0 .9.4.9.9v6.4c0 1.4-.9 2.6-2.1 3v7.9c0 .6-.5 1-1 1s-1-.4-1-1v-7.9c-1.2-.4-2.1-1.6-2.1-3V3.3c0-.5.4-.9.9-.9s.9.4.9.9v5.1c0 .3.2.5.5.5s.5-.2.5-.5V3.3c0-.5.4-.9.9-.9Z" />
-      <path d="M17.3 2.3c1.9.3 3.4 2.5 3.4 5.2 0 2.4-1.2 4.4-2.8 5v8c0 .6-.5 1-1 1s-1-.4-1-1v-8c-1.6-.6-2.8-2.6-2.8-5 0-2.9 1.7-5.2 3.7-5.2h.5Z" />
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      {/* Ложка — контурный стиль по референсу */}
+      <path
+        d="M7.6 2.5c1.9 0 3.4 1.8 3.4 4 0 1.9-1.1 3.5-2.6 3.9L8.1 21.5c0 .5-.5.9-1 .9s-1-.4-1-.9l-.3-11.1c-1.4-.4-2.5-2-2.5-3.9 0-2.2 1.5-4 3.3-4Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M8.7 4.5c.6.7.9 1.6.7 2.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      {/* Вилка — три зубца, сходящиеся в ручку */}
+      <path d="M14.7 2.5v4.8M17 2.5v4.8M19.3 2.5v4.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M14.7 7.3c0 1.7 1 3.1 2.3 3.3l-.3 10.9c0 .5.5.9 1 .9s1-.4 1-.9l-.3-10.9c1.3-.2 2.3-1.6 2.3-3.3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

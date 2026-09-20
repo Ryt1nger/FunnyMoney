@@ -798,6 +798,7 @@ import roomNight from '../assets/backgrounds/room-night.jpg';
 import roomKitchenCitrus from '../assets/backgrounds/room-kitchen-citrus.jpg';
 import roomKitchenPaw from '../assets/backgrounds/room-kitchen-paw.jpg';
 import roomKitchenGreen from '../assets/backgrounds/room-kitchen-green.jpg';
+import roomKitchenSpace from '../assets/backgrounds/room-kitchen-space.jpg';
 
 /** Раздел интерьера в магазине: игровая (обычные комнаты) или кухня (столовая). */
 export type RoomSection = 'playroom' | 'kitchen';
@@ -871,6 +872,14 @@ export const rooms: RoomProduct[] = [
     description: 'Много растений и уютный свет',
     price: 900,
     background: roomKitchenGreen,
+    section: 'kitchen',
+  },
+  {
+    id: 'room-kitchen-space',
+    name: 'Космическая кухня',
+    description: 'Звёзды, планеты и ночная гирлянда',
+    price: 950,
+    background: roomKitchenSpace,
     section: 'kitchen',
   },
 ];

@@ -84,10 +84,12 @@ export default function Progress({ bottomInset = 0, coins, level, xp, onClose, o
   const accessoryImg = current.accessory === 'cap' ? capImg : hoodieImg;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
-      {/* Шапка с иллюстрацией — тот же паттерн, что и у остальных разделов */}
+    <div className="flex h-full flex-col overflow-hidden bg-[#7d6270]">
+      {/* Шапка с иллюстрацией — тот же паттерн, что и у остальных разделов.
+          Растягиваем на всё, что не занимает кремовая секция снизу (см. ниже) —
+          так на баннере видно больше медведя и фона. */}
       <div
-        className="relative h-[170px] shrink-0 overflow-hidden bg-[#7d6270] transition-opacity duration-500"
+        className="relative flex-1 overflow-hidden bg-[#7d6270] transition-opacity duration-500"
         style={{ opacity: entered ? 1 : 0 }}
       >
         <img
@@ -147,9 +149,11 @@ export default function Progress({ bottomInset = 0, coins, level, xp, onClose, o
         </div>
       </div>
 
-      {/* Кремовый лист поверх шапки */}
+      {/* Кремовый лист — опущена ниже и уменьшена на ~30% (была flex-1, занимала
+          всё оставшееся место; теперь фиксированная высота 56% экрана, а шапка
+          сверху сама растягивается на освободившееся место). */}
       <div
-        className="-mt-5 flex-1 overflow-y-auto rounded-t-[26px] bg-[#fbefe1] px-4 pt-4 transition-transform duration-[420ms]"
+        className="-mt-5 h-[56%] shrink-0 overflow-y-auto rounded-t-[26px] bg-[#fbefe1] px-4 pt-4 transition-transform duration-[420ms]"
         style={{
           paddingBottom: bottomInset + 24,
           transform: entered ? 'translateY(0)' : 'translateY(100%)',
