@@ -65,10 +65,15 @@ function pluralDays(n: number) {
 const LAST_LESSON_VISIT_KEY = 'funnymoney_last_lesson_visit_at';
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 
-// Переход на кухню — как между экранами приложения (App.tsx): короткий экран
-// загрузки с прогресс-баром держится минимум это время, прежде чем откроется
-// сама кухня (см. PageLoading — полоса заполняется ровно за этот срок).
-const KITCHEN_LOADING_MS = 2000;
+// Переход между главной и кухней в обе стороны — короткий экран загрузки
+// с прогресс-баром (см. PageLoading — полоса заполняется ровно за этот срок).
+// Шторка (BottomSheet) открывается/закрывается СРАЗУ под этим экраном —
+// её анимация выезда/заезда (~420-440мс, см. BottomSheet.tsx) успевает
+// полностью отыграть, пока загрузка ещё не убрана, поэтому в момент, когда
+// загрузка исчезает, нужный экран уже полностью на месте, без "шторки" на
+// глазах у пользователя. Длительность поэтому не может быть меньше этой
+// анимации — небольшой запас на всякий случай.
+const SCREEN_LOADING_MS = 600;
 
 // Свайп вверх с главного экрана открывает раздел уроков — тот же простой
 // порог, что и на кухне (см. Kitchen.tsx), но срабатывает только когда
@@ -129,10 +134,10 @@ export default function Home() {
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
   // уроки, либо на задания дня.
   const [earnModalOpen, setEarnModalOpen] = useState(false);
-  // Переход на кухню — короткий экран загрузки (см. KITCHEN_LOADING_MS) перед
-  // тем, как реально открыть шторку кухни.
-  const [kitchenLoading, setKitchenLoading] = useState(false);
-  const kitchenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Экран загрузки между главной и кухней (в обе стороны) — см. SCREEN_LOADING_MS.
+  // null — не показан; 'kitchen'/'home' — какой переход сейчас скрыт под ним.
+  const [screenLoading, setScreenLoading] = useState<'kitchen' | 'home' | null>(null);
+  const screenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Магазин, открытый корзинкой с экрана кухни, показывает только «Еду» и
   // «Интерьер» (и только кухонный подраздел интерьера) — из нижнего меню он
   // как обычно открывается полным (см. onChange у BottomNav ниже).
@@ -150,22 +155,43 @@ export default function Home() {
       setTab('home');
       return;
     }
+    // Кухню закрываем свайпом вниз/тапом по фону так же, как и кнопкой-домиком
+    // внутри неё самой — с экраном загрузки (см. closeKitchen).
+    if (sheet === 'kitchen') {
+      closeKitchen();
+      return;
+    }
     setSheet(null);
     setTab('home');
   }
 
+  // Открываем шторку кухни СРАЗУ (не по завершении таймера) — так её выезд
+  // отыгрывает за экраном загрузки, а не после него (см. комментарий у
+  // SCREEN_LOADING_MS выше).
   function openKitchen() {
-    setKitchenLoading(true);
-    if (kitchenLoadingTimer.current) clearTimeout(kitchenLoadingTimer.current);
-    kitchenLoadingTimer.current = setTimeout(() => {
-      setKitchenLoading(false);
-      setSheet('kitchen');
-    }, KITCHEN_LOADING_MS);
+    setScreenLoading('kitchen');
+    setSheet('kitchen');
+    if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
+    screenLoadingTimer.current = setTimeout(() => {
+      setScreenLoading(null);
+    }, SCREEN_LOADING_MS);
+  }
+
+  // Возврат с кухни на главную — та же загрузка, только в обратную сторону:
+  // шторка кухни начинает закрываться сразу, а не после экрана загрузки.
+  function closeKitchen() {
+    setScreenLoading('home');
+    setSheet(null);
+    setTab('home');
+    if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
+    screenLoadingTimer.current = setTimeout(() => {
+      setScreenLoading(null);
+    }, SCREEN_LOADING_MS);
   }
 
   useEffect(() => {
     return () => {
-      if (kitchenLoadingTimer.current) clearTimeout(kitchenLoadingTimer.current);
+      if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
     };
   }, []);
 
@@ -199,7 +225,7 @@ export default function Home() {
   // Жест активен только когда над главным экраном ничего не открыто —
   // иначе свайп внутри шторки/превью/модалки/экрана загрузки случайно
   // триггерил бы переход на уроки.
-  const swipeUpGestureActive = sheet === null && !previewRoom && !earnModalOpen && !kitchenLoading;
+  const swipeUpGestureActive = sheet === null && !previewRoom && !earnModalOpen && screenLoading === null;
 
   function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (!swipeUpGestureActive) return;
@@ -682,10 +708,7 @@ export default function Home() {
               setTab('shop');
               setSheet('shop');
             }}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeKitchen}
           />
         ) : sheet === 'inventory' ? (
           <Inventory
@@ -754,11 +777,14 @@ export default function Home() {
         </div>
       )}
 
-      {/* Экран загрузки перед кухней — поверх абсолютно всего (включая нижнюю
-          навигацию и открытые шторки), как переход между экранами в App.tsx. */}
-      {kitchenLoading && (
+      {/* Экран загрузки между главной и кухней (в обе стороны) — поверх
+          абсолютно всего (включая нижнюю навигацию и открытые шторки), как
+          переход между экранами в App.tsx. Целевая шторка уже открывается/
+          закрывается ПОД ним (см. openKitchen/closeKitchen) — когда экран
+          загрузки исчезает, переход уже полностью завершён. */}
+      {screenLoading !== null && (
         <div className="absolute inset-0 z-[70]">
-          <PageLoading durationMs={KITCHEN_LOADING_MS} />
+          <PageLoading durationMs={SCREEN_LOADING_MS} />
         </div>
       )}
     </div>
