@@ -137,6 +137,22 @@ export default function Home() {
   // «Интерьер» (и только кухонный подраздел интерьера) — из нижнего меню он
   // как обычно открывается полным (см. onChange у BottomNav ниже).
   const [shopKitchenOnly, setShopKitchenOnly] = useState(false);
+  // Если магазин/прогресс открыты С КУХНИ (кнопка-корзинка / аватар в шапке
+  // кухни), закрытие этого раздела должно вернуть на кухню, а не на главную —
+  // иначе пользователя "выкидывало" из процесса кормления на домашний экран.
+  const [returnToKitchen, setReturnToKitchen] = useState(false);
+
+  function closeSheet() {
+    if (returnToKitchen) {
+      setReturnToKitchen(false);
+      setShopKitchenOnly(false);
+      setSheet('kitchen');
+      setTab('home');
+      return;
+    }
+    setSheet(null);
+    setTab('home');
+  }
 
   function openKitchen() {
     setKitchenLoading(true);
@@ -232,7 +248,10 @@ export default function Home() {
               ребёнку, что сюда можно нажать (сам блок иначе выглядел бы как
               обычная неинтерактивная шапка). */}
           <button
-            onClick={() => setSheet('progress')}
+            onClick={() => {
+              setReturnToKitchen(false);
+              setSheet('progress');
+            }}
             className="flex items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
             aria-label="Открыть прогресс уровня"
           >
@@ -583,6 +602,10 @@ export default function Home() {
               // Звук тапа на нижней навигации теперь общий (globalTapSound),
               // здесь остаётся только вибро-отклик — специфика самой вкладки.
               hapticTap();
+              // Переход по нижнему меню — это всегда навигация в новый раздел,
+              // а не возврат на кухню (даже если магазин/прогресс сейчас
+              // открыты именно с кухни, см. returnToKitchen выше).
+              setReturnToKitchen(false);
               setTab(next);
               setSheet(next === 'home' ? null : next);
               // Магазин из нижнего меню — всегда полный, без кухонного ограничения
@@ -594,22 +617,13 @@ export default function Home() {
       </div>
 
       {/* Шторка разделов: выезжает снизу вверх, навигация остаётся видимой */}
-      <BottomSheet
-        open={sheet !== null}
-        onClose={() => {
-          setSheet(null);
-          setTab('home');
-        }}
-      >
+      <BottomSheet open={sheet !== null} onClose={closeSheet}>
         {sheet === 'lessons' ? (
           <LessonsPlaceholder
             bottomInset={navHeight}
             coins={coins}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeSheet}
           />
         ) : sheet === 'shop' ? (
           <Shop
@@ -620,31 +634,21 @@ export default function Home() {
             onRoomSelect={(room) => setPreviewRoom(room)}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             confirmationEnabled={purchaseConfirmationEnabled}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-              setShopKitchenOnly(false);
-            }}
+            onClose={closeSheet}
           />
         ) : sheet === 'stats' ? (
           <Stats
             bottomInset={navHeight}
             coins={coins}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeSheet}
           />
         ) : sheet === 'day' ? (
           <Day
             bottomInset={navHeight}
             coins={coins}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeSheet}
           />
         ) : sheet === 'progress' ? (
           <ProgressPage
@@ -653,10 +657,7 @@ export default function Home() {
             level={level}
             xp={xp}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onClose={() => {
-              setSheet(null);
-              setTab('home');
-            }}
+            onClose={closeSheet}
           />
         ) : sheet === 'kitchen' ? (
           <Kitchen
@@ -671,9 +672,13 @@ export default function Home() {
             wealth={wealth}
             activeKitchenRoomId={activeKitchenRoomId}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onOpenProgress={() => setSheet('progress')}
+            onOpenProgress={() => {
+              setReturnToKitchen(true);
+              setSheet('progress');
+            }}
             onOpenShop={() => {
               setShopKitchenOnly(true);
+              setReturnToKitchen(true);
               setTab('shop');
               setSheet('shop');
             }}
@@ -714,11 +719,13 @@ export default function Home() {
         onClose={() => setEarnModalOpen(false)}
         onOpenLessons={() => {
           setEarnModalOpen(false);
+          setReturnToKitchen(false);
           setTab('lessons');
           setSheet('lessons');
         }}
         onOpenTasks={() => {
           setEarnModalOpen(false);
+          setReturnToKitchen(false);
           setTab('day');
           setSheet('day');
         }}

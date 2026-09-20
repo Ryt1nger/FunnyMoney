@@ -11,7 +11,7 @@ import {
   IconArrowLeft,
   IconPlus,
   IconChevronRight,
-  IconHome,
+  IconHomeOutline,
   IconCart,
   IconHeart,
   IconSmile,
@@ -287,7 +287,7 @@ export default function Kitchen({
           }}
           aria-label="В игровую"
         >
-          <IconHome className="h-6 w-6" />
+          <IconHomeOutline className="h-6 w-6" />
         </button>
       </div>
 

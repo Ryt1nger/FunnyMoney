@@ -85,31 +85,32 @@ export default function Progress({ bottomInset = 0, coins, level, xp, onClose, o
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#7d6270]">
-      {/* Шапка с иллюстрацией — тот же паттерн, что и у остальных разделов.
-          Растягиваем на всё, что не занимает кремовая секция снизу (см. ниже) —
-          так на баннере видно больше медведя и фона. */}
+      {/* Шапка с иллюстрацией. Раньше растягивалась на flex-1, а фото было
+          прибито к верху фиксированной высотой с object-cover — картинка
+          обрезалась (зумилась), а под ней оставалась пустая цветная область
+          до кремовой секции. Теперь шапка не выше, чем нужно для фото и
+          текста (фото — целиком, без обрезки, object-contain), а всё
+          освободившееся место отдаём кремовой секции снизу (flex-1) — она
+          заполняет экран без пустот и не скроллится (см. ниже). */}
       <div
-        className="relative flex-1 overflow-hidden bg-[#7d6270] transition-opacity duration-500"
-        style={{ opacity: entered ? 1 : 0 }}
+        className="relative shrink-0 overflow-hidden bg-[#7d6270] transition-opacity duration-500"
+        style={{ opacity: entered ? 1 : 0, minHeight: 188 }}
       >
-        {/* Само фото — в исходном масштабе (баннер широкий и невысокий), иначе
-            object-cover в увеличенной шапке слишком сильно обрезает и "зумит"
-            картинку. Место ниже фото до кремовой секции — просто фон блока. */}
-        <div className="absolute inset-x-0 top-0 h-[170px] overflow-hidden">
-          <img
-            src={heroImg}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ objectPosition: '68% 45%' }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                'linear-gradient(90deg, rgba(70,52,66,0.92) 0%, rgba(70,52,66,0.72) 38%, rgba(70,52,66,0) 62%)',
-            }}
-          />
-        </div>
+        {/* object-contain вместо object-cover — фото показывается целиком, без
+            обрезки; сверху/снизу могут остаться небольшие поля фона (это и
+            есть "без потерь", в отличие от зумящего кропа). */}
+        <img
+          src={heroImg}
+          alt=""
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(70,52,66,0.92) 0%, rgba(70,52,66,0.72) 38%, rgba(70,52,66,0) 62%)',
+          }}
+        />
 
         {/* pt заменён на calc с env(safe-area-inset-top) — на телефонах с "чёлкой"/
             статус-баром кнопка иначе оказывается под системным интерфейсом и не нажимается. */}
@@ -159,11 +160,12 @@ export default function Progress({ bottomInset = 0, coins, level, xp, onClose, o
         </div>
       </div>
 
-      {/* Кремовый лист — опущена ниже и уменьшена на ~30% (была flex-1, занимала
-          всё оставшееся место; теперь фиксированная высота 56% экрана, а шапка
-          сверху сама растягивается на освободившееся место). */}
+      {/* Кремовый лист — теперь flex-1: занимает всё место, освободившееся
+          из-за уменьшенной шапки, без пустого зазора между ними. overflow
+          намеренно hidden (не auto) — раздел не должен скроллиться, весь
+          контент помещается в увеличенную высоту. */}
       <div
-        className="-mt-5 h-[56%] shrink-0 overflow-y-auto rounded-t-[26px] bg-[#fbefe1] px-4 pt-4 transition-transform duration-[420ms]"
+        className="-mt-5 min-h-0 flex-1 overflow-hidden rounded-t-[26px] bg-[#fbefe1] px-4 pt-4 transition-transform duration-[420ms]"
         style={{
           paddingBottom: bottomInset + 24,
           transform: entered ? 'translateY(0)' : 'translateY(100%)',

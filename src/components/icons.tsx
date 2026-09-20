@@ -12,6 +12,18 @@ export function IconHome(props: IconProps) {
   );
 }
 
+// Домик — вариант из скетча пользователя: не заливка, а контур
+// (скруглённая линия) с вырезом-дверью снизу. Используется на кухне
+// вместо сплошного IconHome.
+export function IconHomeOutline(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M3 10 12 3l9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9Z" />
+      <path d="M9.5 21v-7h5v7" />
+    </svg>
+  );
+}
+
 export function IconBook(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
