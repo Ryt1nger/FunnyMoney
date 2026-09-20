@@ -59,3 +59,22 @@ export function setMusicEnabled(enabled: boolean) {
   if (enabled) startBackgroundMusic();
   else pauseBackgroundMusic();
 }
+
+// Приложение сворачивают/блокируют экран, а обычный <audio> в WebView этого
+// "не замечает" и продолжает играть — отсюда музыка слышна с заблокированного
+// или свёрнутого телефона. document.visibilitychange — штатное событие и в
+// браузере, и в Capacitor WebView — срабатывает при уходе в фон/блокировке
+// экрана и при возврате. Пауза здесь временная — wantsToPlay не трогаем,
+// иначе выключение экрана выглядело бы как ручное "выключил музыку в настройках".
+function handleVisibilityChange() {
+  if (!audio) return;
+  if (document.hidden) {
+    if (!audio.paused) audio.pause();
+  } else if (wantsToPlay && audio.paused) {
+    audio.play().catch(() => waitForUserGestureThenPlay(audio!));
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+}
