@@ -1,6 +1,8 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import bearFull from '../assets/pet/bear-main.png';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import bearAvatar from '../assets/pet/bear-avatar.png';
+import kitchenBearClosed from '../assets/pet/kitchen-bear-closed.png';
+import kitchenBearOpen from '../assets/pet/kitchen-bear-open.png';
+import kitchenBearOpenWide from '../assets/pet/kitchen-bear-open-wide.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
 import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
@@ -80,6 +82,10 @@ export default function Kitchen({
     .map((product) => ({ product, qty: foodQty[product.id] ?? 0 }));
 
   const [drag, setDrag] = useState<DragState | null>(null);
+  // The three supplied kitchen frames are used in the requested order:
+  // 1 — idle, 2 — transition, 3 — final eating frame.
+  const [bearPose, setBearPose] = useState<1 | 2 | 3>(1);
+  const bearPoseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bearZoneRef = useRef<HTMLDivElement>(null);
   // Корень экрана — плавающая копия карточки координируется относительно него
   // (position: absolute), а не относительно окна (position: fixed): Kitchen
@@ -92,6 +98,23 @@ export default function Kitchen({
   // Свайп вверх по кухне (кроме перетаскивания еды — те карточки сами
   // останавливают всплытие своего pointerdown, см. ниже) открывает магазин.
   const swipeUpRef = useRef<{ startX: number; startY: number } | null>(null);
+
+  function clearBearPoseTimer() {
+    if (bearPoseTimerRef.current) {
+      clearTimeout(bearPoseTimerRef.current);
+      bearPoseTimerRef.current = null;
+    }
+  }
+
+  function setBearPoseAfter(delay: number, pose: 1 | 2 | 3) {
+    clearBearPoseTimer();
+    bearPoseTimerRef.current = setTimeout(() => {
+      bearPoseTimerRef.current = null;
+      setBearPose(pose);
+    }, delay);
+  }
+
+  useEffect(() => () => clearBearPoseTimer(), []);
 
   const background =
     rooms.find((r) => r.id === activeKitchenRoomId)?.background ?? DEFAULT_KITCHEN_BG;
@@ -121,6 +144,11 @@ export default function Kitchen({
     // перетаскивание еды за свайп вниз/вверх по разделу.
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
+    clearBearPoseTimer();
+    setBearPose(2);
+    // Keep the intermediate mouth for a short beat before switching to the
+    // wide-open eating pose while the child carries the food.
+    setBearPoseAfter(120, 3);
     setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
   }
 
@@ -144,7 +172,18 @@ export default function Kitchen({
         if (ok) {
           hapticTap();
           playFeedCrunchSound();
+          // Finger release means the food was eaten: show image 2 briefly,
+          // then return to the idle image 1.
+          clearBearPoseTimer();
+          setBearPose(2);
+          setBearPoseAfter(120, 1);
+        } else {
+          clearBearPoseTimer();
+          setBearPose(1);
         }
+      } else {
+        clearBearPoseTimer();
+        setBearPose(1);
       }
       return null;
     });
@@ -286,8 +325,7 @@ export default function Kitchen({
 
       {/* Медведь — цель перетаскивания еды. Вся зона (не только силуэт) считается
           «попаданием», чтобы кормление не требовало ювелирной точности от ребёнка.
-          Поза статична (без анимации смены при кормлении) — по просьбе: медведь
-          остаётся в том же виде, что и сейчас. */}
+          При переносе еды кадры сменяются с короткой задержкой 120 мс. */}
       <div ref={bearZoneRef} className="relative z-0 min-h-0 flex-1">
         <div className="absolute left-1/2 top-[8%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
@@ -303,7 +341,7 @@ export default function Kitchen({
             в vh-единицах медведь от этого не меняется в размере (как и на
             главной, где он тоже не зависит от соседних блоков). */}
         <img
-          src={bearFull}
+          src={bearPose === 1 ? kitchenBearOpenWide : bearPose === 2 ? kitchenBearOpen : kitchenBearClosed}
           alt={petName}
           draggable={false}
           className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
@@ -335,7 +373,11 @@ export default function Kitchen({
                 onPointerDown={(e) => handlePointerDown(e, product)}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                onPointerCancel={() => setDrag(null)}
+                onPointerCancel={() => {
+                  clearBearPoseTimer();
+                  setBearPose(1);
+                  setDrag(null);
+                }}
                 className="relative flex w-[84px] shrink-0 touch-none select-none flex-col items-center rounded-[16px] border bg-white/90 p-1.5 shadow-sm"
                 style={{
                   borderColor: '#f0e2cb',
