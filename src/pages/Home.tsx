@@ -34,6 +34,7 @@ import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
+import { storage } from '../services/storage';
 import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import {
   IconStar,
@@ -62,7 +63,6 @@ function pluralDays(n: number) {
   return 'дней';
 }
 
-const LAST_LESSON_VISIT_KEY = 'funnymoney_last_lesson_visit_at';
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 
 // Переход между главной и кухней в обе стороны — короткий экран загрузки
@@ -86,23 +86,15 @@ const SCREEN_LOADING_FADE_MS = 200;
 const SWIPE_UP_THRESHOLD = 70;
 
 function shouldShowLessonReminder() {
-  try {
-    const raw = localStorage.getItem(LAST_LESSON_VISIT_KEY);
-    if (!raw) return true; // ещё ни разу не заходил — точно пора напомнить
-    const lastVisit = Number(raw);
-    if (!Number.isFinite(lastVisit)) return true;
-    return Date.now() - lastVisit > LESSON_REMINDER_THRESHOLD_MS;
-  } catch {
-    return true;
-  }
+  const raw = storage.get<string>('last_lesson_visit_at');
+  if (!raw) return true; // ещё ни разу не заходил — точно пора напомнить
+  const lastVisit = Number(raw);
+  if (!Number.isFinite(lastVisit)) return true;
+  return Date.now() - lastVisit > LESSON_REMINDER_THRESHOLD_MS;
 }
 
 function markLessonVisited() {
-  try {
-    localStorage.setItem(LAST_LESSON_VISIT_KEY, String(Date.now()));
-  } catch {
-    // localStorage недоступен — просто не запоминаем, напоминание останется активным
-  }
+  void storage.set('last_lesson_visit_at', String(Date.now()));
 }
 
 type SheetId = TabId | 'inventory' | 'settings' | 'progress' | 'kitchen';

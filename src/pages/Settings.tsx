@@ -7,10 +7,6 @@ import { stopAssistantVoice } from '../services/assistantVoice';
 import { storage } from '../services/storage';
 import ParentDashboard from './ParentDashboard';
 
-// Тот же ключ, что и в App.tsx (ONBOARDED_KEY) — держим значение синхронно
-// вручную, отдельного общего модуля-константы под него в проекте пока нет.
-const ONBOARDED_KEY = 'funnymoney_onboarded';
-
 interface Props {
   bottomInset?: number;
   onClose: () => void;
@@ -152,13 +148,7 @@ function ParentalZone({ onBack }: { onBack: () => void }) {
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   function resetProgress() {
-    storage.resetAll();
-    try {
-      localStorage.removeItem(ONBOARDED_KEY);
-    } catch {
-      // ignore
-    }
-    window.location.reload();
+    void storage.resetAll().then(() => window.location.reload());
   }
 
   return (

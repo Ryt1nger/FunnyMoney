@@ -40,9 +40,9 @@ function recoverFromResetBugOnce() {
  * И не истечёт минимальное время показа.
  */
 export async function bootstrapGame(): Promise<void> {
-  // Настоящая работа (чтение/валидация localStorage) синхронная и быстрая,
-  // но оборачиваем в микротаск, чтобы не блокировать первый кадр рендера.
-  await Promise.resolve();
+  // Сначала дожидаемся нативного Preferences и возможной миграции старого
+  // localStorage-профиля. После этого stores читают уже актуальный cache.
+  await storage.ready();
   useEconomyStore.getState().hydrate();
   usePetStore.getState().hydrate();
   useInventoryStore.getState().hydrate();

@@ -8,12 +8,11 @@ import { useEconomyStore } from './features/economy/economyStore';
 import { bootstrapGame } from './services/bootstrap';
 import { startBackgroundMusic } from './services/backgroundMusic';
 import { initGlobalTapSound } from './services/globalTapSound';
+import { storage } from './services/storage';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
 // тапа на любой кнопке приложения без ручной разводки по каждому месту.
 initGlobalTapSound();
-
-const ONBOARDED_KEY = 'funnymoney_onboarded';
 
 // Стартовый баланс — тестовое значение для первого реального прогона на
 // устройстве (пока не подключена финальная экономическая настройка).
@@ -36,11 +35,7 @@ type OverlayPhase = 'in' | 'out' | 'hidden';
 type OverlayKind = 'startup' | 'transition';
 
 function isOnboarded() {
-  try {
-    return localStorage.getItem(ONBOARDED_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return storage.get<string>('onboarded') === '1';
 }
 
 function delay(ms: number) {
@@ -123,7 +118,12 @@ function App() {
   // Заставка при реальном запуске приложения — минимум 5 секунд, и за это время
   // реально проверяем/восстанавливаем сохранённое состояние (economy/pet/inventory).
   useEffect(() => {
-    showLoadingOverlay('startup', STARTUP_MIN_MS, bootstrapGame);
+    showLoadingOverlay('startup', STARTUP_MIN_MS, async () => {
+      await bootstrapGame();
+      // На Android Preferences асинхронен, поэтому после гидрации уточняем
+      // экран до скрытия стартовой заставки.
+      setScreen(storage.get<string>('onboarded') === '1' ? 'home' : 'onboarding');
+    });
     return () => {
       if (fadeTimer.current) clearTimeout(fadeTimer.current);
       if (coverTimer.current) clearTimeout(coverTimer.current);
@@ -138,12 +138,8 @@ function App() {
   }
 
   function handleOnboardingComplete(age: number, petName: string) {
-    try {
-      localStorage.setItem(ONBOARDED_KEY, '1');
-      localStorage.setItem('funnymoney_user_age', String(age));
-    } catch {
-      // localStorage недоступен — просто продолжаем без сохранения
-    }
+    void storage.set('onboarded', '1');
+    void storage.set('user_age', String(age));
     // Начальное состояние игры: питомец и экономика создаются один раз, здесь,
     // а не размазаны по экранам — единая точка входа в игровой прогресс.
     usePetStore.getState().createPet('bear', petName);
@@ -204,9 +200,7 @@ function App() {
         </button>
         <button
           onClick={() => {
-            localStorage.removeItem(ONBOARDED_KEY);
-            import('./services/storage').then(({ storage }) => storage.resetAll());
-            window.location.reload();
+            void storage.resetAll().then(() => window.location.reload());
           }}
           className="rounded-xl bg-red-50 px-4 py-2 text-left text-[13px] font-semibold text-red-500 transition hover:bg-red-100"
         >
