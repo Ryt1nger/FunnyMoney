@@ -797,7 +797,7 @@ export default function Home() {
           загрузки исчезает, переход уже полностью завершён. */}
       {loadingMounted && (
         <div
-          className="absolute inset-0 z-[70] transition-opacity"
+          className="pointer-events-none absolute inset-0 z-[70] transition-opacity"
           style={{ opacity: loadingShown ? 1 : 0, transitionDuration: `${SCREEN_LOADING_FADE_MS}ms` }}
         >
           <PageLoading durationMs={SCREEN_LOADING_MS} />
