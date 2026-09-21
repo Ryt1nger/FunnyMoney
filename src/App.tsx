@@ -86,8 +86,12 @@ function App() {
       // Оверлей перехода появляется поверх УЖЕ видимого экрана — плавный
       // фейд-ин уместен и заметен (монтируем невидимым, на след. кадр — видимым).
       setOverlayVisible(false);
+      // Два кадра нужны для Android WebView: первый фиксирует монтирование
+      // прозрачного слоя, второй запускает уже отдельную opacity-анимацию.
       requestAnimationFrame(() => {
-        if (overlayRunId.current === runId) setOverlayVisible(true);
+        requestAnimationFrame(() => {
+          if (overlayRunId.current === runId) setOverlayVisible(true);
+        });
       });
     } else {
       // Стартовая заставка ничего собой не "открывает" — она должна быть
@@ -160,7 +164,13 @@ function App() {
         {overlay !== 'hidden' && (
           <div
             className="pointer-events-none absolute inset-0 z-50 transition-opacity ease-in-out"
-            style={{ transitionDuration: `${FADE_MS}ms`, opacity: overlayVisible ? 1 : 0 }}
+            style={{
+              transitionProperty: 'opacity',
+              transitionDuration: `${FADE_MS}ms`,
+              transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+              opacity: overlayVisible ? 1 : 0,
+              willChange: 'opacity',
+            }}
           >
             {overlayKind === 'startup' ? <Loading /> : <PageLoading durationMs={TRANSITION_MIN_MS} />}
           </div>

@@ -149,8 +149,10 @@ export default function Home() {
         loadingUnmountTimer.current = null;
       }
       setLoadingMounted(true);
-      const id = requestAnimationFrame(() => setLoadingShown(true));
-      return () => cancelAnimationFrame(id);
+      const firstFrame = requestAnimationFrame(() => {
+        requestAnimationFrame(() => setLoadingShown(true));
+      });
+      return () => cancelAnimationFrame(firstFrame);
     }
     // screenLoading стал null — сначала плавно гасим (transition-opacity в
     // разметке ниже), и только после завершения затухания убираем оверлей
@@ -793,7 +795,13 @@ export default function Home() {
       {loadingMounted && (
         <div
           className="pointer-events-none absolute inset-0 z-[70] transition-opacity"
-          style={{ opacity: loadingShown ? 1 : 0, transitionDuration: `${SCREEN_LOADING_FADE_MS}ms` }}
+          style={{
+            transitionProperty: 'opacity',
+            transitionDuration: `${SCREEN_LOADING_FADE_MS}ms`,
+            transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            opacity: loadingShown ? 1 : 0,
+            willChange: 'opacity',
+          }}
         >
           <PageLoading durationMs={SCREEN_LOADING_MS} />
         </div>
