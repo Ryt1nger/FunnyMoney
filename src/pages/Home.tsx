@@ -252,6 +252,11 @@ export default function Home() {
 
   function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (!swipeUpGestureActive) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Не все старые Android WebView поддерживают pointer capture.
+    }
     swipeUpRef.current = { startX: e.clientX, startY: e.clientY };
   }
 
@@ -273,7 +278,7 @@ export default function Home() {
     // на всю высоту кадра: шапка сверху, навигация прижата к низу,
     // медведь занимает всё свободное место между ними.
     <div
-      className="relative h-full w-full overflow-hidden bg-[#b9835a]"
+      className={`relative h-full w-full overflow-hidden bg-[#b9835a] ${swipeUpGestureActive ? 'touch-none' : ''}`}
       onPointerDown={handleRootPointerDown}
       onPointerUp={handleRootPointerUp}
     >

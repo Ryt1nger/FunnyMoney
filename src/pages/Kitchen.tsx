@@ -138,6 +138,11 @@ export default function Kitchen({
   }
 
   function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Не все старые Android WebView поддерживают pointer capture.
+    }
     swipeUpRef.current = { startX: e.clientX, startY: e.clientY };
   }
 
@@ -199,7 +204,7 @@ export default function Kitchen({
       ref={rootRef}
       onPointerDown={handleRootPointerDown}
       onPointerUp={handleRootPointerUp}
-      className="relative flex h-full w-full flex-col overflow-hidden bg-[#b9835a]"
+      className="relative flex h-full w-full touch-pan-y flex-col overflow-hidden bg-[#b9835a]"
     >
       <img src={background} alt="" className="absolute inset-0 h-full w-full object-cover object-bottom" />
 
@@ -343,17 +348,30 @@ export default function Kitchen({
 
         {/* Размер и нижняя точка также заданы от viewport, поэтому поднос ниже
             не участвует в геометрии питомца. */}
-        {[1, 2, 3].map((pose) => {
-          const src = pose === 1 ? kitchenBearClosed : pose === 2 ? kitchenBearOpen : kitchenBearOpenWide;
-          const isVisible = pose === 1 ? bearPose === 1 || bearPose === 5 : pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
+        {/* Базовый кадр держит глаза и корпус неподвижными. Поверх него
+            кроссфейдится только мягко замаскированная область рта — иначе
+            небольшие различия глаз в исходных кадрах выглядят как моргание. */}
+        <img
+          src={kitchenBearClosed}
+          alt={petName}
+          draggable={false}
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+        />
+        {[{ pose: 2, src: kitchenBearOpen }, { pose: 3, src: kitchenBearOpenWide }].map(({ pose, src }) => {
+          const isVisible = pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
           return (
             <img
               key={pose}
               src={src}
-              alt={isVisible ? petName : ''}
+              alt=""
               draggable={false}
-              className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl transition-opacity ease-in-out"
-              style={{ opacity: isVisible ? 1 : 0, transitionDuration: `${BEAR_STEP_MS / 2}ms` }}
+              className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
+              style={{
+                opacity: isVisible ? 1 : 0,
+                transitionDuration: `${BEAR_STEP_MS}ms`,
+                maskImage: 'radial-gradient(ellipse 30% 18% at 50% 36%, #000 48%, transparent 100%)',
+                WebkitMaskImage: 'radial-gradient(ellipse 30% 18% at 50% 36%, #000 48%, transparent 100%)',
+              }}
             />
           );
         })}

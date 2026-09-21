@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { useSettingsStore } from '../features/settings/settingsStore';
 
 // Тонкая обёртка над navigator.vibrate() — сам факт включения/выключения
@@ -11,8 +13,22 @@ function enabled(): boolean {
   return useSettingsStore.getState().vibrationEnabled;
 }
 
-function vibrate(pattern: number | number[]) {
-  if (!enabled() || !canVibrate()) return;
+async function vibrate(pattern: number | number[]) {
+  if (!enabled()) return;
+
+  // В Android WebView navigator.vibrate может быть доступен, но не иметь
+  // рабочего провайдера вибрации. Нативный Capacitor-плагин обходится без
+  // этого ограничения и использует системный Vibrator.
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Haptics.impact({ style: Array.isArray(pattern) ? ImpactStyle.Medium : ImpactStyle.Light });
+      return;
+    } catch {
+      // Если нативный модуль недоступен, пробуем web fallback ниже.
+    }
+  }
+
+  if (!canVibrate()) return;
   try {
     navigator.vibrate(pattern);
   } catch {
@@ -22,10 +38,15 @@ function vibrate(pattern: number | number[]) {
 
 /** Лёгкий отклик — обычное нажатие/переключение вкладки. */
 export function hapticTap() {
-  vibrate(12);
+  void vibrate(12);
 }
 
 /** Более выраженный отклик — успешное действие (покупка, выполнение задания). */
 export function hapticSuccess() {
-  vibrate([14, 40, 18]);
+  if (!enabled()) return;
+  if (Capacitor.isNativePlatform()) {
+    void Haptics.notification({ type: NotificationType.Success }).catch(() => vibrate([14, 40, 18]));
+    return;
+  }
+  void vibrate([14, 40, 18]);
 }

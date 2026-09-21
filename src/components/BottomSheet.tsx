@@ -57,6 +57,13 @@ export default function BottomSheet({ open, onClose, children }: Props) {
   }, [open]);
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    // Явно захватываем палец: Android WebView иначе может отдать pointerup
+    // внутреннему скроллу или системной навигации, и свайп закрытия теряется.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Старые WebView могут не поддерживать pointer capture.
+    }
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -120,7 +127,7 @@ export default function BottomSheet({ open, onClose, children }: Props) {
         onPointerCancel={() => {
           dragRef.current = null;
         }}
-        className="absolute inset-0 z-40 overflow-hidden rounded-t-[26px] shadow-2xl transition-transform duration-[420ms]"
+        className="absolute inset-0 z-40 touch-pan-y overflow-hidden rounded-t-[26px] shadow-2xl transition-transform duration-[420ms]"
         style={{
           transform: shown ? 'translateY(0)' : 'translateY(100%)',
           transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
