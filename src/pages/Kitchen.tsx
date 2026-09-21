@@ -138,11 +138,6 @@ export default function Kitchen({
   }
 
   function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // Не все старые Android WebView поддерживают pointer capture.
-    }
     swipeUpRef.current = { startX: e.clientX, startY: e.clientY };
   }
 

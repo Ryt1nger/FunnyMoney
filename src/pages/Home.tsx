@@ -252,11 +252,6 @@ export default function Home() {
 
   function handleRootPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (!swipeUpGestureActive) return;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // Не все старые Android WebView поддерживают pointer capture.
-    }
     swipeUpRef.current = { startX: e.clientX, startY: e.clientY };
   }
 

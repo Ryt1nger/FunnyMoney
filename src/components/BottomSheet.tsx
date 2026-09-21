@@ -57,13 +57,6 @@ export default function BottomSheet({ open, onClose, children }: Props) {
   }, [open]);
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    // Явно захватываем палец: Android WebView иначе может отдать pointerup
-    // внутреннему скроллу или системной навигации, и свайп закрытия теряется.
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // Старые WebView могут не поддерживать pointer capture.
-    }
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
