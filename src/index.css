@@ -22,3 +22,9 @@ button:focus,
 button:focus-visible {
   outline: none;
 }
+
+/* Защищаем верхние кнопки от status bar, но не увеличиваем высоту потока:
+   безопасная зона компенсируется для следующего контента. */
+.safe-area-topbar {
+  margin-bottom: calc(-1 * env(safe-area-inset-top, 0px));
+}

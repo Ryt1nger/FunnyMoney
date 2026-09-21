@@ -170,7 +170,7 @@ export default function ParentDashboard({ bottomInset = 0, onBack, onOpenZone }:
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       {/* Шапка — тот же бежевый фон, что и весь экран, без отдельной плашки цвета. */}
       <div
-        className="flex shrink-0 items-center justify-between px-4 pb-3"
+        className="safe-area-topbar flex shrink-0 items-center justify-between px-4 pb-3"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
       >
         <button

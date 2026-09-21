@@ -87,7 +87,7 @@ export default function RoomPreview({
 
       {/* Верхняя строка: назад, название комнаты и баланс монет */}
       <div
-        className="relative flex items-center gap-3 px-4"
+        className="safe-area-topbar relative flex items-center gap-3 px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
       >
         <button

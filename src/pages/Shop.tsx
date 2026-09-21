@@ -132,7 +132,7 @@ export default function Shop({
         {/* pt заменён на calc с env(safe-area-inset-top) — на телефонах с "чёлкой"/
             статус-баром кнопка иначе оказывается под системным интерфейсом и не нажимается. */}
         <div
-          className="relative flex items-start justify-between px-4"
+          className="safe-area-topbar relative flex items-start justify-between px-4"
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
         >
           <button

@@ -49,7 +49,7 @@ export default function LessonsPlaceholder({ bottomInset = 0, coins, onClose, on
         />
 
         <div
-          className="relative flex items-start justify-between px-4"
+          className="safe-area-topbar relative flex items-start justify-between px-4"
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
         >
           <button

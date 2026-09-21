@@ -235,7 +235,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         />
 
         <div
-          className="relative flex items-start justify-between px-4"
+          className="safe-area-topbar relative flex items-start justify-between px-4"
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
         >
           <button

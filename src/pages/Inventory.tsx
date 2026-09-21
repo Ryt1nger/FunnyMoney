@@ -51,7 +51,7 @@ export default function Inventory({ bottomInset = 0, coins, ownedProductIds, onC
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       <div
-        className="relative shrink-0 overflow-hidden px-4 pb-5 transition-opacity duration-500"
+        className="safe-area-topbar relative shrink-0 overflow-hidden px-4 pb-5 transition-opacity duration-500"
         style={{
           background: '#6d5a63',
           opacity: entered ? 1 : 0,

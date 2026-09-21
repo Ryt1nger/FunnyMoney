@@ -186,7 +186,7 @@ export default function Stats({ bottomInset = 0, coins, onClose, onOpenEarnModal
             если плашка лиги вылезет за нижний край шапки, она останется НАД
             статистикой, а не окажется под ней. */}
         <div
-          className="relative z-20 flex items-start justify-between px-4"
+          className="safe-area-topbar relative z-20 flex items-start justify-between px-4"
           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
         >
           <button

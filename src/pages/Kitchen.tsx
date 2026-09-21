@@ -202,7 +202,7 @@ export default function Kitchen({
           кнопки "назад" нет — на главную ведут домик в кнопках ниже, свайп
           вниз или свайп-жест кухни (см. onClose/handleRootPointerUp). */}
       <div
-        className="relative z-20 flex items-start gap-2 px-4"
+        className="safe-area-topbar relative z-20 flex items-start gap-2 px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
       >
         <button
