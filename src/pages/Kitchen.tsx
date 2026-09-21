@@ -82,9 +82,9 @@ export default function Kitchen({
     .map((product) => ({ product, qty: foodQty[product.id] ?? 0 }));
 
   const [drag, setDrag] = useState<DragState | null>(null);
-  // The three supplied kitchen frames are used in the requested order:
-  // 1 — idle, 2 — transition, 3 — final eating frame.
-  const [bearPose, setBearPose] = useState<1 | 2 | 3>(1);
+  // Пять состояний анимации используют три позы из исходного спрайта:
+  // закрыт → полуоткрыт → открыт → полуоткрыт → закрыт.
+  const [bearPose, setBearPose] = useState<1 | 2 | 3 | 4 | 5>(1);
   const bearPoseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bearZoneRef = useRef<HTMLDivElement>(null);
   // Корень экрана — плавающая копия карточки координируется относительно него
@@ -106,7 +106,7 @@ export default function Kitchen({
     }
   }
 
-  function setBearPoseAfter(delay: number, pose: 1 | 2 | 3) {
+  function setBearPoseAfter(delay: number, pose: 1 | 2 | 3 | 4 | 5) {
     clearBearPoseTimer();
     bearPoseTimerRef.current = setTimeout(() => {
       bearPoseTimerRef.current = null;
@@ -146,8 +146,7 @@ export default function Kitchen({
     e.currentTarget.setPointerCapture(e.pointerId);
     clearBearPoseTimer();
     setBearPose(2);
-    // Keep the intermediate mouth for a short beat before switching to the
-    // wide-open eating pose while the child carries the food.
+    // Полуоткрытый рот держится короткий момент перед открытым ртом.
     setBearPoseAfter(120, 3);
     setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
   }
@@ -172,18 +171,19 @@ export default function Kitchen({
         if (ok) {
           hapticTap();
           playFeedCrunchSound();
-          // Finger release means the food was eaten: show image 2 briefly,
-          // then return to the idle image 1.
+          // После отпускания еды: открытый рот → полуоткрытый → закрытый.
           clearBearPoseTimer();
-          setBearPose(2);
-          setBearPoseAfter(120, 1);
+          setBearPose(4);
+          setBearPoseAfter(120, 5);
         } else {
           clearBearPoseTimer();
-          setBearPose(1);
+          setBearPose(4);
+          setBearPoseAfter(120, 5);
         }
       } else {
         clearBearPoseTimer();
-        setBearPose(1);
+        setBearPose(4);
+        setBearPoseAfter(120, 5);
       }
       return null;
     });
@@ -341,7 +341,7 @@ export default function Kitchen({
             в vh-единицах медведь от этого не меняется в размере (как и на
             главной, где он тоже не зависит от соседних блоков). */}
         <img
-          src={bearPose === 1 ? kitchenBearOpenWide : bearPose === 2 ? kitchenBearOpen : kitchenBearClosed}
+          src={bearPose === 3 ? kitchenBearOpenWide : bearPose === 2 || bearPose === 4 ? kitchenBearOpen : kitchenBearClosed}
           alt={petName}
           draggable={false}
           className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
