@@ -21,7 +21,7 @@ import { rooms, roomsBySection, shopProducts, type ShopProduct } from '../data/s
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { feedPet } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
-import { playFeedCrunchSound } from '../services/feedSound';
+import { playFeedCrunchSound, primeFeedCrunchSound } from '../services/feedSound';
 
 // Фон кухни по умолчанию — если своя кухня ещё не куплена/не установлена,
 // показываем первую из каталога (см. shopData: rooms, section 'kitchen').
@@ -155,6 +155,7 @@ export default function Kitchen({
     // перетаскивание еды за свайп вниз/вверх по разделу.
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
+    primeFeedCrunchSound();
     // В момент взятия еды: закрыт → полуоткрыт → открыт.
     playBearSequence([1, 2, 3]);
     setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
@@ -332,7 +333,7 @@ export default function Kitchen({
           размер, ни положение питомца. Зона вокруг него остаётся достаточно
           широкой, чтобы ребёнку не требовалась ювелирная точность. */}
       <div ref={bearZoneRef} className="absolute inset-x-0 top-[31vh] z-0 h-[40vh]">
-        <div className="absolute left-1/2 top-[8%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
+        <div className="absolute left-1/2 top-[-12%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
             <IconHeart className="h-4 w-4" style={{ color: '#ef4060' }} />
             Покорми меня!
@@ -352,7 +353,7 @@ export default function Kitchen({
               alt={isVisible ? petName : ''}
               draggable={false}
               className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl transition-opacity ease-in-out"
-              style={{ opacity: isVisible ? 1 : 0, transitionDuration: `${BEAR_STEP_MS}ms` }}
+              style={{ opacity: isVisible ? 1 : 0, transitionDuration: `${BEAR_STEP_MS / 2}ms` }}
             />
           );
         })}

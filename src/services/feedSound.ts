@@ -18,6 +18,14 @@ function getAudio(): HTMLAudioElement {
   return audio;
 }
 
+/** Загружает звук заранее во время жеста выбора еды, чтобы при отпускании
+ * он начинал звучать без задержки на сетевую/дисковую загрузку. */
+export function primeFeedCrunchSound() {
+  if (!useSettingsStore.getState().soundsEnabled) return;
+  const el = getAudio();
+  el.load();
+}
+
 /** Проигрывает хруст ровно 1.5 секунды (или до конца файла, если он короче). */
 export function playFeedCrunchSound() {
   if (!useSettingsStore.getState().soundsEnabled) return;
