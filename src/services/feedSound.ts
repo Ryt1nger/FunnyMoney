@@ -1,4 +1,4 @@
-import crunchSrc from '../assets/audio/feed-crunch.mp3';
+import crunchSrc from '../assets/audio/feed-crunch.m4a';
 import { useSettingsStore } from '../features/settings/settingsStore';
 
 // Звук хрумканья при кормлении питомца на кухне — реальная запись (не
