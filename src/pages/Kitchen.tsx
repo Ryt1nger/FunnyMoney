@@ -387,8 +387,7 @@ export default function Kitchen({
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={() => {
-                  clearBearPoseTimer();
-                  setBearPose(1);
+                  playBearSequence([2, 1]);
                   setDrag(null);
                 }}
                 className="relative flex w-[84px] shrink-0 touch-none select-none flex-col items-center rounded-[16px] border bg-white/90 p-1.5 shadow-sm"
