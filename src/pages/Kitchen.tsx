@@ -29,6 +29,7 @@ const DEFAULT_KITCHEN_BG = roomsBySection('kitchen')[0].background;
 
 // Свайп вверх по кухне (не по еде) — открыть магазин.
 const SWIPE_UP_THRESHOLD = 70;
+const BEAR_STEP_MS = 60;
 
 interface Props {
   bottomInset?: number;
@@ -106,12 +107,22 @@ export default function Kitchen({
     }
   }
 
-  function setBearPoseAfter(delay: number, pose: 1 | 2 | 3 | 4 | 5) {
+  function playBearSequence(sequence: Array<1 | 2 | 3 | 4 | 5>) {
     clearBearPoseTimer();
-    bearPoseTimerRef.current = setTimeout(() => {
-      bearPoseTimerRef.current = null;
-      setBearPose(pose);
-    }, delay);
+    let index = 0;
+    setBearPose(sequence[index]);
+
+    const advance = () => {
+      index += 1;
+      if (index >= sequence.length) {
+        bearPoseTimerRef.current = null;
+        return;
+      }
+      setBearPose(sequence[index]);
+      bearPoseTimerRef.current = setTimeout(advance, BEAR_STEP_MS);
+    };
+
+    bearPoseTimerRef.current = setTimeout(advance, BEAR_STEP_MS);
   }
 
   useEffect(() => () => clearBearPoseTimer(), []);
@@ -144,10 +155,8 @@ export default function Kitchen({
     // перетаскивание еды за свайп вниз/вверх по разделу.
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
-    clearBearPoseTimer();
-    setBearPose(2);
-    // Полуоткрытый рот держится короткий момент перед открытым ртом.
-    setBearPoseAfter(120, 3);
+    // В момент взятия еды: закрыт → полуоткрыт → открыт.
+    playBearSequence([1, 2, 3]);
     setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
   }
 
@@ -171,19 +180,14 @@ export default function Kitchen({
         if (ok) {
           hapticTap();
           playFeedCrunchSound();
-          // После отпускания еды: открытый рот → полуоткрытый → закрытый.
-          clearBearPoseTimer();
-          setBearPose(4);
-          setBearPoseAfter(120, 5);
+          // После отпускания: открытый → полуоткрытый → закрытый →
+          // полуоткрытый → закрытый (два коротких жевательных движения).
+          playBearSequence([3, 4, 5, 4, 5]);
         } else {
-          clearBearPoseTimer();
-          setBearPose(4);
-          setBearPoseAfter(120, 5);
+          playBearSequence([2, 1]);
         }
       } else {
-        clearBearPoseTimer();
-        setBearPose(4);
-        setBearPoseAfter(120, 5);
+        playBearSequence([2, 1]);
       }
       return null;
     });
@@ -323,10 +327,11 @@ export default function Kitchen({
         </button>
       </div>
 
-      {/* Медведь — цель перетаскивания еды. Вся зона (не только силуэт) считается
-          «попаданием», чтобы кормление не требовало ювелирной точности от ребёнка.
-          При переносе еды кадры сменяются с короткой задержкой 120 мс. */}
-      <div ref={bearZoneRef} className="relative z-0 min-h-0 flex-1">
+      {/* Сцена медведя закреплена относительно всего экрана, а не flex-свободного
+          места. Поэтому высота подноса и количество карточек еды не меняют ни
+          размер, ни положение питомца. Зона вокруг него остаётся достаточно
+          широкой, чтобы ребёнку не требовалась ювелирная точность. */}
+      <div ref={bearZoneRef} className="absolute inset-x-0 top-[31vh] z-0 h-[40vh]">
         <div className="absolute left-1/2 top-[8%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
             <IconHeart className="h-4 w-4" style={{ color: '#ef4060' }} />
@@ -335,18 +340,26 @@ export default function Kitchen({
           <div className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1.5 rotate-45 bg-white" />
         </div>
 
-        {/* Размер — в vh (доле высоты экрана), а не в % от этой flex-зоны:
-            высота подноса «Моя еда» под ним авто-подстраивается под контент
-            (см. ниже), из-за чего flex-зона медведя может слегка «дышать» —
-            в vh-единицах медведь от этого не меняется в размере (как и на
-            главной, где он тоже не зависит от соседних блоков). */}
-        <img
-          src={bearPose === 3 ? kitchenBearOpenWide : bearPose === 2 || bearPose === 4 ? kitchenBearOpen : kitchenBearClosed}
-          alt={petName}
-          draggable={false}
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
-        />
+        {/* Размер и нижняя точка также заданы от viewport, поэтому поднос ниже
+            не участвует в геометрии питомца. */}
+        {[1, 2, 3].map((pose) => {
+          const src = pose === 1 ? kitchenBearClosed : pose === 2 ? kitchenBearOpen : kitchenBearOpenWide;
+          const isVisible = pose === 1 ? bearPose === 1 || bearPose === 5 : pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
+          return (
+            <img
+              key={pose}
+              src={src}
+              alt={isVisible ? petName : ''}
+              draggable={false}
+              className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl transition-opacity ease-in-out"
+              style={{ opacity: isVisible ? 1 : 0, transitionDuration: `${BEAR_STEP_MS}ms` }}
+            />
+          );
+        })}
       </div>
+
+      {/* Заполняет пространство до подноса, но не влияет на закреплённую сцену. */}
+      <div className="min-h-0 flex-1" aria-hidden="true" />
 
       {/* Поднос «Моя еда» — короткая шторка снизу с горизонтальной лентой еды.
           Высота — по контенту (не в % экрана), чтобы карточки никогда не
