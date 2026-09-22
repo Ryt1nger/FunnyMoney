@@ -46,6 +46,8 @@ export interface EconomyState {
   totalEarned: number;
   totalSpent: number;
   totalSaved: number;
+  /** Current balance held in the piggy bank (separate from the wallet). */
+  savingsBalance?: number;
   transactions: Transaction[];
   savingsGoal?: SavingsGoal;
 }

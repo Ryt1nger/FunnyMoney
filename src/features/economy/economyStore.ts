@@ -10,6 +10,8 @@ interface EconomyStore extends EconomyState {
    * содержимого на межстраничном экране загрузки (App.tsx / bootstrap.ts). */
   hydrate: () => void;
   setSavingsGoal: (goal: SavingsGoal) => void;
+  depositToSavings: (amount: number) => boolean;
+  withdrawFromSavings: (amount: number) => boolean;
 }
 
 const STORAGE_KEY = 'economy';
@@ -20,6 +22,7 @@ const defaultState: EconomyState = {
   totalEarned: 0,
   totalSpent: 0,
   totalSaved: 0,
+  savingsBalance: 0,
   transactions: [],
   savingsGoal: undefined,
 };
@@ -77,6 +80,7 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
       totalEarned: state.totalEarned + (appliedAmount > 0 ? appliedAmount : 0),
       totalSpent: state.totalSpent + (appliedAmount < 0 ? -appliedAmount : 0),
       totalSaved: state.totalSaved,
+      savingsBalance: state.savingsBalance ?? 0,
       transactions: [...state.transactions, tx],
     };
     persist(next);
@@ -109,5 +113,37 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     const next = { ...get(), savingsGoal };
     persist(next);
     set(next);
+  },
+
+  depositToSavings: (amount) => {
+    const value = Math.floor(amount);
+    const state = get();
+    if (!Number.isFinite(value) || value <= 0 || state.coins < value) return false;
+    const next: EconomyState = {
+      ...state,
+      coins: state.coins - value,
+      savingsBalance: (state.savingsBalance ?? state.totalSaved) + value,
+      totalSaved: state.totalSaved + value,
+      transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: value, reason: 'Пополнение копилки' }],
+    };
+    persist(next);
+    set(next);
+    return true;
+  },
+
+  withdrawFromSavings: (amount) => {
+    const value = Math.floor(amount);
+    const state = get();
+    const balance = state.savingsBalance ?? state.totalSaved;
+    if (!Number.isFinite(value) || value <= 0 || balance < value) return false;
+    const next: EconomyState = {
+      ...state,
+      coins: state.coins + value,
+      savingsBalance: balance - value,
+      transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: -value, reason: 'Вывод из копилки' }],
+    };
+    persist(next);
+    set(next);
+    return true;
   },
 }));

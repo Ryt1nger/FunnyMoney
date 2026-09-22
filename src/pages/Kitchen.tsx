@@ -341,6 +341,33 @@ export default function Kitchen({
           <div className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1.5 rotate-45 bg-white" />
         </div>
 
+        {/* Мягкая тень от медведя — повторяет тень главной комнаты, но свет в
+            кухне направлен влево, поэтому силуэт уходит только вправо. Она
+            находится под базовым кадром и скрывается под подносом внизу. */}
+        <img
+          src={kitchenBearClosed}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="pointer-events-none absolute left-1/2 h-[38vh] w-auto select-none object-contain"
+          style={{
+            bottom: '2%',
+            transformOrigin: 'bottom center',
+            transform: 'translateX(-40%) scaleY(-0.17) skewX(-20deg)',
+            filter: 'brightness(0) blur(4px)',
+            opacity: 0.28,
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-[1%] left-1/2 h-[12px] w-[112px] rounded-[50%]"
+          style={{
+            transform: 'translateX(-2%)',
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(20,10,2,0.36) 0%, rgba(20,10,2,0.16) 52%, rgba(20,10,2,0) 76%)',
+            filter: 'blur(3px)',
+          }}
+        />
+
         {/* Размер и нижняя точка также заданы от viewport, поэтому поднос ниже
             не участвует в геометрии питомца. */}
         {/* Базовый кадр держит глаза и корпус неподвижными. Поверх него

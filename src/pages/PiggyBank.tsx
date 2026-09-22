@@ -35,15 +35,21 @@ interface Props { bottomInset?: number; coins: number; onClose: () => void; onOp
 
 export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
   const goal = useEconomyStore((s) => s.savingsGoal);
-  const saved = useEconomyStore((s) => s.totalSaved);
+  const saved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
+  const transactions = useEconomyStore((s) => s.transactions);
   const setGoal = useEconomyStore((s) => s.setSavingsGoal);
+  const depositToSavings = useEconomyStore((s) => s.depositToSavings);
+  const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   const [choosing, setChoosing] = useState(false);
+  const [transferMode, setTransferMode] = useState<'deposit' | 'withdraw' | null>(null);
+  const [amount, setAmount] = useState('');
+  const [transferError, setTransferError] = useState('');
   const [historyTab, setHistoryTab] = useState<'income' | 'expense'>('income');
   const [tab, setTab] = useState<ShopCategoryId | 'rooms'>('toys');
   const goalName = goal?.name ?? 'Космическая ракета';
   const goalPrice = goal?.price ?? 2000;
   const goalImage = goal?.image ?? rocketGoal;
-  const currentSaved = saved || 650;
+  const currentSaved = saved;
   const percent = Math.min(100, Math.round((currentSaved / Math.max(goalPrice, 1)) * 100));
   const products = tab === 'interior' || tab === 'rooms'
     ? [...roomsBySection('playroom'), ...roomsBySection('kitchen')].filter((room) => room.price > 0).map((room) => ({ id: room.id, name: room.name, price: room.price, image: room.background, kind: 'interior' as const }))
@@ -60,9 +66,37 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
     </div>
   );
 
-  const visibleHistory = demoHistory.filter((item) => historyTab === 'income' ? item.amount > 0 : item.amount < 0);
+  const visibleHistory = transactions.length > 0
+    ? transactions.slice().reverse().map((item) => ({
+        title: item.reason,
+        date: new Date(item.timestamp).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+        amount: item.amount,
+        icon: item.amount > 0 ? piggyAsset : coinIcon,
+      })).filter((item) => historyTab === 'income' ? item.amount > 0 : item.amount < 0)
+    : demoHistory.filter((item) => historyTab === 'income' ? item.amount > 0 : item.amount < 0);
+
+  function openTransfer(mode: 'deposit' | 'withdraw') {
+    setTransferMode(mode);
+    setAmount('');
+    setTransferError('');
+  }
+
+  function submitTransfer() {
+    const value = Number(amount.replace(',', '.'));
+    if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) {
+      setTransferError('Введи целое число монет');
+      return;
+    }
+    const ok = transferMode === 'deposit' ? depositToSavings(value) : withdrawFromSavings(value);
+    if (!ok) {
+      setTransferError(transferMode === 'deposit' ? 'В кошельке недостаточно монет' : 'В копилке недостаточно монет');
+      return;
+    }
+    setTransferMode(null);
+    setAmount('');
+  }
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)]" style={{ paddingBottom: bottomInset + 16, color: BLUE }}>
+    <div className="h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)]" style={{ paddingBottom: bottomInset + (transferMode ? 220 : 16), color: BLUE }}>
       <header className="mb-2.5 flex h-9 items-center justify-between">
         <button onClick={onClose} aria-label="Назад" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#4650ad] shadow-[0_2px_10px_rgba(31,37,105,0.08)]"><IconArrowLeft className="h-4 w-4" /></button>
         <h1 className="text-[19px] font-black tracking-[-0.3px]">Копилка</h1>
@@ -90,18 +124,29 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
           </div>
         </div>
       </section>
+      {transferMode ? (
+        <section className="mt-2.5 min-h-[190px] rounded-[20px] bg-white p-4 shadow-[0_3px_14px_rgba(31,37,105,0.06)] transition-all duration-300">
+          <div className="flex items-center justify-between"><h2 className="text-[17px] font-black">{transferMode === 'deposit' ? 'Пополнить копилку' : 'Вывести из копилки'}</h2><button onClick={() => setTransferMode(null)} className="text-[12px] font-bold text-[#7379a4]">Отмена</button></div>
+          <label className="mt-4 block text-[11px] font-bold text-[#777da8]" htmlFor="savings-amount">Сколько монет перевести?</label>
+          <div className="mt-1.5 flex h-12 items-center rounded-[14px] bg-[#f5f3ff] px-3"><input id="savings-amount" autoFocus inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(event) => { setAmount(event.target.value.replace(/[^0-9]/g, '')); setTransferError(''); }} placeholder="0" className="min-w-0 flex-1 bg-transparent text-[24px] font-black text-[#111b72] outline-none" /><img src={coinIcon} alt="" className="h-6 w-6" /></div>
+          {transferError && <p className="mt-1.5 text-[10px] font-bold text-[#ed4e5d]">{transferError}</p>}
+          <button onClick={submitTransfer} className="mt-3 flex h-11 w-full items-center justify-center rounded-[14px] text-[12px] font-extrabold text-white" style={{ background: transferMode === 'deposit' ? VIOLET : 'linear-gradient(180deg, #a9a2eb 0%, #8c84df 100%)' }}>{transferMode === 'deposit' ? 'Пополнить копилку' : 'Вывести монеты'}</button>
+        </section>
+      ) : (
       <section className="mt-2.5 grid grid-cols-[1fr_34px_1fr] items-center rounded-[20px] bg-white p-2 shadow-[0_3px_14px_rgba(31,37,105,0.06)]">
-        <button className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] text-[11px] font-extrabold text-white" style={{ background: VIOLET }}>Пополнить <span className="text-[18px] leading-none">→</span></button>
+        <button onClick={() => openTransfer('deposit')} className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] text-[11px] font-extrabold text-white" style={{ background: VIOLET }}>Пополнить <span className="text-[18px] leading-none">→</span></button>
         <div className="flex h-7 w-7 items-center justify-center justify-self-center rounded-full bg-[#f0edff] text-[16px] font-black text-[#5965df]">⇄</div>
-        <button className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] bg-[#f0edff] text-[11px] font-extrabold"><span className="text-[18px] leading-none">←</span>Вывести</button>
+        <button onClick={() => openTransfer('withdraw')} className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] bg-[#f0edff] text-[11px] font-extrabold"><span className="text-[18px] leading-none">←</span>Вывести</button>
       </section>
+      )}
+      <div className={`overflow-hidden transition-all duration-300 ${transferMode ? 'pointer-events-none max-h-0 opacity-0' : 'max-h-[800px] opacity-100'}`}>
       <section className="mt-2.5 rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-[18px] font-black"><span className="flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-current text-[12px]">↗</span>Моя цель</div>
           <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-[#6971b4]"><img src={bearAvatar} alt="" className="h-7 w-7 rounded-full" />У тебя получится!</div>
         </div>
         <div className="mt-3 flex gap-3">
-          <img src={goalImage} alt="" className="h-[96px] w-[104px] shrink-0 rounded-[17px] object-cover" />
+          <img src={goalImage} alt="" className="h-[96px] w-[104px] shrink-0 rounded-[17px] bg-[#f5f3ff] object-contain p-1" />
           <div className="min-w-0 flex-1 pt-0.5">
             <h2 className="truncate text-[15px] font-black">{goalName}</h2>
             <div className="mt-1 text-[14px] font-black">{currentSaved} <span className="text-[#7d82ae]">/ {goalPrice}</span> <span className="text-[9px] text-[#7d82ae]">монет</span></div>
@@ -117,6 +162,7 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
         </div>
         <div className="mt-2.5 space-y-1.5">{visibleHistory.map((item) => <div key={item.title} className="flex min-h-[45px] items-center rounded-[14px] bg-[#fcfbf8] px-2.5 py-1.5"><img src={item.icon} alt="" className="h-8 w-8 shrink-0 object-contain" /><div className="ml-2 min-w-0 flex-1"><div className="truncate text-[11px] font-extrabold">{item.title}</div><div className="text-[8.5px] font-semibold text-[#8a8faf]">{item.date}</div></div><div className={`whitespace-nowrap text-[15px] font-black ${item.amount > 0 ? 'text-[#0eb164]' : 'text-[#ff3651]'}`}>{item.amount > 0 ? '+' : '−'}{Math.abs(item.amount)}</div><img src={coinIcon} alt="" className="ml-1 h-5 w-5 shrink-0" /></div>)}</div>
       </section>
+      </div>
     </div>
   );
 }

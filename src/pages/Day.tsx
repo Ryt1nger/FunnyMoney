@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import heroImg from '../assets/heroes/hero-day.jpg';
 import coinIcon from '../assets/icons/coin.png';
+import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
+import smileMetricIcon from '../assets/icons/metrics/smile-3d.png';
+import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import {
   IconArrowLeft,
   IconPlus,
@@ -48,13 +51,6 @@ const GREEN = 'linear-gradient(180deg, #6ecb8c 0%, #4caf6d 55%, #3c9b5c 100%)';
 const GREEN_BTN_SHADOW =
   'inset 0 2px 0 rgba(195,240,210,0.55), inset 0 -2px 0 rgba(35,110,65,0.75), 0 4px 10px rgba(60,150,90,0.30)';
 
-// Длительность полёта иконки награды до баланса — единая константа для
-// transition в CSS и для таймера, который убирает элемент из DOM.
-const FLY_DURATION_MS = 650;
-// Сдвиг по времени между несколькими иконками одной награды (звезда + сердце/
-// улыбка), чтобы они летели не единой слипшейся кляксой, а слегка внахлёст.
-const FLY_STAGGER_MS = 90;
-
 // Иконка + пастельный цвет квадрата под неё — свой набор на тип задания,
 // чтобы ряды считывались с одного взгляда, как в референсе.
 const TASK_ICON: Record<DayTaskIcon, { Icon: typeof IconBowl; bg: string; fg: string }> = {
@@ -65,18 +61,8 @@ const TASK_ICON: Record<DayTaskIcon, { Icon: typeof IconBowl; bg: string; fg: st
   moon: { Icon: IconMoon, bg: '#2c2a5e', fg: '#e7e4fb' },
 };
 
-type FlyIconKind = 'heart' | 'smile' | 'coin' | 'star';
-
-interface FlyingIcon {
-  id: number;
-  kind: FlyIconKind;
-  originX: number;
-  originY: number;
-  deltaX: number;
-  deltaY: number;
-  /** пока false — иконка ещё в исходной точке (кадр до старта transition) */
-  flying: boolean;
-}
+type RewardStatKind = 'health' | 'happiness' | 'wealth';
+interface RewardStat { kind: RewardStatKind; label: string; value: number; icon: string; color: string; }
 
 interface Props {
   bottomInset?: number;
@@ -92,6 +78,9 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
   const applyPetDelta = usePetStore((s) => s.applyDelta);
   const addXp = usePetStore((s) => s.addXp);
   const completedTaskIds = useDayProgressStore((s) => s.completedTaskIds);
+  const health = usePetStore((s) => s.pet?.health ?? 0);
+  const happiness = usePetStore((s) => s.pet?.happiness ?? 0);
+  const wealth = useEconomyStore((s) => Math.max(0, Math.min(100, s.wealthScore)));
   const startedTaskIds = useDayProgressStore((s) => s.startedTaskIds);
   const startTask = useDayProgressStore((s) => s.startTask);
   const completeTask = useDayProgressStore((s) => s.completeTask);
@@ -136,60 +125,20 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
     completeTask(task.id);
   }
 
-  const rootRef = useRef<HTMLDivElement>(null);
-  const balanceRef = useRef<HTMLDivElement>(null);
-  const [flyingIcons, setFlyingIcons] = useState<FlyingIcon[]>([]);
-  const nextFlyId = useRef(0);
+  const [rewardStats, setRewardStats] = useState<RewardStat[]>([]);
+  const [rewardStatsVisible, setRewardStatsVisible] = useState(false);
 
-  // Запускает "полёт" 1-2 иконок (звезда за XP + сердце/улыбка/монетка за
-  // предметную награду) от кнопки задания к бейджу баланса в шапке — плавно
-  // проявляется, летит к цели и исчезает по прибытии.
-  function spawnFlyingIcons(originEl: HTMLElement, task: DayTask) {
-    const root = rootRef.current;
-    const target = balanceRef.current;
-    if (!root || !target) return;
-
-    const rootRect = root.getBoundingClientRect();
-    const originRect = originEl.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-
-    const originX = originRect.left + originRect.width / 2 - rootRect.left;
-    const originY = originRect.top + originRect.height / 2 - rootRect.top;
-    const targetX = targetRect.left + targetRect.width / 2 - rootRect.left;
-    const targetY = targetRect.top + targetRect.height / 2 - rootRect.top;
-
-    const kinds: FlyIconKind[] = [];
-    if (task.rewardHeart) kinds.push('heart');
-    if (task.rewardSmile) kinds.push('smile');
-    if (task.rewardCoins) kinds.push('coin');
-    kinds.push('star'); // XP начисляется всегда
-
-    const created = kinds.map((kind) => ({
-      id: nextFlyId.current++,
-      kind,
-      originX,
-      originY,
-      deltaX: targetX - originX,
-      deltaY: targetY - originY,
-      flying: false,
-    }));
-
-    setFlyingIcons((prev) => [...prev, ...created]);
-
-    // Кадр на отрисовку исходного положения, затем включаем "полёт" —
-    // тот же приём двойного rAF, что и у модалок, иначе transition схлопнется.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setFlyingIcons((prev) =>
-          prev.map((icon) => (created.some((c) => c.id === icon.id) ? { ...icon, flying: true } : icon)),
-        );
-      });
-    });
-
-    const cleanupDelay = (created.length - 1) * FLY_STAGGER_MS + FLY_DURATION_MS + 80;
-    setTimeout(() => {
-      setFlyingIcons((prev) => prev.filter((icon) => !created.some((c) => c.id === icon.id)));
-    }, cleanupDelay);
+  function showRewardStats(task: DayTask) {
+    const stats: RewardStat[] = [];
+    if (task.rewardHeart) stats.push({ kind: 'health', label: 'Здоровье', value: Math.min(100, health + task.rewardHeart), icon: heartMetricIcon, color: '#fb7f92' });
+    if (task.rewardSmile) stats.push({ kind: 'happiness', label: 'Счастье', value: Math.min(100, happiness + task.rewardSmile), icon: smileMetricIcon, color: '#f9cb63' });
+    if (task.rewardCoins) stats.push({ kind: 'wealth', label: 'Богатство', value: wealth, icon: coinsMetricIcon, color: '#63d98b' });
+    if (!stats.length) return;
+    setRewardStats(stats);
+    setRewardStatsVisible(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => setRewardStatsVisible(true)));
+    window.setTimeout(() => setRewardStatsVisible(false), 2200);
+    window.setTimeout(() => setRewardStats([]), 2700);
   }
 
   // Шаг 1: ребёнок жмёт "Покормить"/"Играть"/"Уложить" — задание помечается
@@ -202,10 +151,10 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
 
   // Шаг 2: по зелёной кнопке "Получить" — награда действительно начисляется,
   // с анимацией иконок, летящих к балансу.
-  function claimDirectTask(task: DayTask, e: React.MouseEvent<HTMLButtonElement>) {
+  function claimDirectTask(task: DayTask) {
     if (isTaskDone(task.id)) return;
-    spawnFlyingIcons(e.currentTarget, task);
     completeDirectTask(task);
+    showRewardStats(task);
   }
 
   useEffect(() => {
@@ -214,7 +163,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
   }, []);
 
   return (
-    <div ref={rootRef} className="relative flex h-full flex-col overflow-hidden bg-[#fbefe1]">
+    <div className="relative flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       {/* Шапка с иллюстрацией */}
       <div
         className="relative h-[170px] shrink-0 overflow-hidden bg-[#4f5a73] transition-opacity duration-500"
@@ -245,7 +194,6 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
             <IconArrowLeft className="h-5 w-5" />
           </button>
           <div
-            ref={balanceRef}
             className="flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-1.5 backdrop-blur-md"
             style={{
               background: 'rgba(26,20,40,0.30)',
@@ -412,7 +360,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
                 ) : isDirectAction ? (
                   started ? (
                     <button
-                      onClick={(e) => claimDirectTask(task, e)}
+                      onClick={() => claimDirectTask(task)}
                       className="shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                       style={{ background: GREEN, boxShadow: GREEN_BTN_SHADOW }}
                     >
@@ -477,30 +425,21 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         )}
       </div>
 
-      {/* Летящие иконки награды — от кнопки задания к бейджу баланса в шапке.
-          Абсолютное позиционирование считается относительно rootRef (см.
-          spawnFlyingIcons), а не viewport — на весь экран здесь фактически
-          "рамка телефона" с overflow-hidden, где position:fixed сломался бы. */}
-      {flyingIcons.map((icon) => (
+      {rewardStats.length > 0 && (
         <div
-          key={icon.id}
-          className="pointer-events-none absolute z-[80] flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-          style={{
-            left: icon.originX,
-            top: icon.originY,
-            transform: icon.flying
-              ? `translate(-50%, -50%) translate(${icon.deltaX}px, ${icon.deltaY}px) scale(0.35)`
-              : 'translate(-50%, -50%) scale(1)',
-            opacity: icon.flying ? 0 : 1,
-            transition: `transform ${FLY_DURATION_MS}ms cubic-bezier(0.32, 0.72, 0.35, 1), opacity ${FLY_DURATION_MS}ms ease-in`,
-          }}
+          className="pointer-events-none absolute inset-x-0 top-1/2 z-[80] flex -translate-y-1/2 justify-center px-3 transition-all duration-500 ease-out"
+          style={{ opacity: rewardStatsVisible ? 1 : 0, transform: `translateY(-50%) scale(${rewardStatsVisible ? 1 : 0.94})` }}
         >
-          {icon.kind === 'coin' && <img src={coinIcon} alt="" className="h-full w-full drop-shadow" />}
-          {icon.kind === 'heart' && <IconHeart className="h-full w-full drop-shadow" style={{ color: '#ef6d8a' }} />}
-          {icon.kind === 'smile' && <IconSmile className="h-full w-full drop-shadow" style={{ color: '#eab53c' }} />}
-          {icon.kind === 'star' && <IconStar className="h-full w-full drop-shadow" />}
+          <div className="flex max-w-full flex-wrap justify-center gap-2.5">
+            {rewardStats.map((stat) => (
+              <div key={stat.kind} className="flex h-[70px] w-[138px] items-center gap-2 rounded-[22px] border border-white/40 px-2.5 shadow-[0_8px_24px_rgba(24,20,50,0.24)] backdrop-blur-md" style={{ background: 'linear-gradient(110deg, rgba(52,35,45,0.86), rgba(136,131,142,0.76))' }}>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ background: stat.color }}><img src={stat.icon} alt="" className="h-9 w-9 object-contain" /></div>
+                <div className="min-w-0 flex-1"><div className="truncate text-[12px] font-extrabold text-white">{stat.label}</div><div className="mt-1 flex items-center gap-1"><div className="h-2 flex-1 overflow-hidden rounded-full bg-black/30"><div className="h-full rounded-full" style={{ width: `${stat.value}%`, background: stat.color }} /></div><span className="text-[14px] font-black text-white">{stat.value}%</span></div></div>
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }

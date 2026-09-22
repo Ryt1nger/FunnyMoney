@@ -101,7 +101,7 @@ export default function Home() {
   const coins = useEconomyStore((s) => s.coins);
   const wealthScore = useEconomyStore((s) => s.wealthScore);
   const savingsGoal = useEconomyStore((s) => s.savingsGoal);
-  const totalSaved = useEconomyStore((s) => s.totalSaved);
+  const totalSaved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
   const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const activeKitchenRoomId = useInventoryStore((s) => s.activeKitchenRoomId);
@@ -547,19 +547,21 @@ export default function Home() {
             </div>
           )}
 
-          <div className="mt-2.5 flex gap-2.5">
+          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
             {/* Форма — скруглённый прямоугольник (не таблетка), с внутренней
                 тенью и светлым бликом сверху: это даёт объём, как в референсе */}
             <button
               onClick={() => setSheet('piggy')}
-              className="flex flex-[1.3] items-center gap-2.5 rounded-[22px] px-3 py-2.5"
+              className="flex min-w-0 items-center gap-2 rounded-[22px] px-2.5 py-2.5"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
                 boxShadow:
                   'inset 0 3px 7px rgba(146,98,36,0.34), inset 0 -1px 2px rgba(255,255,255,0.30), 0 4px 10px rgba(0,0,0,0.18)',
               }}
             >
-              <img src={savingsGoal?.image ?? piggyIcon} alt="" className="h-10 w-10 shrink-0 rounded-xl object-contain drop-shadow" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f5f3ff]">
+                <img src={savingsGoal?.image ?? piggyIcon} alt="" className="h-full w-full object-contain p-0.5 drop-shadow" />
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold" style={{ color: '#7d6034' }}>
                   {savingsGoal ? `Копим на: ${savingsGoal.name}` : 'Выбери цель для копилки'}
@@ -585,14 +587,14 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setSheet('piggy')}
-              className="flex flex-1 cursor-pointer items-center gap-2 rounded-[22px] px-3 py-2.5 transition active:scale-[0.98]"
+              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-[22px] px-2.5 py-2.5 transition active:scale-[0.98]"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
                 boxShadow:
                   'inset 0 3px 7px rgba(146,98,36,0.34), inset 0 -1px 2px rgba(255,255,255,0.30), 0 4px 10px rgba(0,0,0,0.18)',
               }}
             >
-              <img src={piggyIcon} alt="" className="h-10 w-10 shrink-0 object-contain drop-shadow" />
+              <img src={piggyIcon} alt="" className="h-8 w-8 shrink-0 object-contain drop-shadow" />
               {!savingsGoal ? (
                 <div className="min-w-0 leading-tight">
                   <div className="text-[11.5px] font-bold" style={{ color: '#4a3a22' }}>
@@ -603,9 +605,9 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <div className="leading-tight">
-                  <div className="whitespace-nowrap text-[11px] font-bold" style={{ color: '#4a3a22' }}>Моя цель</div>
-                  <div className="max-w-[90px] truncate text-[11px] font-bold" style={{ color: '#4a3a22' }}>{Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100))}% накоплено</div>
+                <div className="min-w-0 leading-tight">
+                  <div className="truncate text-[10.5px] font-bold" style={{ color: '#4a3a22' }}>Моя цель</div>
+                  <div className="truncate text-[10.5px] font-bold" style={{ color: '#4a3a22' }}>{totalSaved} монет</div>
                 </div>
               )}
             </button>

@@ -5,6 +5,22 @@ import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { storage } from './storage';
 
 const RECOVERY_FLAG_KEY = 'debug_recovery_2026_09_20';
+const STARTING_BALANCE_GRANT_FLAG = 'debug_starting_balance_5000_2026_09_22';
+
+/** Тестовый стартовый баланс для текущего прототипа копилки. Применяется один
+ * раз только к уже созданному профилю, чтобы не перетирать баланс на каждом
+ * запуске приложения. */
+function ensureRequestedStartingBalanceOnce() {
+  if (storage.get(STARTING_BALANCE_GRANT_FLAG)) return;
+  const pet = usePetStore.getState().pet;
+  if (!pet) return;
+  const economy = useEconomyStore.getState();
+  const delta = 5000 - economy.coins;
+  if (delta !== 0) {
+    useEconomyStore.getState().applyCoinsDelta(delta, 'Стартовый баланс копилки');
+  }
+  storage.set(STARTING_BALANCE_GRANT_FLAG, true);
+}
 
 /**
  * Разовое восстановление после замеченного сбоя: у уже игравшего питомца
@@ -47,5 +63,6 @@ export async function bootstrapGame(): Promise<void> {
   usePetStore.getState().hydrate();
   useInventoryStore.getState().hydrate();
   useDayProgressStore.getState().hydrate();
+  ensureRequestedStartingBalanceOnce();
   recoverFromResetBugOnce();
 }
