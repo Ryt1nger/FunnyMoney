@@ -23,8 +23,9 @@ button:focus-visible {
   outline: none;
 }
 
-/* Защищаем верхние кнопки от status bar, но не увеличиваем высоту потока:
-   безопасная зона компенсируется для следующего контента. */
+/* Верхняя панель уже получает safe-area через свой paddingTop.
+   Не вычитаем эту высоту из потока: на Android WebView это подтягивает
+   следующий контент под status bar и ломает вертикальную раскладку экранов. */
 .safe-area-topbar {
-  margin-bottom: calc(-1 * env(safe-area-inset-top, 0px));
+  margin-bottom: 0;
 }

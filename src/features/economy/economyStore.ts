@@ -75,11 +75,10 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
       reason,
     };
     const next: EconomyState = {
+      ...state,
       coins: nextCoins,
-      wealthScore: state.wealthScore,
       totalEarned: state.totalEarned + (appliedAmount > 0 ? appliedAmount : 0),
       totalSpent: state.totalSpent + (appliedAmount < 0 ? -appliedAmount : 0),
-      totalSaved: state.totalSaved,
       savingsBalance: state.savingsBalance ?? 0,
       transactions: [...state.transactions, tx],
     };

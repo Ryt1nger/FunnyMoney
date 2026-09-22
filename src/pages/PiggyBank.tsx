@@ -2,15 +2,10 @@ import { useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
 import walletAsset from '../assets/piggy-bank/wallet.png';
 import piggyAsset from '../assets/piggy-bank/piggy.png';
-import rocketGoal from '../assets/piggy-bank/rocket-goal.png';
 import bearAvatar from '../assets/pet/bear-avatar.png';
 import catToys from '../assets/icons/shop/cat-toys.png';
 import catClothes from '../assets/icons/shop/cat-clothes.png';
 import catInterior from '../assets/icons/shop/cat-interior.png';
-import starIcon from '../assets/icons/xp-star.png';
-import giftIcon from '../assets/icons/shop/gift-banner.png';
-import foodIcon from '../assets/items/food/bowl-pink-mix.png';
-import toyIcon from '../assets/items/toys/camera-pet.png';
 import { productsByCategory, roomsBySection, type ShopCategoryId } from '../data/shopData';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { IconArrowLeft, IconCheck } from '../components/icons';
@@ -24,13 +19,6 @@ const tabs: { id: ShopCategoryId | 'rooms'; label: string; icon: string }[] = [
   { id: 'interior', label: 'Интерьер', icon: catInterior },
   { id: 'clothes', label: 'Одежда', icon: catClothes },
 ];
-const demoHistory = [
-  { title: 'Награда за урок', date: 'Сегодня, 10:24', amount: 100, icon: starIcon },
-  { title: 'Подарок', date: 'Вчера, 16:12', amount: 50, icon: giftIcon },
-  { title: 'Купил корм', date: '12 мар, 14:33', amount: -60, icon: foodIcon },
-  { title: 'Купил игрушку', date: '10 мар, 18:20', amount: -50, icon: toyIcon },
-];
-
 interface Props { bottomInset?: number; coins: number; onClose: () => void; onOpenEarnModal?: () => void }
 
 export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
@@ -46,9 +34,8 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
   const [transferError, setTransferError] = useState('');
   const [historyTab, setHistoryTab] = useState<'income' | 'expense'>('income');
   const [tab, setTab] = useState<ShopCategoryId | 'rooms'>('toys');
-  const goalName = goal?.name ?? 'Космическая ракета';
-  const goalPrice = goal?.price ?? 2000;
-  const goalImage = goal?.image ?? rocketGoal;
+  const goalName = goal?.name ?? '';
+  const goalPrice = goal?.price ?? 0;
   const currentSaved = saved;
   const percent = Math.min(100, Math.round((currentSaved / Math.max(goalPrice, 1)) * 100));
   const transferValue = Number(amount);
@@ -73,14 +60,12 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
     </div>
   );
 
-  const visibleHistory = transactions.length > 0
-    ? transactions.slice().reverse().map((item) => ({
+  const visibleHistory = transactions.slice().reverse().map((item) => ({
         title: item.reason,
         date: new Date(item.timestamp).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
         amount: item.amount,
-        icon: item.amount > 0 ? piggyAsset : coinIcon,
-      })).filter((item) => historyTab === 'income' ? item.amount > 0 : item.amount < 0)
-    : demoHistory.filter((item) => historyTab === 'income' ? item.amount > 0 : item.amount < 0);
+        icon: coinIcon,
+      })).filter((item) => historyTab === 'income' ? item.amount > 0 : item.amount < 0);
 
   function openTransfer(mode: 'deposit' | 'withdraw') {
     setTransferMode(mode);
@@ -152,22 +137,34 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
           <div className="flex items-center gap-2 text-[18px] font-black"><span className="flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-current text-[12px]">↗</span>Моя цель</div>
           <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-[#6971b4]"><img src={bearAvatar} alt="" className="h-7 w-7 rounded-full" />У тебя получится!</div>
         </div>
-        <div className="mt-3 flex gap-3">
-          <img src={goalImage} alt="" className="h-[96px] w-[104px] shrink-0 rounded-[17px] bg-[#f5f3ff] object-contain p-1" />
-          <div className="min-w-0 flex-1 pt-0.5">
-            <h2 className="truncate text-[15px] font-black">{goalName}</h2>
-            <div className="mt-1 text-[14px] font-black">{currentSaved} <span className="text-[#7d82ae]">/ {goalPrice}</span> <span className="text-[9px] text-[#7d82ae]">монет</span></div>
-            <div className="mt-2.5 flex items-center gap-2"><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e9e9ef]"><div className="h-full rounded-full" style={{ width: `${percent}%`, background: GREEN }} /></div><span className="text-[13px] font-black">{percent}%</span></div>
-            <button onClick={() => setChoosing(true)} className="mt-3 flex h-8 w-full items-center justify-center gap-1.5 rounded-[12px] bg-[#eeebff] px-2 text-[10px] font-extrabold text-[#3845b6]">Изменить цель <span aria-hidden>›</span></button>
+        {!goal ? (
+          <div className="mt-3 rounded-[17px] bg-[#f8f6ff] px-4 py-5 text-center">
+            <div className="text-[14px] font-extrabold">Цель пока не выбрана</div>
+            <p className="mt-1 text-[10px] font-semibold text-[#7d82ae]">Выбери то, ради чего хочется копить.</p>
+            <button onClick={() => setChoosing(true)} className="mt-3 h-9 rounded-[12px] bg-[#eeebff] px-5 text-[10px] font-extrabold text-[#3845b6]">Выбрать цель</button>
           </div>
-        </div>
+        ) : (
+          <div className="mt-3 flex gap-3">
+            <img src={goal.image} alt="" className="h-[96px] w-[104px] shrink-0 rounded-[17px] bg-[#f5f3ff] object-contain p-1" />
+            <div className="min-w-0 flex-1 pt-0.5">
+              <h2 className="truncate text-[15px] font-black">{goalName}</h2>
+              <div className="mt-1 text-[14px] font-black">{currentSaved} <span className="text-[#7d82ae]">/ {goalPrice}</span> <span className="text-[9px] text-[#7d82ae]">монет</span></div>
+              <div className="mt-2.5 flex items-center gap-2"><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-[#e9e9ef]"><div className="h-full rounded-full" style={{ width: `${percent}%`, background: GREEN }} /></div><span className="text-[13px] font-black">{percent}%</span></div>
+              <button onClick={() => setChoosing(true)} className="mt-3 flex h-8 w-full items-center justify-center gap-1.5 rounded-[12px] bg-[#eeebff] px-2 text-[10px] font-extrabold text-[#3845b6]">Изменить цель <span aria-hidden>›</span></button>
+            </div>
+          </div>
+        )}
       </section>
       <section className="mt-2.5 rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-[18px] font-black"><span className="flex flex-col gap-[3px]">{[0, 1, 2].map((line) => <i key={line} className="block h-[3px] w-5 rounded-full bg-current" />)}</span>История</div>
           <div className="flex rounded-full bg-[#f2f1f6] p-1 text-[9.5px] font-bold"><button onClick={() => setHistoryTab('income')} className="rounded-full px-3 py-1.5" style={historyTab === 'income' ? { background: '#ddd7ff', color: BLUE } : { color: '#72789e' }}>Доходы</button><button onClick={() => setHistoryTab('expense')} className="rounded-full px-3 py-1.5" style={historyTab === 'expense' ? { background: '#ddd7ff', color: BLUE } : { color: '#72789e' }}>Расходы</button></div>
         </div>
-        <div className="mt-2.5 space-y-1.5">{visibleHistory.map((item) => <div key={item.title} className="flex min-h-[45px] items-center rounded-[14px] bg-[#fcfbf8] px-2.5 py-1.5"><img src={item.icon} alt="" className="h-8 w-8 shrink-0 object-contain" /><div className="ml-2 min-w-0 flex-1"><div className="truncate text-[11px] font-extrabold">{item.title}</div><div className="text-[8.5px] font-semibold text-[#8a8faf]">{item.date}</div></div><div className={`whitespace-nowrap text-[15px] font-black ${item.amount > 0 ? 'text-[#0eb164]' : 'text-[#ff3651]'}`}>{item.amount > 0 ? '+' : '−'}{Math.abs(item.amount)}</div><img src={coinIcon} alt="" className="ml-1 h-5 w-5 shrink-0" /></div>)}</div>
+        {visibleHistory.length ? (
+          <div className="mt-2.5 space-y-1.5">{visibleHistory.map((item, index) => <div key={`${item.title}-${item.date}-${index}`} className="flex min-h-[45px] items-center rounded-[14px] bg-[#fcfbf8] px-2.5 py-1.5"><img src={item.icon} alt="" className="h-8 w-8 shrink-0 object-contain" /><div className="ml-2 min-w-0 flex-1"><div className="truncate text-[11px] font-extrabold">{item.title}</div><div className="text-[8.5px] font-semibold text-[#8a8faf]">{item.date}</div></div><div className={`whitespace-nowrap text-[15px] font-black ${item.amount > 0 ? 'text-[#0eb164]' : 'text-[#ff3651]'}`}>{item.amount > 0 ? '+' : '−'}{Math.abs(item.amount)}</div><img src={coinIcon} alt="" className="ml-1 h-5 w-5 shrink-0" /></div>)}</div>
+        ) : (
+          <div className="mt-2.5 rounded-[14px] bg-[#fcfbf8] px-3 py-4 text-center text-[11px] font-semibold text-[#8a8faf]">Пока нет операций</div>
+        )}
       </section>
       </div>
     </div>

@@ -50,6 +50,10 @@ const BTN_SHADOW =
 const GREEN = 'linear-gradient(180deg, #6ecb8c 0%, #4caf6d 55%, #3c9b5c 100%)';
 const GREEN_BTN_SHADOW =
   'inset 0 2px 0 rgba(195,240,210,0.55), inset 0 -2px 0 rgba(35,110,65,0.75), 0 4px 10px rgba(60,150,90,0.30)';
+// На главной центр ряда метрик находится примерно на четверти высоты экрана.
+// Одна константа используется и плитками, и точкой назначения летящих наград,
+// чтобы обе анимации всегда сходились в одном месте.
+const REWARD_STATS_TOP_RATIO = 0.25;
 
 // Иконка + пастельный цвет квадрата под неё — свой набор на тип задания,
 // чтобы ряды считывались с одного взгляда, как в референсе.
@@ -154,7 +158,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
     const x = originRect.left + originRect.width / 2 - rootRect.left;
     const y = originRect.top + originRect.height / 2 - rootRect.top;
     const targetX = rootRect.width / 2;
-    const targetY = rootRect.height * 0.42;
+    const targetY = rootRect.height * REWARD_STATS_TOP_RATIO;
     const kinds: FlyingRewardKind[] = [];
     if (task.rewardCoins) kinds.push('coin');
     if (task.rewardHeart) kinds.push('heart');
@@ -162,8 +166,8 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
     kinds.push('star');
     const created = kinds.map((kind) => ({ id: nextRewardId.current++, kind, x, y, dx: targetX - x, dy: targetY - y, flying: false }));
     setFlyingRewards(created);
+    showRewardStats(task);
     requestAnimationFrame(() => requestAnimationFrame(() => setFlyingRewards((prev) => prev.map((item) => ({ ...item, flying: true })))));
-    window.setTimeout(() => showRewardStats(task), 700);
     window.setTimeout(() => setFlyingRewards([]), 820);
   }
 
@@ -471,8 +475,8 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
 
       {rewardStats.length > 0 && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-[42%] z-[80] flex -translate-y-1/2 justify-center px-3 transition-all duration-500 ease-out"
-          style={{ opacity: rewardStatsVisible ? 1 : 0, transform: `translateY(-50%) scale(${rewardStatsVisible ? 1 : 0.94})` }}
+          className="pointer-events-none absolute inset-x-0 z-[80] flex -translate-y-1/2 justify-center px-3 transition-all duration-500 ease-out"
+          style={{ top: `${REWARD_STATS_TOP_RATIO * 100}%`, opacity: rewardStatsVisible ? 1 : 0, transform: `translateY(-50%) scale(${rewardStatsVisible ? 1 : 0.94})` }}
         >
           <div className="flex max-w-full flex-wrap justify-center gap-2.5">
             {rewardStats.map((stat) => (

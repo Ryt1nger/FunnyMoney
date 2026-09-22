@@ -97,7 +97,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
             className="mt-1.5 whitespace-pre-line text-[13px] font-semibold leading-tight text-white/95"
             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
           >
-            {'Изучай, играй, развивай\nфинансовые навыки!'}
+            {'6 уроков и практика\nпро настоящие финансовые решения!'}
           </p>
         </div>
       </div>
@@ -141,7 +141,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
         </div>
 
         <h2 className="mt-4 text-[17px] font-extrabold" style={{ color: '#2c2a5e' }}>
-          Доступные уроки
+          Курс «Монетки под контролем»
         </h2>
 
         {/* Список уроков */}
@@ -170,6 +170,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                       +{lesson.coins}
                     </span>
                   </span>
+                  <span className="text-[11px] font-bold" style={{ color: '#6a63e0' }}>
+                    {lesson.practiceCount} практик
+                  </span>
                   <span className="flex items-center gap-1">
                     <img src={xpIcon} alt="" className="h-[18px] w-[18px]" />
                     <span className="text-[12px] font-bold" style={{ color: '#4a4560' }}>
@@ -197,6 +200,14 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
               </button>
             </div>
           ))}
+        </div>
+
+        <div className="mt-3 rounded-[20px] border border-[#ead9ac] bg-[#fff7dc] p-3">
+          <div className="text-[10px] font-extrabold uppercase tracking-wide text-[#a9772f]">Финальный блок</div>
+          <div className="mt-1 text-[14px] font-extrabold" style={{ color: '#2c2a5e' }}>Приложение и взрослый помощник</div>
+          <p className="mt-1 text-[11px] leading-snug" style={{ color: '#7b7a8c' }}>
+            Как пользоваться приложением безопасно: ребёнок принимает решения, а взрослый помогает и поддерживает.
+          </p>
         </div>
       </div>
     </div>

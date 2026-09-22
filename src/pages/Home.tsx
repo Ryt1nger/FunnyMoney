@@ -18,7 +18,7 @@ import GlassMetric from '../components/GlassMetric';
 import BottomNav, { type TabId } from '../components/BottomNav';
 import BottomSheet from '../components/BottomSheet';
 import EarnCoinsModal from '../components/EarnCoinsModal';
-import LessonsPlaceholder from './LessonsPlaceholder';
+import Lessons from './Lessons';
 import Inventory from './Inventory';
 import Kitchen from './Kitchen';
 import PageLoading from './PageLoading';
@@ -642,9 +642,12 @@ export default function Home() {
       {/* Шторка разделов: выезжает снизу вверх, навигация остаётся видимой */}
       <BottomSheet open={sheet !== null} onClose={closeSheet}>
         {sheet === 'lessons' ? (
-          <LessonsPlaceholder
+          <Lessons
             bottomInset={navHeight}
             coins={coins}
+            level={level}
+            xp={xp}
+            xpToNext={xpToNext}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={closeSheet}
           />
