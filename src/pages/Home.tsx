@@ -44,7 +44,7 @@ import {
   IconCutlery,
   IconChevronRight,
 } from '../components/icons';
-import piggyIcon from '../assets/icons/categories/piggy.png';
+import piggyIcon from '../assets/piggy-bank/piggy.png';
 
 // Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
 // только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
