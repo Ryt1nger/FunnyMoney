@@ -27,10 +27,10 @@ import Stats from './Stats';
 import Settings from './Settings';
 import Day from './Day';
 import ProgressPage from './Progress';
+import PiggyBank from './PiggyBank';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
-import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
@@ -39,13 +39,12 @@ import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import {
   IconStar,
   IconPlus,
-  IconGift,
-  IconFlame,
   IconBackpackLight,
   IconSettingsGear,
   IconCutlery,
   IconChevronRight,
 } from '../components/icons';
+import piggyIcon from '../assets/icons/categories/piggy.png';
 
 // Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
 // только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
@@ -55,14 +54,6 @@ const EVENT_COPY = {
 };
 
 // Русское склонение "день/дня/дней" для карточки серии.
-function pluralDays(n: number) {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'день';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'дня';
-  return 'дней';
-}
-
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
 
 // Переход между главной и кухней в обе стороны — короткий экран загрузки
@@ -97,7 +88,7 @@ function markLessonVisited() {
   void storage.set('last_lesson_visit_at', String(Date.now()));
 }
 
-type SheetId = TabId | 'inventory' | 'settings' | 'progress' | 'kitchen';
+type SheetId = TabId | 'inventory' | 'settings' | 'progress' | 'kitchen' | 'piggy';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
@@ -109,11 +100,12 @@ export default function Home() {
   const xpToNext = progressLevels[Math.min(level, MAX_LEVEL) - 1].xpThreshold;
   const coins = useEconomyStore((s) => s.coins);
   const wealthScore = useEconomyStore((s) => s.wealthScore);
+  const savingsGoal = useEconomyStore((s) => s.savingsGoal);
+  const totalSaved = useEconomyStore((s) => s.totalSaved);
   const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const activeKitchenRoomId = useInventoryStore((s) => s.activeKitchenRoomId);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
-  const streakDays = useDayProgressStore((s) => s.streak);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
   const purchaseConfirmationEnabled = useSettingsStore((s) => s.purchaseConfirmationEnabled);
@@ -558,7 +550,8 @@ export default function Home() {
           <div className="mt-2.5 flex gap-2.5">
             {/* Форма — скруглённый прямоугольник (не таблетка), с внутренней
                 тенью и светлым бликом сверху: это даёт объём, как в референсе */}
-            <div
+            <button
+              onClick={() => setSheet('piggy')}
               className="flex flex-[1.3] items-center gap-2.5 rounded-[22px] px-3 py-2.5"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
@@ -566,10 +559,10 @@ export default function Home() {
                   'inset 0 3px 7px rgba(146,98,36,0.34), inset 0 -1px 2px rgba(255,255,255,0.30), 0 4px 10px rgba(0,0,0,0.18)',
               }}
             >
-              <IconGift className="h-10 w-10 shrink-0 drop-shadow" />
+              <img src={savingsGoal?.image ?? piggyIcon} alt="" className="h-10 w-10 shrink-0 rounded-xl object-contain drop-shadow" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] font-bold" style={{ color: '#7d6034' }}>
-                  Уроки скоро откроются
+                  {savingsGoal ? `Копим на: ${savingsGoal.name}` : 'Выбери цель для копилки'}
                 </div>
                 <div
                   className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full"
@@ -581,56 +574,41 @@ export default function Home() {
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: '0%',
+                      width: `${savingsGoal ? Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100)) : 0}%`,
                       background: 'linear-gradient(90deg, #f1cf86 0%, #e3b355 100%)',
                     }}
                   />
                 </div>
               </div>
-            </div>
+            </button>
 
-            <div
-              onClick={
-                streakDays === 0
-                  ? () => {
-                      setTab('day');
-                      setSheet('day');
-                    }
-                  : undefined
-              }
-              className={`flex flex-1 items-center gap-2 rounded-[22px] px-3 py-2.5 ${
-                streakDays === 0 ? 'cursor-pointer transition active:scale-[0.98]' : ''
-              }`}
+            <button
+              type="button"
+              onClick={() => setSheet('piggy')}
+              className="flex flex-1 cursor-pointer items-center gap-2 rounded-[22px] px-3 py-2.5 transition active:scale-[0.98]"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
                 boxShadow:
                   'inset 0 3px 7px rgba(146,98,36,0.34), inset 0 -1px 2px rgba(255,255,255,0.30), 0 4px 10px rgba(0,0,0,0.18)',
               }}
             >
-              <IconFlame
-                className="h-9 w-9 shrink-0 drop-shadow"
-                style={streakDays === 0 ? { opacity: 0.45 } : undefined}
-              />
-              {streakDays === 0 ? (
+              <img src={piggyIcon} alt="" className="h-10 w-10 shrink-0 object-contain drop-shadow" />
+              {!savingsGoal ? (
                 <div className="min-w-0 leading-tight">
                   <div className="text-[11.5px] font-bold" style={{ color: '#4a3a22' }}>
-                    Начни серию!
+                    Копилка
                   </div>
                   <div className="text-[9.5px] font-semibold leading-snug" style={{ color: '#8a6a3a' }}>
-                    Выполни задание дня
+                    Выбери цель
                   </div>
                 </div>
               ) : (
                 <div className="leading-tight">
-                  <div className="whitespace-nowrap text-[13px] font-bold" style={{ color: '#4a3a22' }}>
-                    {streakDays} {pluralDays(streakDays)}
-                  </div>
-                  <div className="text-[12px] font-bold" style={{ color: '#4a3a22' }}>
-                    серия
-                  </div>
+                  <div className="whitespace-nowrap text-[11px] font-bold" style={{ color: '#4a3a22' }}>Моя цель</div>
+                  <div className="max-w-[90px] truncate text-[11px] font-bold" style={{ color: '#4a3a22' }}>{Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100))}% накоплено</div>
                 </div>
               )}
-            </div>
+            </button>
           </div>
           </div>
         </div>
@@ -704,6 +682,13 @@ export default function Home() {
             coins={coins}
             level={level}
             xp={xp}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
+            onClose={closeSheet}
+          />
+        ) : sheet === 'piggy' ? (
+          <PiggyBank
+            bottomInset={navHeight}
+            coins={coins}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={closeSheet}
           />

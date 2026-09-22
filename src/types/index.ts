@@ -32,6 +32,14 @@ export interface Transaction {
   reason: string;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  kind: 'toys' | 'clothes' | 'interior';
+}
+
 export interface EconomyState {
   coins: number;
   wealthScore: number;
@@ -39,6 +47,7 @@ export interface EconomyState {
   totalSpent: number;
   totalSaved: number;
   transactions: Transaction[];
+  savingsGoal?: SavingsGoal;
 }
 
 // ===== Scenario engine =====

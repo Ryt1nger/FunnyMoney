@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EconomyState, Transaction } from '../../types';
+import type { EconomyState, SavingsGoal, Transaction } from '../../types';
 import { storage } from '../../services/storage';
 
 interface EconomyStore extends EconomyState {
@@ -9,6 +9,7 @@ interface EconomyStore extends EconomyState {
   /** Перечитывает состояние из storage — используется при реальной проверке
    * содержимого на межстраничном экране загрузки (App.tsx / bootstrap.ts). */
   hydrate: () => void;
+  setSavingsGoal: (goal: SavingsGoal) => void;
 }
 
 const STORAGE_KEY = 'economy';
@@ -20,6 +21,7 @@ const defaultState: EconomyState = {
   totalSpent: 0,
   totalSaved: 0,
   transactions: [],
+  savingsGoal: undefined,
 };
 
 export function isValidEconomyState(value: unknown): value is EconomyState {
@@ -101,5 +103,11 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
       storage.set(STORAGE_KEY, defaultState);
       set(defaultState);
     }
+  },
+
+  setSavingsGoal: (savingsGoal) => {
+    const next = { ...get(), savingsGoal };
+    persist(next);
+    set(next);
   },
 }));
