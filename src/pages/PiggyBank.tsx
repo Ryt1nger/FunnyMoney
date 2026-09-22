@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import coinIcon from '../assets/icons/coin.png';
 import walletAsset from '../assets/piggy-bank/wallet.png';
 import piggyAsset from '../assets/piggy-bank/piggy.png';
@@ -22,6 +22,7 @@ const tabs: { id: ShopCategoryId | 'rooms'; label: string; icon: string }[] = [
 interface Props { bottomInset?: number; coins: number; onClose: () => void; onOpenEarnModal?: () => void }
 
 export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
+  const [entered, setEntered] = useState(false);
   const goal = useEconomyStore((s) => s.savingsGoal);
   const saved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
   const transactions = useEconomyStore((s) => s.transactions);
@@ -34,6 +35,10 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
   const [transferError, setTransferError] = useState('');
   const [historyTab, setHistoryTab] = useState<'income' | 'expense'>('income');
   const [tab, setTab] = useState<ShopCategoryId | 'rooms'>('toys');
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const goalName = goal?.name ?? '';
   const goalPrice = goal?.price ?? 0;
   const currentSaved = saved;
@@ -88,7 +93,7 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
     setAmount('');
   }
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)]" style={{ paddingBottom: bottomInset + (transferMode ? 220 : 16), color: BLUE }}>
+    <div className="h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)] transition-[opacity,transform] duration-300 ease-out" style={{ paddingBottom: bottomInset + (transferMode ? 220 : 16), color: BLUE, opacity: entered ? 1 : 0, transform: entered ? 'translateY(0)' : 'translateY(12px)' }}>
       <header className="mb-2.5 flex h-9 items-center justify-between">
         <button onClick={onClose} aria-label="Назад" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#4650ad] shadow-[0_2px_10px_rgba(31,37,105,0.08)]"><IconArrowLeft className="h-4 w-4" /></button>
         <h1 className="text-[19px] font-black tracking-[-0.3px]">Копилка</h1>

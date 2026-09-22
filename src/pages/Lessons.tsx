@@ -147,35 +147,35 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
         {/* Список уроков */}
         <div className="mt-2.5 flex flex-col gap-2.5">
           {list.map((lesson) => (
-            <div key={lesson.id} className="relative flex gap-3 rounded-[22px] bg-white/80 p-2.5 shadow-sm">
+            <div key={lesson.id} className="relative flex min-h-[100px] gap-3 rounded-[22px] bg-white/80 p-2.5 shadow-sm">
               <img
                 src={lesson.image}
                 alt=""
-                className="h-[74px] w-[74px] shrink-0 rounded-[16px] object-cover"
+                className="h-[70px] w-[70px] shrink-0 rounded-[16px] object-cover"
               />
-              <div className="min-w-0 flex-1 pr-9">
-                <div className="text-[14px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
+              <div className="min-w-0 flex-1 pr-24">
+                <div className="line-clamp-2 text-[13px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                   {lesson.title}
                 </div>
                 <p
-                  className="mt-0.5 whitespace-pre-line text-[11.5px] leading-tight"
+                  className="mt-1 truncate text-[10.5px] leading-tight"
                   style={{ color: '#7b7a8c' }}
                 >
                   {lesson.description}
                 </p>
-                <div className="mt-1.5 flex items-center gap-3">
+                <div className="mt-2 flex items-center gap-2">
                   <span className="flex items-center gap-1">
-                    <img src={coinIcon} alt="" className="h-[18px] w-[18px]" />
-                    <span className="text-[12px] font-bold" style={{ color: '#4a4560' }}>
+                    <img src={coinIcon} alt="" className="h-4 w-4" />
+                    <span className="text-[11px] font-bold" style={{ color: '#4a4560' }}>
                       +{lesson.coins}
                     </span>
                   </span>
-                  <span className="text-[11px] font-bold" style={{ color: '#6a63e0' }}>
-                    {lesson.practiceCount} практик
+                    <span className="text-[10px] font-bold" style={{ color: '#6a63e0' }}>
+                    {lesson.practiceCount} заданий
                   </span>
                   <span className="flex items-center gap-1">
-                    <img src={xpIcon} alt="" className="h-[18px] w-[18px]" />
-                    <span className="text-[12px] font-bold" style={{ color: '#4a4560' }}>
+                    <img src={xpIcon} alt="" className="h-4 w-4" />
+                    <span className="text-[11px] font-bold" style={{ color: '#4a4560' }}>
                       +{lesson.xp} XP
                     </span>
                   </span>

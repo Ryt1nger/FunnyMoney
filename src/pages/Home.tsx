@@ -102,6 +102,9 @@ export default function Home() {
   const wealthScore = useEconomyStore((s) => s.wealthScore);
   const savingsGoal = useEconomyStore((s) => s.savingsGoal);
   const totalSaved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
+  const savingsProgressPercent = savingsGoal
+    ? Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100))
+    : 0;
   const ownedRoomIds = useInventoryStore((s) => s.ownedRoomIds);
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const activeKitchenRoomId = useInventoryStore((s) => s.activeKitchenRoomId);
@@ -570,7 +573,15 @@ export default function Home() {
                 </div>
                 {savingsGoal && (
                   <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full" style={{ background: '#e6d2a2', boxShadow: 'inset 0 2px 3px rgba(150,105,40,0.35)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100))}%`, background: 'linear-gradient(90deg, #f1cf86 0%, #e3b355 100%)' }} />
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${savingsProgressPercent}%`,
+                        background: savingsProgressPercent === 100
+                          ? 'linear-gradient(90deg, #51dd88 0%, #16af60 100%)'
+                          : 'linear-gradient(90deg, #f1cf86 0%, #e3b355 100%)',
+                      }}
+                    />
                   </div>
                 )}
               </div>
