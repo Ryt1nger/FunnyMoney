@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import heroImg from '../assets/heroes/hero-day.jpg';
 import coinIcon from '../assets/icons/coin.png';
 import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
@@ -63,6 +63,8 @@ const TASK_ICON: Record<DayTaskIcon, { Icon: typeof IconBowl; bg: string; fg: st
 
 type RewardStatKind = 'health' | 'happiness' | 'wealth';
 interface RewardStat { kind: RewardStatKind; label: string; value: number; icon: string; color: string; }
+type FlyingRewardKind = 'heart' | 'smile' | 'coin' | 'star';
+interface FlyingReward { id: number; kind: FlyingRewardKind; x: number; y: number; dx: number; dy: number; flying: boolean; }
 
 interface Props {
   bottomInset?: number;
@@ -127,6 +129,9 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
 
   const [rewardStats, setRewardStats] = useState<RewardStat[]>([]);
   const [rewardStatsVisible, setRewardStatsVisible] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const nextRewardId = useRef(0);
+  const [flyingRewards, setFlyingRewards] = useState<FlyingReward[]>([]);
 
   function showRewardStats(task: DayTask) {
     const stats: RewardStat[] = [];
@@ -141,6 +146,27 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
     window.setTimeout(() => setRewardStats([]), 2700);
   }
 
+  function flyRewardToStats(originEl: HTMLElement, task: DayTask) {
+    const root = rootRef.current;
+    if (!root) { showRewardStats(task); return; }
+    const rootRect = root.getBoundingClientRect();
+    const originRect = originEl.getBoundingClientRect();
+    const x = originRect.left + originRect.width / 2 - rootRect.left;
+    const y = originRect.top + originRect.height / 2 - rootRect.top;
+    const targetX = rootRect.width / 2;
+    const targetY = rootRect.height * 0.42;
+    const kinds: FlyingRewardKind[] = [];
+    if (task.rewardCoins) kinds.push('coin');
+    if (task.rewardHeart) kinds.push('heart');
+    if (task.rewardSmile) kinds.push('smile');
+    kinds.push('star');
+    const created = kinds.map((kind) => ({ id: nextRewardId.current++, kind, x, y, dx: targetX - x, dy: targetY - y, flying: false }));
+    setFlyingRewards(created);
+    requestAnimationFrame(() => requestAnimationFrame(() => setFlyingRewards((prev) => prev.map((item) => ({ ...item, flying: true })))));
+    window.setTimeout(() => showRewardStats(task), 700);
+    window.setTimeout(() => setFlyingRewards([]), 820);
+  }
+
   // Шаг 1: ребёнок жмёт "Покормить"/"Играть"/"Уложить" — задание помечается
   // начатым (кнопка станет зелёной), а экран "День" закрывается, отправляя
   // обратно в комнату к питомцу, где и происходит само действие.
@@ -151,10 +177,10 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
 
   // Шаг 2: по зелёной кнопке "Получить" — награда действительно начисляется,
   // с анимацией иконок, летящих к балансу.
-  function claimDirectTask(task: DayTask) {
+  function claimDirectTask(task: DayTask, originEl: HTMLElement) {
     if (isTaskDone(task.id)) return;
     completeDirectTask(task);
-    showRewardStats(task);
+    flyRewardToStats(originEl, task);
   }
 
   useEffect(() => {
@@ -163,7 +189,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-[#fbefe1]">
+    <div ref={rootRef} className="relative flex h-full flex-col overflow-hidden bg-[#fbefe1]">
       {/* Шапка с иллюстрацией */}
       <div
         className="relative h-[170px] shrink-0 overflow-hidden bg-[#4f5a73] transition-opacity duration-500"
@@ -360,7 +386,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
                 ) : isDirectAction ? (
                   started ? (
                     <button
-                      onClick={() => claimDirectTask(task)}
+                      onClick={(event) => claimDirectTask(task, event.currentTarget)}
                       className="shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                       style={{ background: GREEN, boxShadow: GREEN_BTN_SHADOW }}
                     >
@@ -425,9 +451,27 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         )}
       </div>
 
+      {flyingRewards.map((reward) => (
+        <div
+          key={reward.id}
+          className="pointer-events-none absolute z-[90] flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center transition-all duration-[650ms] ease-out"
+          style={{
+            left: reward.x,
+            top: reward.y,
+            transform: reward.flying ? `translate(-50%, -50%) translate(${reward.dx}px, ${reward.dy}px) scale(.45)` : 'translate(-50%, -50%) scale(1)',
+            opacity: reward.flying ? 0 : 1,
+          }}
+        >
+          {reward.kind === 'coin' && <img src={coinIcon} alt="" className="h-full w-full drop-shadow-lg" />}
+          {reward.kind === 'heart' && <IconHeart className="h-full w-full drop-shadow-lg" style={{ color: '#ef6d8a' }} />}
+          {reward.kind === 'smile' && <IconSmile className="h-full w-full drop-shadow-lg" style={{ color: '#eab53c' }} />}
+          {reward.kind === 'star' && <IconStar className="h-full w-full drop-shadow-lg" />}
+        </div>
+      ))}
+
       {rewardStats.length > 0 && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-1/2 z-[80] flex -translate-y-1/2 justify-center px-3 transition-all duration-500 ease-out"
+          className="pointer-events-none absolute inset-x-0 top-[42%] z-[80] flex -translate-y-1/2 justify-center px-3 transition-all duration-500 ease-out"
           style={{ opacity: rewardStatsVisible ? 1 : 0, transform: `translateY(-50%) scale(${rewardStatsVisible ? 1 : 0.94})` }}
         >
           <div className="flex max-w-full flex-wrap justify-center gap-2.5">

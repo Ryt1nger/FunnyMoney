@@ -559,28 +559,20 @@ export default function Home() {
                   'inset 0 3px 7px rgba(146,98,36,0.34), inset 0 -1px 2px rgba(255,255,255,0.30), 0 4px 10px rgba(0,0,0,0.18)',
               }}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f5f3ff]">
-                <img src={savingsGoal?.image ?? piggyIcon} alt="" className="h-full w-full object-contain p-0.5 drop-shadow" />
-              </span>
-              <div className="min-w-0 flex-1">
+              {savingsGoal && (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f5f3ff]">
+                  <img src={savingsGoal.image} alt="" className="h-full w-full object-contain p-0.5 drop-shadow" />
+                </span>
+              )}
+              <div className={`min-w-0 flex-1 ${savingsGoal ? '' : 'text-center'}`}>
                 <div className="truncate text-[12px] font-bold" style={{ color: '#7d6034' }}>
-                  {savingsGoal ? `Копим на: ${savingsGoal.name}` : 'Выбери цель для копилки'}
+                  {savingsGoal ? savingsGoal.name : 'Выбери цель и начни копить'}
                 </div>
-                <div
-                  className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full"
-                  style={{
-                    background: '#e6d2a2',
-                    boxShadow: 'inset 0 2px 3px rgba(150,105,40,0.35)',
-                  }}
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${savingsGoal ? Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100)) : 0}%`,
-                      background: 'linear-gradient(90deg, #f1cf86 0%, #e3b355 100%)',
-                    }}
-                  />
-                </div>
+                {savingsGoal && (
+                  <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full" style={{ background: '#e6d2a2', boxShadow: 'inset 0 2px 3px rgba(150,105,40,0.35)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100))}%`, background: 'linear-gradient(90deg, #f1cf86 0%, #e3b355 100%)' }} />
+                  </div>
+                )}
               </div>
             </button>
 

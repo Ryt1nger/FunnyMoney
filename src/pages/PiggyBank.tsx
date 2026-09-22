@@ -51,6 +51,13 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
   const goalImage = goal?.image ?? rocketGoal;
   const currentSaved = saved;
   const percent = Math.min(100, Math.round((currentSaved / Math.max(goalPrice, 1)) * 100));
+  const transferValue = Number(amount);
+  const transferAllowed = Boolean(
+    transferMode &&
+      Number.isInteger(transferValue) &&
+      transferValue > 0 &&
+      (transferMode === 'deposit' ? transferValue <= coins : transferValue <= currentSaved),
+  );
   const products = tab === 'interior' || tab === 'rooms'
     ? [...roomsBySection('playroom'), ...roomsBySection('kitchen')].filter((room) => room.price > 0).map((room) => ({ id: room.id, name: room.name, price: room.price, image: room.background, kind: 'interior' as const }))
     : productsByCategory(tab).map((product) => ({ id: product.id, name: product.name, price: product.price, image: product.image, kind: product.category as 'toys' | 'clothes' | 'interior' }));
@@ -130,7 +137,7 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
           <label className="mt-4 block text-[11px] font-bold text-[#777da8]" htmlFor="savings-amount">Сколько монет перевести?</label>
           <div className="mt-1.5 flex h-12 items-center rounded-[14px] bg-[#f5f3ff] px-3"><input id="savings-amount" autoFocus inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(event) => { setAmount(event.target.value.replace(/[^0-9]/g, '')); setTransferError(''); }} placeholder="0" className="min-w-0 flex-1 bg-transparent text-[24px] font-black text-[#111b72] outline-none" /><img src={coinIcon} alt="" className="h-6 w-6" /></div>
           {transferError && <p className="mt-1.5 text-[10px] font-bold text-[#ed4e5d]">{transferError}</p>}
-          <button onClick={submitTransfer} className="mt-3 flex h-11 w-full items-center justify-center rounded-[14px] text-[12px] font-extrabold text-white" style={{ background: transferMode === 'deposit' ? VIOLET : 'linear-gradient(180deg, #a9a2eb 0%, #8c84df 100%)' }}>{transferMode === 'deposit' ? 'Пополнить копилку' : 'Вывести монеты'}</button>
+          <button onClick={submitTransfer} disabled={!transferAllowed} className="mt-3 flex h-11 w-full items-center justify-center rounded-[14px] text-[12px] font-extrabold text-white transition-opacity active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-100" style={{ background: transferAllowed ? (transferMode === 'deposit' ? VIOLET : 'linear-gradient(180deg, #8b88f4 0%, #716dde 100%)') : '#d9d5ed', color: transferAllowed ? '#ffffff' : '#aaa5c2' }}>{transferMode === 'deposit' ? 'Пополнить копилку' : 'Вывести монеты'}</button>
         </section>
       ) : (
       <section className="mt-2.5 grid grid-cols-[1fr_34px_1fr] items-center rounded-[20px] bg-white p-2 shadow-[0_3px_14px_rgba(31,37,105,0.06)]">
