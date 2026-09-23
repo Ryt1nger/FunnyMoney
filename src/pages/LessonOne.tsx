@@ -114,7 +114,7 @@ export default function LessonOne({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Открыть урок" className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div className="absolute left-[5%] right-[5%] top-[41%] bottom-[14%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.25fr)_minmax(0,.85fr)] gap-2.5">
+      <div className="absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5">
         {[
           { label: 'Обязательное', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
           { label: 'Накопления', color: 'bg-[#d8f7f5]', border: '#78cacc', icon: piggyBank, slot: 1 },
@@ -123,7 +123,7 @@ export default function LessonOne({ onBack }: Props) {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
           return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
-            <div className="flex min-w-0 items-center gap-1 text-center text-[clamp(9px,2.8vw,13px)] font-black leading-tight text-[#1f5a2b]"><img src={category.icon} alt="" className="h-6 w-6 shrink-0 object-contain" /><span className="min-w-0 flex-1 break-words">{category.label}</span></div>
+            <div className="flex min-w-0 items-center gap-1 text-center text-[clamp(8px,2.2vw,11px)] font-black leading-none text-[#1f5a2b]"><img src={category.icon} alt="" className="h-5 w-5 shrink-0 object-contain" /><span className="min-w-0 flex-1 whitespace-nowrap">{category.label}</span></div>
             <div className="mt-1.5 flex min-h-0 flex-1 items-center justify-center rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
               {item && <DraggableItem item={item} sourceSlot={category.slot} setDragging={setDragging} onClick={() => returnToTray(item.id)} />}
             </div>
