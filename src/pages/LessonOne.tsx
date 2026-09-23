@@ -116,16 +116,17 @@ export default function LessonOne({ onBack }: Props) {
 
       <div className="absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5">
         {[
-          { label: 'Обязательное', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
-          { label: 'Накопления', color: 'bg-[#d8f7f5]', border: '#78cacc', icon: piggyBank, slot: 1 },
-          { label: 'Желания', color: 'bg-[#eedfff]', border: '#b18de9', icon: starIcon, slot: 2 },
+          { label: 'Обязательное', hint: 'То, без чего нельзя', titleColor: '#1f7a32', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
+          { label: 'Накопления', hint: 'Откладываем на будущее', titleColor: '#167b86', color: 'bg-[#d8f7f5]', border: '#78cacc', icon: piggyBank, slot: 1 },
+          { label: 'Желания', hint: 'То, что хочется', titleColor: '#5430d2', color: 'bg-[#eedfff]', border: '#b18de9', icon: starIcon, slot: 2 },
         ].map((category) => {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
           return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
-            <div className="flex min-w-0 items-center gap-1 text-center text-[clamp(8px,2.2vw,11px)] font-black leading-none text-[#1f5a2b]"><img src={category.icon} alt="" className="h-5 w-5 shrink-0 object-contain" /><span className="min-w-0 flex-1 whitespace-nowrap">{category.label}</span></div>
-            <div className="mt-1.5 flex min-h-0 flex-1 items-center justify-center rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
-              {item && <DraggableItem item={item} sourceSlot={category.slot} setDragging={setDragging} onClick={() => returnToTray(item.id)} />}
+            <div className="flex min-w-0 items-center gap-1 text-center text-[clamp(8px,2.2vw,11px)] font-black leading-none" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-5 w-5 shrink-0 object-contain" /><span className="min-w-0 flex-1 whitespace-nowrap">{category.label}</span></div>
+            <span className="mt-1 block truncate text-center text-[clamp(6px,1.7vw,9px)] font-semibold leading-tight text-[#5c6f78]">{category.hint}</span>
+            <div className="mt-1.5 flex aspect-square w-full flex-none items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
+              {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: category.slot })} onClick={() => returnToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/80 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
             </div>
           </div>;
         })}
