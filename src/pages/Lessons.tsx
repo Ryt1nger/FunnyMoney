@@ -5,6 +5,7 @@ import xpIcon from '../assets/icons/xp-star.png';
 import { lessonCards } from '../data/lessonsData';
 import { IconArrowLeft, IconPlus, IconStar } from '../components/icons';
 import bookHero from '../assets/icons/book-3d.png';
+import LessonOne from './LessonOne';
 
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -28,6 +29,7 @@ interface Props {
 
 export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal }: Props) {
   const [entered, setEntered] = useState(false);
+  const [activeLesson, setActiveLesson] = useState<string | null>(null);
 
   // фото проявляется, кремовый лист выезжает снизу — вместо резкого показа
   useEffect(() => {
@@ -36,6 +38,10 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   }, []);
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
   const list = lessonCards;
+
+  if (activeLesson === 'what-is-money') {
+    return <LessonOne onBack={() => setActiveLesson(null)} />;
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#fbefe1]">
@@ -198,6 +204,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 {lesson.step}/{lesson.total}
               </span>
               <button
+                onClick={() => { if (lesson.id === 'what-is-money') setActiveLesson(lesson.id); }}
                 className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                 style={{
                   background: VIOLET,
