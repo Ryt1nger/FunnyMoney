@@ -10,6 +10,8 @@ import foodBowl from '../assets/items/food/bowl-blue-kibble.png';
 import piggyBank from '../assets/piggy-bank/piggy.png';
 import starIcon from '../assets/icons/xp-star.png';
 import coinIcon from '../assets/icons/coin.png';
+import cartIcon from '../assets/icons/categories/cart.png';
+import heartIcon from '../assets/icons/shop/heart.png';
 import toyCar from '../assets/lesson1/items/toy-car.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
@@ -22,8 +24,14 @@ const practiceItems = [
   { id: 'toy', label: 'Игрушка', price: 50, image: toyCar, category: 'want' },
   { id: 'savings', label: 'Копилка', price: 20, image: piggyBank, category: 'save' },
 ] as const;
+const budgetItems = [
+  { id: 'budget-food', label: 'Еда', price: 50, image: foodBowl, category: 'budget' },
+  { id: 'budget-medicine', label: 'Лекарство', price: 30, image: heartIcon, category: 'budget' },
+  { id: 'budget-stickers', label: 'Наклейки', price: 20, image: starIcon, category: 'budget' },
+  { id: 'budget-toy', label: 'Игрушка', price: 40, image: toyCar, category: 'budget' },
+] as const;
 
-type PracticeItem = (typeof practiceItems)[number];
+type PracticeItem = { id: string; label: string; price: number; image: string; category: string };
 
 function DraggableItem({ item, sourceSlot, setDragging, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null }) => void; onClick: () => void; isDragging?: boolean }) {
   return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onClick={onClick} className={`flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : ''}`}>
@@ -42,6 +50,7 @@ export default function LessonOne({ onBack }: Props) {
   const [watched, setWatched] = useState(false);
   const [scene, setScene] = useState(0);
   const [placements, setPlacements] = useState<(string | null)[]>([null, null, null]);
+  const [budgetCart, setBudgetCart] = useState<string[]>([]);
   const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -74,6 +83,23 @@ export default function LessonOne({ onBack }: Props) {
     setPlacements((current) => current.map((value) => value === id ? null : value));
     setDragging(null);
   }
+
+  function addToBudgetCart(id: string) {
+    setBudgetCart((current) => {
+      const item = budgetItems.find((entry) => entry.id === id);
+      const nextTotal = current.reduce((total, value) => total + (budgetItems.find((entry) => entry.id === value)?.price ?? 0), 0) + (item?.price ?? 0);
+      return !item || current.includes(id) || current.length >= 3 || nextTotal > 100 ? current : [...current, id];
+    });
+    setDragging(null);
+  }
+
+  function removeFromBudgetCart(id: string) {
+    setBudgetCart((current) => current.filter((value) => value !== id));
+    setDragging(null);
+  }
+
+  const budgetSpent = budgetCart.reduce((total, id) => total + (budgetItems.find((item) => item.id === id)?.price ?? 0), 0);
+  const budgetBalance = 100 - budgetSpent;
 
   if (phase === 'video') {
     return (
@@ -116,6 +142,16 @@ export default function LessonOne({ onBack }: Props) {
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
       <div className="absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5">
+        {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] bg-white/70 p-2">
+          <div className="mx-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[#17469d] shadow-sm"><img src={coinIcon} alt="" className="h-8 w-8" /><span className="text-[clamp(13px,3.8vw,19px)] font-black">Бюджет: {budgetBalance}</span></div>
+          <div className="grid min-h-0 grid-cols-4 gap-2" onDragOver={(event) => event.preventDefault()}>
+            {budgetItems.filter((item) => !budgetCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToBudgetCart(item.id)} />)}
+          </div>
+          <div className="grid grid-cols-[1fr_2fr] items-center gap-2 rounded-2xl bg-[#fff3df] p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && addToBudgetCart(dragging.id)}>
+            <div className="flex flex-col items-center text-center"><img src={cartIcon} alt="Корзина" className="h-14 w-14 object-contain" /><span className="text-[clamp(10px,3vw,14px)] font-black text-[#17469d]">Твоя корзина</span></div>
+            <div className="grid grid-cols-3 gap-1.5"><div className="col-span-3 text-right text-[clamp(10px,2.8vw,13px)] font-black text-[#17469d]">{budgetCart.length}/3</div>{budgetCart.map((id) => { const item = budgetItems.find((entry) => entry.id === id); return item ? <button type="button" key={id} onClick={() => removeFromBudgetCart(id)} className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-white/75 p-1"><img src={item.image} alt={item.label} className="h-full w-full object-contain" /></button> : null; })}</div>
+          </div>
+        </div> : <>
         {[
           { label: 'Обязательное', hint: 'То, без чего нельзя', titleColor: '#1f7a32', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
           { label: 'Накопления', hint: 'Откладываем на будущее', titleColor: '#167b86', color: 'bg-[#d8f7f5]', border: '#78cacc', icon: piggyBank, slot: 1 },
@@ -133,6 +169,7 @@ export default function LessonOne({ onBack }: Props) {
         <div className="col-span-3 grid min-h-0 grid-cols-3 gap-2 rounded-[22px] bg-white/55 p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && returnToTray(dragging.id)}>
           {practiceItems.filter((item) => !placements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => placeItem(placements.findIndex((value) => value === null), item.id)} />)}
         </div>
+        </>}
       </div>
 
       <div className="absolute bottom-[3.5%] left-[4%] right-[4%] z-20 flex items-center gap-[6%]">
