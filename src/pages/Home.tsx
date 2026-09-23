@@ -649,6 +649,7 @@ export default function Home() {
             xp={xp}
             xpToNext={xpToNext}
             onOpenEarnModal={() => setEarnModalOpen(true)}
+            onFullScreenChange={setNavHidden}
             onClose={closeSheet}
           />
         ) : sheet === 'shop' ? (

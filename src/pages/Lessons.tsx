@@ -25,9 +25,10 @@ interface Props {
   onClose: () => void;
   /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
   onOpenEarnModal?: () => void;
+  onFullScreenChange?: (hidden: boolean) => void;
 }
 
-export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal }: Props) {
+export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal, onFullScreenChange }: Props) {
   const [entered, setEntered] = useState(false);
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
 
@@ -36,11 +37,12 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
   }, []);
+  useEffect(() => () => onFullScreenChange?.(false), [onFullScreenChange]);
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
   const list = lessonCards;
 
   if (activeLesson === 'what-is-money') {
-    return <LessonOne onBack={() => setActiveLesson(null)} />;
+    return <LessonOne onBack={() => { setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
 
   return (
@@ -204,7 +206,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 {lesson.step}/{lesson.total}
               </span>
               <button
-                onClick={() => { if (lesson.id === 'what-is-money') setActiveLesson(lesson.id); }}
+                onClick={() => { if (lesson.id === 'what-is-money') { setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
                 className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                 style={{
                   background: VIOLET,
