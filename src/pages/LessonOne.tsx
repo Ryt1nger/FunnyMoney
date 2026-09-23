@@ -16,7 +16,7 @@ import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgrou
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void }
 
-const scenes = [scene1, scene2, scene3, scene4, scene5];
+const scenes = [scene1, scene4, scene3, scene2, scene5];
 const practiceItems = [
   { id: 'food', label: 'Еда', price: 60, image: foodBowl, category: 'must' },
   { id: 'toy', label: 'Игрушка', price: 50, image: toyCar, category: 'want' },
