@@ -56,13 +56,13 @@ export default function LessonOne({ onBack }: Props) {
       {/* Кнопка назад повторяет шапку разделов на главной */}
       <button aria-label="Назад" onClick={scene === 0 ? onBack : () => setScene((value) => value - 1)} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
 
-      <div className="absolute left-[30%] top-[2.8%] z-20 flex h-[6%] w-[44%] items-center rounded-full border border-white/30 bg-[#4d497d]/55 px-[5%] shadow-[0_4px_14px_rgba(50,42,110,.25)] backdrop-blur-md">
+      <div className="absolute left-1/2 top-[2.8%] z-20 flex h-[6%] w-[44%] -translate-x-1/2 items-center rounded-full border border-white/30 bg-[#4d497d]/55 px-[5%] shadow-[0_4px_14px_rgba(50,42,110,.25)] backdrop-blur-md">
         <div className="relative flex w-full items-center justify-between">
           <div className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-white/45" />
           {scenes.map((_, index) => (
             <span
               key={index}
-              className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#d9d8ff]' : 'bg-white/35'}`}
+              className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#d9d8ff]' : 'bg-[#817b98]'}`}
             />
           ))}
         </div>
@@ -71,12 +71,12 @@ export default function LessonOne({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Открыть урок" className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div className="absolute bottom-[3.5%] left-[5%] right-[5%] z-20 flex items-center gap-[9%]">
-        <button type="button" aria-label="Подсказка" className="flex h-14 w-[40%] items-center justify-center gap-2 rounded-[30px] bg-white/95 px-2 text-[17px] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#6355f0] text-[26px] shadow-[0_3px_8px_rgba(72,58,200,.35)]">💡</span>
+      <div className="absolute bottom-[3.5%] left-[4%] right-[4%] z-20 flex items-center gap-[7%]">
+        <button type="button" aria-label="Подсказка" className="flex h-14 w-[43%] min-w-0 shrink-0 items-center justify-center gap-2 rounded-[30px] bg-white/95 px-2 text-[clamp(14px,4.5vw,17px)] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">
+          <span className="flex h-[clamp(36px,11vw,44px)] w-[clamp(36px,11vw,44px)] shrink-0 items-center justify-center rounded-full bg-[#6355f0] text-[clamp(21px,6.5vw,26px)] shadow-[0_3px_8px_rgba(72,58,200,.35)]">💡</span>
           <span className="whitespace-nowrap">Подсказка</span>
         </button>
-        <button type="button" aria-label="Проверить" className="h-14 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] text-[21px] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
+        <button type="button" aria-label="Проверить" className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
       </div>
     </div>
   );
