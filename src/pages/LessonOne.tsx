@@ -25,8 +25,8 @@ const practiceItems = [
 
 type PracticeItem = (typeof practiceItems)[number];
 
-function DraggableItem({ item, sourceSlot, setDragging, onClick }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null }) => void; onClick: () => void }) {
-  return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onClick={onClick} className="flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition active:cursor-grabbing active:scale-95">
+function DraggableItem({ item, sourceSlot, setDragging, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null }) => void; onClick: () => void; isDragging?: boolean }) {
+  return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onClick={onClick} className={`flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : ''}`}>
     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
     <span className="mt-0.5 text-[clamp(10px,3vw,14px)] font-extrabold leading-none text-[#17469d]">{item.label}</span>
     <span className="flex items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{item.price}</span>
@@ -131,7 +131,7 @@ export default function LessonOne({ onBack }: Props) {
           </div>;
         })}
         <div className="col-span-3 grid min-h-0 grid-cols-3 gap-2 rounded-[22px] bg-white/55 p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && returnToTray(dragging.id)}>
-          {practiceItems.filter((item) => !placements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} onClick={() => placeItem(placements.findIndex((value) => value === null), item.id)} />)}
+          {practiceItems.filter((item) => !placements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => placeItem(placements.findIndex((value) => value === null), item.id)} />)}
         </div>
       </div>
 
