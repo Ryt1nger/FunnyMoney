@@ -10,8 +10,8 @@ import foodBowl from '../assets/items/food/bowl-blue-kibble.png';
 import piggyBank from '../assets/piggy-bank/piggy.png';
 import starIcon from '../assets/icons/xp-star.png';
 import coinIcon from '../assets/icons/coin.png';
-import cartIcon from '../assets/icons/categories/cart.png';
 import heartIcon from '../assets/icons/shop/heart.png';
+import basketIcon from '../assets/lesson2/basket.png';
 import toyCar from '../assets/lesson1/items/toy-car.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
@@ -147,9 +147,10 @@ export default function LessonOne({ onBack }: Props) {
           <div className="grid min-h-0 grid-cols-4 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && budgetCart.includes(dragging.id) && removeFromBudgetCart(dragging.id)}>
             {budgetItems.filter((item) => !budgetCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToBudgetCart(item.id)} />)}
           </div>
-          <div className="grid grid-cols-[1fr_2fr] items-center gap-2 rounded-2xl bg-[#fff3df] p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && addToBudgetCart(dragging.id)}>
-            <div className="flex flex-col items-center text-center"><img src={cartIcon} alt="Корзина" className="h-14 w-14 object-contain" /><span className="text-[clamp(10px,3vw,14px)] font-black text-[#17469d]">Твоя корзина</span></div>
-            <div className="grid grid-cols-3 gap-1.5"><div className="col-span-3 text-right text-[clamp(10px,2.8vw,13px)] font-black text-[#17469d]">{budgetCart.length}/3</div>{budgetCart.map((id) => { const item = budgetItems.find((entry) => entry.id === id); return item ? <button type="button" draggable key={id} onDragStart={() => setDragging({ id, from: null })} onDragEnd={() => setDragging(null)} onClick={() => removeFromBudgetCart(id)} className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-white/75 p-1"><img src={item.image} alt={item.label} className="h-full w-full object-contain" /></button> : null; })}</div>
+          <div className="grid grid-cols-[1.1fr_3fr_auto] items-center gap-2 rounded-2xl bg-[#fff3df] p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && addToBudgetCart(dragging.id)}>
+            <div className="flex min-w-0 flex-col items-center text-center"><img src={basketIcon} alt="Корзина" className="h-20 w-24 object-contain" /><span className="whitespace-nowrap text-[clamp(10px,3vw,14px)] font-black text-[#17469d]">Твоя корзина</span></div>
+            <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = budgetItems.find((entry) => entry.id === budgetCart[slot]); return <button type="button" draggable={Boolean(item)} key={slot} onDragStart={() => item && setDragging({ id: item.id, from: null })} onDragEnd={() => setDragging(null)} onClick={() => item && removeFromBudgetCart(item.id)} className="flex aspect-square min-w-0 items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1">{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/75 text-[clamp(14px,4vw,20px)] font-black text-[#17469d]">{budgetCart.length}/3</div>
           </div>
         </div> : <>
         {[
