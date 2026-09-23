@@ -10,6 +10,7 @@ import foodBowl from '../assets/items/food/bowl-blue-kibble.png';
 import piggyBank from '../assets/piggy-bank/piggy.png';
 import starIcon from '../assets/icons/xp-star.png';
 import toyCar from '../assets/lesson1/items/toy-car.png';
+import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void }
@@ -42,6 +43,11 @@ export default function LessonOne({ onBack }: Props) {
   const [placements, setPlacements] = useState<(string | null)[]>([null, null, null]);
   const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    pauseBackgroundMusic();
+    return () => startBackgroundMusic();
+  }, []);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -78,7 +84,6 @@ export default function LessonOne({ onBack }: Props) {
           preload="metadata"
           className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${playing ? '' : 'scale-105 blur-xl opacity-60'}`}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/65" />
         <button aria-label="Назад" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
         <button onClick={() => { setWatched(true); setPhase('practice'); }} className="absolute right-5 top-7 z-20 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">Пропустить</button>
         {!playing && !watched && <button aria-label="Воспроизвести видео" onClick={() => { setPlaying(true); void videoRef.current?.play().catch(() => setWatched(true)); }} className="absolute left-1/2 top-1/2 z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#675ff3] text-5xl text-white shadow-lg">▶</button>}
@@ -109,7 +114,7 @@ export default function LessonOne({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Открыть урок" className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div className="absolute left-[5%] right-[5%] top-[41%] bottom-[14%] z-10 grid grid-cols-3 grid-rows-2 gap-2.5">
+      <div className="absolute left-[5%] right-[5%] top-[41%] bottom-[14%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.25fr)_minmax(0,.85fr)] gap-2.5">
         {[
           { label: 'Обязательное', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
           { label: 'Накопления', color: 'bg-[#d8f7f5]', border: '#78cacc', icon: piggyBank, slot: 1 },
@@ -118,7 +123,7 @@ export default function LessonOne({ onBack }: Props) {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
           return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
-            <div className="flex items-center gap-1.5 text-[clamp(10px,3.2vw,14px)] font-black text-[#1f5a2b]"><img src={category.icon} alt="" className="h-7 w-7 object-contain" /><span>{category.label}</span></div>
+            <div className="flex min-w-0 items-center gap-1 text-center text-[clamp(9px,2.8vw,13px)] font-black leading-tight text-[#1f5a2b]"><img src={category.icon} alt="" className="h-6 w-6 shrink-0 object-contain" /><span className="min-w-0 flex-1 break-words">{category.label}</span></div>
             <div className="mt-1.5 flex min-h-0 flex-1 items-center justify-center rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
               {item && <DraggableItem item={item} sourceSlot={category.slot} setDragging={setDragging} onClick={() => returnToTray(item.id)} />}
             </div>
