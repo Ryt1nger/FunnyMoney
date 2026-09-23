@@ -8,6 +8,11 @@ import bookHero from '../assets/icons/book-3d.png';
 
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
+const LESSON_THEMES = [
+  { title: 'Выбор', lessonIds: ['what-is-money', 'needs-vs-wants'] },
+  { title: 'Покупки', lessonIds: ['piggy-bank', 'impulse-buying'] },
+  { title: 'Накопления', lessonIds: ['financial-goal', 'plan-and-fact'] },
+];
 
 interface Props {
   /** высота нижней навигации: содержимое не должно прятаться под баром */
@@ -144,9 +149,16 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
           Курс «Монетки под контролем»
         </h2>
 
-        {/* Список уроков */}
-        <div className="mt-2.5 flex flex-col gap-2.5">
-          {list.map((lesson) => (
+        {/* Три короткие темы по два урока */}
+        <div className="mt-2.5 flex flex-col gap-4">
+          {LESSON_THEMES.map((theme) => (
+            <section key={theme.title}>
+              <div className="mb-2 flex items-center gap-2">
+                <h3 className="text-[13px] font-extrabold" style={{ color: '#5d57c9' }}>{theme.title}</h3>
+                <div className="h-px flex-1 bg-[#ded8ef]" />
+              </div>
+              <div className="flex flex-col gap-2.5">
+              {list.filter((lesson) => theme.lessonIds.includes(lesson.id)).map((lesson) => (
             <div key={lesson.id} className="relative flex min-h-[100px] gap-3 rounded-[22px] bg-white/80 p-2.5 shadow-sm">
               <img
                 src={lesson.image}
@@ -169,9 +181,6 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                     <span className="text-[11px] font-bold" style={{ color: '#4a4560' }}>
                       +{lesson.coins}
                     </span>
-                  </span>
-                    <span className="text-[10px] font-bold" style={{ color: '#6a63e0' }}>
-                    {lesson.practiceCount} заданий
                   </span>
                   <span className="flex items-center gap-1">
                     <img src={xpIcon} alt="" className="h-4 w-4" />
@@ -199,6 +208,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 Начать
               </button>
             </div>
+              ))}
+              </div>
+            </section>
           ))}
         </div>
 

@@ -272,28 +272,28 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         }}
       >
         {/* Текущий день + серия — один блок с акцентом на левой плашке */}
-        <div className="flex items-center gap-3 rounded-[22px] bg-white/70 p-2.5 shadow-md">
+        <div className="flex items-center gap-2.5 rounded-[20px] bg-white/70 p-2 shadow-md">
           <div
-            className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-[16px] px-3.5 py-2"
+            className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-[15px] px-3 py-1.5"
             style={{ background: VIOLET, boxShadow: '0 4px 10px rgba(92,90,216,0.30)' }}
           >
             <span className="whitespace-nowrap text-[9.5px] font-bold leading-none text-white/85">
               Текущий день
             </span>
-            <span className="text-[22px] font-extrabold leading-none text-white">{currentDay}</span>
+            <span className="text-[20px] font-extrabold leading-none text-white">{currentDay}</span>
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <IconFlame className="h-5 w-5 shrink-0" style={streakDays === 0 ? { opacity: 0.4 } : undefined} />
-              <span className="text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
+              <span className="text-[12px] font-bold" style={{ color: '#2c2a5e' }}>
                 Серия дней
               </span>
-              <span className="text-[15px] font-extrabold" style={{ color: '#2c2a5e' }}>
+              <span className="text-[14px] font-extrabold" style={{ color: '#2c2a5e' }}>
                 {streakDays}
               </span>
             </div>
-            <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-tight" style={{ color: '#7b7a8c' }}>
+            <p className="mt-0.5 line-clamp-2 text-[10px] font-medium leading-tight" style={{ color: '#7b7a8c' }}>
               {streakDays === 0
                 ? 'Выполни любое задание сегодня, чтобы начать серию!'
                 : 'Продолжай, чтобы получить особую награду!'}
@@ -318,7 +318,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         </div>
 
         {/* Список заданий */}
-        <div className="mt-2 flex flex-col gap-2.5">
+        <div className="mt-1.5 flex flex-col gap-2">
           {dayTasks.map((task) => {
             const { Icon, bg, fg } = TASK_ICON[task.icon];
             const done = isTaskDone(task.id);
@@ -329,51 +329,51 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
             return (
               <div
                 key={task.id}
-                className="flex items-center gap-3 rounded-[20px] p-2.5 shadow-sm"
+                className="flex items-center gap-2.5 rounded-[18px] p-2 shadow-sm"
                 style={{ background: done ? 'rgba(120,190,140,0.16)' : 'rgba(255,255,255,0.8)' }}
               >
                 <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px]"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px]"
                   style={{ background: bg }}
                 >
-                  <Icon className="h-6 w-6" style={{ color: fg }} />
+                  <Icon className="h-5 w-5" style={{ color: fg }} />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
+                  <div className="truncate text-[12.5px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                     {task.title}
                   </div>
-                  <div className="mt-0.5 truncate text-[11px] leading-tight" style={{ color: '#7b7a8c' }}>
+                  <div className="mt-0.5 truncate text-[10px] leading-tight" style={{ color: '#7b7a8c' }}>
                     {task.description}
                   </div>
-                  <div className="mt-1 flex items-center gap-2.5">
+                  <div className="mt-0.5 flex items-center gap-2">
                     {task.rewardHeart && (
                       <span className="flex items-center gap-0.5">
-                        <IconHeart className="h-3.5 w-3.5" style={{ color: '#ef6d8a' }} />
-                        <span className="text-[10.5px] font-bold" style={{ color: '#4a4560' }}>
+                        <IconHeart className="h-3 w-3" style={{ color: '#ef6d8a' }} />
+                        <span className="text-[9.5px] font-bold" style={{ color: '#4a4560' }}>
                           +{task.rewardHeart}
                         </span>
                       </span>
                     )}
                     {task.rewardSmile && (
                       <span className="flex items-center gap-0.5">
-                        <IconSmile className="h-3.5 w-3.5" style={{ color: '#eab53c' }} />
-                        <span className="text-[10.5px] font-bold" style={{ color: '#4a4560' }}>
+                        <IconSmile className="h-3 w-3" style={{ color: '#eab53c' }} />
+                        <span className="text-[9.5px] font-bold" style={{ color: '#4a4560' }}>
                           +{task.rewardSmile}
                         </span>
                       </span>
                     )}
                     {task.rewardCoins && (
                       <span className="flex items-center gap-0.5">
-                        <img src={coinIcon} alt="" className="h-3.5 w-3.5" />
-                        <span className="text-[10.5px] font-bold" style={{ color: '#4a4560' }}>
+                        <img src={coinIcon} alt="" className="h-3 w-3" />
+                        <span className="text-[9.5px] font-bold" style={{ color: '#4a4560' }}>
                           +{task.rewardCoins}
                         </span>
                       </span>
                     )}
                     <span className="flex items-center gap-0.5">
-                      <IconStar className="h-3.5 w-3.5" />
-                      <span className="text-[10.5px] font-bold" style={{ color: '#4a4560' }}>
+                      <IconStar className="h-3 w-3" />
+                      <span className="text-[9.5px] font-bold" style={{ color: '#4a4560' }}>
                         +{task.xp} XP
                       </span>
                     </span>
@@ -391,7 +391,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
                   started ? (
                     <button
                       onClick={(event) => claimDirectTask(task, event.currentTarget)}
-                      className="shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+                      className="shrink-0 rounded-full px-3.5 py-1.5 text-[11.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                       style={{ background: GREEN, boxShadow: GREEN_BTN_SHADOW }}
                     >
                       Получить
@@ -399,7 +399,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
                   ) : (
                     <button
                       onClick={() => startDirectTask(task)}
-                      className="shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+                      className="shrink-0 rounded-full px-3.5 py-1.5 text-[11.5px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                       style={{ background: VIOLET, boxShadow: BTN_SHADOW }}
                     >
                       {DIRECT_ACTION_LABEL[task.id]}
@@ -409,7 +409,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
                   // Переход на урок пока не подключаем (вне скоупа) — кнопка неактивна.
                   <button
                     disabled
-                    className="shrink-0 cursor-default rounded-full px-4 py-1.5 text-[12.5px] font-bold text-white opacity-60"
+                    className="shrink-0 cursor-default rounded-full px-3.5 py-1.5 text-[11.5px] font-bold text-white opacity-60"
                     style={{ background: VIOLET }}
                   >
                     Начать

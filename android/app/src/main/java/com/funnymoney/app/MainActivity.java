@@ -17,7 +17,11 @@ public class MainActivity extends BridgeActivity {
     // прозрачными и накладываются поверх контента, а не занимают своё место.
     WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
     getWindow().setStatusBarColor(Color.TRANSPARENT);
-    getWindow().setNavigationBarColor(Color.TRANSPARENT);
+    // Если на устройстве есть системная navigation bar, она должна быть
+    // отдельной чёрной областью, а не прозрачным слоем поверх контента.
+    // На устройствах без такой панели Android сам не создаёт этот цветной
+    // участок, поэтому дополнительного отступа в приложении не появляется.
+    getWindow().setNavigationBarColor(Color.BLACK);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       // На Android 10+ система по умолчанию подкладывает под жестовую панель
@@ -31,8 +35,7 @@ public class MainActivity extends BridgeActivity {
     // Верх приложения почти везде тёмный/цветной фон — белые иконки статус-бара
     // читаются на нём лучше, чем тёмные.
     controller.setAppearanceLightStatusBars(false);
-    // Низ — кремовая нижняя навигация приложения, поэтому системные значки
-    // жестовой панели делаем тёмными, чтобы не терялись на светлом фоне.
-    controller.setAppearanceLightNavigationBars(true);
+    // На чёрной системной панели используем светлые системные кнопки.
+    controller.setAppearanceLightNavigationBars(false);
   }
 }

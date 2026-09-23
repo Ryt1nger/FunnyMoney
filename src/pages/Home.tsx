@@ -598,24 +598,13 @@ export default function Home() {
               }}
             >
               <img src={piggyIcon} alt="" className="h-8 w-8 shrink-0 object-contain drop-shadow" />
-              {!savingsGoal ? (
-                <div className="min-w-0 leading-tight">
-                  <div className="text-[11.5px] font-bold" style={{ color: '#4a3a22' }}>
-                    Копилка
-                  </div>
-                  <div className="text-[9.5px] font-semibold leading-snug" style={{ color: '#8a6a3a' }}>
-                    Выбери цель
-                  </div>
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-[10.5px] font-bold" style={{ color: '#4a3a22' }}>Накоплено</div>
+                <div className="flex items-center gap-1 whitespace-nowrap text-[11px] font-bold" style={{ color: '#4a3a22' }}>
+                  <img src={coinIcon} alt="" className="h-4 w-4 shrink-0" />
+                  <span>{totalSaved} монет</span>
                 </div>
-              ) : (
-                <div className="min-w-0 leading-tight">
-                  <div className="truncate text-[10.5px] font-bold" style={{ color: '#4a3a22' }}>Накоплено</div>
-                  <div className="flex items-center gap-1 whitespace-nowrap text-[11px] font-bold" style={{ color: '#4a3a22' }}>
-                    <img src={coinIcon} alt="" className="h-4 w-4 shrink-0" />
-                    <span>{totalSaved} монет</span>
-                  </div>
-                </div>
-              )}
+              </div>
             </button>
           </div>
           </div>
