@@ -9,6 +9,7 @@ import { IconArrowLeft, IconBook } from '../components/icons';
 import foodBowl from '../assets/items/food/bowl-blue-kibble.png';
 import piggyBank from '../assets/piggy-bank/piggy.png';
 import starIcon from '../assets/icons/xp-star.png';
+import coinIcon from '../assets/icons/coin.png';
 import toyCar from '../assets/lesson1/items/toy-car.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
@@ -28,7 +29,7 @@ function DraggableItem({ item, sourceSlot, setDragging, onClick }: { item: Pract
   return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onClick={onClick} className="flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition active:cursor-grabbing active:scale-95">
     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
     <span className="mt-0.5 text-[clamp(10px,3vw,14px)] font-extrabold leading-none text-[#17469d]">{item.label}</span>
-    <span className="text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]">🪙 {item.price}</span>
+    <span className="flex items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{item.price}</span>
   </div>;
 }
 
@@ -123,8 +124,7 @@ export default function LessonOne({ onBack }: Props) {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
           return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
-            <div className="flex min-w-0 flex-col items-center gap-1 text-center" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-10 w-10 shrink-0 object-contain" /><span className="min-w-0 max-w-full whitespace-nowrap text-[clamp(12px,3.5vw,18px)] font-black leading-none">{category.label}</span></div>
-            <span className="mt-1 block text-center text-[clamp(9px,2.6vw,13px)] font-semibold leading-tight text-[#5c6f78]">{category.hint}</span>
+            <div className="flex min-w-0 flex-col items-center gap-1 text-center" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-14 w-14 shrink-0 object-contain" /><span className="min-w-0 max-w-full whitespace-nowrap text-[clamp(12px,3.5vw,18px)] font-black leading-none">{category.label}</span></div>
             <div className="mt-1.5 flex aspect-square w-full flex-none items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
               {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: category.slot })} onClick={() => returnToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/80 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
             </div>
