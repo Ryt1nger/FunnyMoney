@@ -123,9 +123,9 @@ export default function LessonOne({ onBack }: Props) {
         ].map((category) => {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
-          return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
-            <div className="flex min-w-0 flex-col items-center gap-1 text-center" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-14 w-14 shrink-0 object-contain" /><span className="min-w-0 max-w-full whitespace-nowrap text-[clamp(12px,3.5vw,18px)] font-black leading-none">{category.label}</span></div>
-            <div className="mt-1.5 flex aspect-square w-full flex-none items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
+          return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col items-center overflow-hidden rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
+            <div className="flex min-w-0 max-w-full flex-col items-center gap-1 text-center" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-12 w-12 shrink-0 object-contain" /><span className="min-w-0 max-w-full whitespace-nowrap text-[clamp(10px,3vw,14px)] font-black leading-none">{category.label}</span></div>
+            <div className="mt-2 flex aspect-square w-[88%] flex-none items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
               {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: category.slot })} onClick={() => returnToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/80 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
             </div>
           </div>;
