@@ -138,7 +138,6 @@ export default function LessonOne({ onBack }: Props) {
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -153,23 +152,10 @@ export default function LessonOne({ onBack }: Props) {
     });
   }, []);
 
-  // По окончании видео захватываем его последний кадр в canvas — вместо
-  // того чтобы полагаться на застывший кадр самого <video> (на части
-  // устройств это даёт чёрный экран), показываем размытый снимок сразу и
-  // синхронно, без мигания.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onEnded = () => {
-      const canvas = canvasRef.current;
-      if (canvas && video.videoWidth && video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
-      setWatched(true);
-    };
+    const onEnded = () => setWatched(true);
     video.addEventListener('ended', onEnded);
     return () => video.removeEventListener('ended', onEnded);
   }, []);
@@ -308,6 +294,13 @@ export default function LessonOne({ onBack }: Props) {
   }
 
   if (phase === 'video') {
+    // Видео размыто и до, и после проигрывания той же самой CSS-подложкой
+    // (просто <video> с фильтром blur, без скрытия и без canvas-трюков).
+    // Так гарантированно нет чёрного экрана: даже если реальное
+    // воспроизведение по какой-то причине не удалось, первый кадр всё равно
+    // загружен (preload="metadata") и остаётся видимым размытым фоном — тот
+    // же приём, что уже надёжно работает до старта видео.
+    const showBlurred = watched || !playing;
     return (
       <div className="relative h-full w-full overflow-hidden bg-[#17152f]">
         <video
@@ -315,16 +308,9 @@ export default function LessonOne({ onBack }: Props) {
           src={videoSrc}
           playsInline
           preload="metadata"
-          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${watched ? 'opacity-0' : playing ? '' : 'scale-105 blur-xl opacity-60'}`}
+          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${showBlurred ? 'scale-105 blur-xl opacity-60' : ''}`}
         />
-        {/* Снимок последнего кадра — подменяет видео после его окончания,
-            чтобы не было чёрного экрана, пока UI решает, что показать. */}
-        <canvas
-          ref={canvasRef}
-          aria-hidden
-          className={`absolute inset-0 h-full w-full scale-105 object-cover blur-xl transition-opacity duration-300 ${watched ? 'opacity-70' : 'pointer-events-none opacity-0'}`}
-        />
-        {watched && <div className="absolute inset-0 bg-[#17152f]/20" />}
+        {watched && <div className="absolute inset-0 bg-[#17152f]/25" />}
         <button aria-label="Назад" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
         <button onClick={() => { setWatched(true); setPhase('practice'); }} className="absolute right-5 top-7 z-20 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">Пропустить</button>
         {!playing && !watched && (

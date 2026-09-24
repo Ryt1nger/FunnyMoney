@@ -15,6 +15,8 @@ export interface InventoryState {
   /** запас еды по товару — еда покупается многократно и тратится при кормлении
    *  на экране «Кухня» (в отличие от игрушек/одежды/интерьера, купленных один раз). */
   foodQty: Record<string, number>;
+  /** выбранные предметы гардероба, сохраняются отдельно от каталога */
+  outfitIds: string[];
 }
 
 interface InventoryStore extends InventoryState {
@@ -26,6 +28,7 @@ interface InventoryStore extends InventoryState {
   addFoodQty: (productId: string, amount: number) => void;
   /** Тратит одну единицу еды при кормлении. Возвращает false, если её уже не осталось. */
   consumeFood: (productId: string) => boolean;
+  setOutfit: (outfitIds: string[]) => void;
   /** Перечитывает состояние из storage — реальная проверка на межстраничном экране загрузки. */
   hydrate: () => void;
 }
@@ -50,6 +53,7 @@ const defaultState: InventoryState = {
   activeKitchenRoomId: '',
   ownedProductIds: [],
   foodQty: {},
+  outfitIds: [],
 };
 
 function persist(state: InventoryState) {
@@ -66,6 +70,7 @@ function loadInitial(): InventoryState {
     activeKitchenRoomId: saved.activeKitchenRoomId ?? '',
     ownedProductIds: saved.ownedProductIds ?? [],
     foodQty: saved.foodQty ?? {},
+    outfitIds: saved.outfitIds ?? [],
   };
 }
 
@@ -131,6 +136,13 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
     persist(next);
     set(next);
     return true;
+  },
+
+  setOutfit: (outfitIds) => {
+    const state = get();
+    const next: InventoryState = { ...state, outfitIds };
+    persist(next);
+    set(next);
   },
 
   hydrate: () => {

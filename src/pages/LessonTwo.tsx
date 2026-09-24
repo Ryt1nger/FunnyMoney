@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import videoSrc from '../assets/lesson2/lesson-video.mp4';
-import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
+import scene1 from '../assets/lesson2/practice-bg.png';
 import { IconArrowLeft, IconBook } from '../components/icons';
 import coinsIcon from '../assets/lesson2/items/01_coins.png';
 import giftIcon from '../assets/lesson2/items/02_gift.png';
@@ -12,6 +12,14 @@ import medicineIcon from '../assets/lesson2/items/07_medicine.png';
 import artSetIcon from '../assets/lesson2/items/08_art_set.png';
 import consoleIcon from '../assets/lesson2/items/09_game_console.png';
 import scalesIcon from '../assets/lesson2/items/10_scales.png';
+import houseIcon from '../assets/lesson2/items/12_house.png';
+import apartmentIcon from '../assets/lesson2/items/13_apartment_building.png';
+import groceryIcon from '../assets/lesson2/items/14_grocery_basket.png';
+import gasPumpIcon from '../assets/lesson2/items/15_gas_pump.png';
+import iceCreamIcon from '../assets/lesson2/items/16_ice_cream.png';
+import notebookIcon from '../assets/lesson2/items/17_notebook.png';
+import backpackIcon from '../assets/lesson2/items/18_backpack.png';
+import piggyCoinsIcon from '../assets/lesson2/items/22_piggy_bank_coins.png';
 import basketIcon from '../assets/lesson2/basket.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
@@ -21,20 +29,16 @@ interface Props { onBack: () => void }
 // Второй урок использует тот же интерфейсный каркас, что и первый (видео,
 // шапка с прогрессом, кнопка "книга", нижняя панель "Подсказка/Проверить").
 // Фон сцены временно переиспользует фон первого упражнения урока 1 — своих
-// материалов для урока 2 ещё нет (у practice-2.png/3.png и т.д. есть свой
-// "зашитый" в картинку сюжет из другого упражнения урока 1, который будет
-// конфликтовать с содержанием, поэтому переиспользуем именно practice-1 —
-// нейтральную комнату без сюжетных элементов). Сцены будут добавляться по
-// мере готовности следующих упражнений (сейчас реализованы первые два —
-// "Доход или расход?" и "Балансир бюджета").
-const scenes = [scene1, scene1];
-
-// Заголовок и краткая инструкция упражнения — речевой пузырь у питомца
-// над карточкой практики, как в макете.
-const sceneIntro: Record<number, { title: string; description: string }> = {
-  0: { title: 'Доход или расход?', description: 'Разложи карточки: что приносит монеты, а что их тратит?' },
-  1: { title: 'Балансир бюджета', description: 'Выбери покупки так, чтобы не превысить доход 100 монет и сначала закрыть обязательное.' },
-};
+// материалов для урока 2 ещё нет. practice-bg.png — локальная копия того
+// фона с ретушью: в оригинале в левом верхнем углу был "зашит" постер с
+// текстом другого упражнения урока 1 ("Шаги — большие цели"), который был
+// не виден только благодаря случайному кадрированию; при показе всей
+// картинки целиком он вылезал поверх медведя и не подходил под содержание
+// урока 2, поэтому угол мягко заблюрен под фоновое боке. Сцены будут
+// добавляться по мере готовности следующих упражнений (сейчас реализованы
+// первые три — "Доход или расход?", "Балансир бюджета" и "Личное или
+// семейное?").
+const scenes = [scene1, scene1, scene1];
 
 // Упражнение 1 — "Доход или расход?": разложить карточки по двум корзинам —
 // Доходы (+) и Расходы (-). Из сценария (уроки практика.pdf, Урок 2):
@@ -61,10 +65,22 @@ const budgetItems = [
   { id: 'budget-console', label: 'Приставка', amount: 50, image: consoleIcon, mandatory: false },
 ] as const;
 
+// Упражнение 3 — "Личное или семейное?": разложить покупки по двум
+// корзинам — Семейное (общее для дома) и Личное (только твоё).
+const familyPersonalItems = [
+  { id: 'family-apartment', label: 'Квартира', image: apartmentIcon, kind: 'family' as const },
+  { id: 'family-groceries', label: 'Продукты', image: groceryIcon, kind: 'family' as const },
+  { id: 'family-gas', label: 'Бензин', image: gasPumpIcon, kind: 'family' as const },
+  { id: 'personal-icecream', label: 'Мороженое', image: iceCreamIcon, kind: 'personal' as const },
+  { id: 'personal-notebook', label: 'Блокнот', image: notebookIcon, kind: 'personal' as const },
+  { id: 'personal-piggy', label: 'Своя копилка', image: piggyCoinsIcon, kind: 'personal' as const },
+] as const;
+
 // Подсказки/обратная связь при ошибке — тексты из сценария, ключ — индекс сцены.
 const sceneHints: Record<number, string> = {
   0: 'Деньги приходят — это доход. Деньги уходят за покупку — расход.',
   1: 'Сначала купи обязательное — лекарство. И следи, чтобы сумма покупок не превышала доход 100 монет.',
+  2: 'Общее для всей семьи — в «Семейное». То, что нужно только тебе — в «Личное».',
 };
 
 function ExerciseCard({ item, selected, onSelect }: { item: (typeof incomeExpenseItems)[number]; selected: boolean; onSelect: () => void }) {
@@ -92,6 +108,13 @@ function BudgetCard({ item, inBasket, onToggle }: { item: (typeof budgetItems)[n
   );
 }
 
+function SortCard({ item, selected, onSelect }: { item: (typeof familyPersonalItems)[number]; selected: boolean; onSelect: () => void }) {
+  return <div onClick={onSelect} className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-1 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${selected ? 'ring-2 ring-[#675ff3] ring-offset-1' : ''}`}>
+    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
+    <span className="line-clamp-2 w-full shrink-0 text-[clamp(9px,2.6vw,11.5px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
+  </div>;
+}
+
 /** Второй урок: видео и практика. Шаблон интерфейса общий с уроком 1 —
  * меняется только содержимое секции практики под конкретное упражнение.
  */
@@ -103,12 +126,13 @@ export default function LessonTwo({ onBack }: Props) {
   const [income, setIncome] = useState<string[]>([]);
   const [expense, setExpense] = useState<string[]>([]);
   const [basket, setBasket] = useState<string[]>([]);
+  const [family, setFamily] = useState<string[]>([]);
+  const [personal, setPersonal] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -124,23 +148,10 @@ export default function LessonTwo({ onBack }: Props) {
     });
   }, []);
 
-  // По окончании видео захватываем его последний кадр в canvas — вместо
-  // того чтобы полагаться на застывший кадр самого <video> (на части
-  // устройств это даёт чёрный экран), показываем размытый снимок сразу и
-  // синхронно, без мигания.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onEnded = () => {
-      const canvas = canvasRef.current;
-      if (canvas && video.videoWidth && video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
-      setWatched(true);
-    };
+    const onEnded = () => setWatched(true);
     video.addEventListener('ended', onEnded);
     return () => video.removeEventListener('ended', onEnded);
   }, []);
@@ -175,6 +186,22 @@ export default function LessonTwo({ onBack }: Props) {
     setSelected((current) => (current === id ? null : id));
   }
 
+  // Перенос карточки в корзину "Семейное" или "Личное" (упражнение 3) — та же
+  // механика клика/drag, что и в упражнении 1.
+  function placeInFamilyBasket(kind: 'family' | 'personal', draggedId?: string) {
+    const id = draggedId ?? selected;
+    if (!id) return;
+    setFamily((current) => (kind === 'family' ? (current.includes(id) ? current : [...current, id]) : current.filter((value) => value !== id)));
+    setPersonal((current) => (kind === 'personal' ? (current.includes(id) ? current : [...current, id]) : current.filter((value) => value !== id)));
+    setSelected(null);
+  }
+
+  function returnToFamilyTray(id: string) {
+    setFamily((current) => current.filter((value) => value !== id));
+    setPersonal((current) => current.filter((value) => value !== id));
+    setSelected(null);
+  }
+
   // Добавить/убрать покупку из корзины бюджета (упражнение 2) — тап по
   // карточке или по занятой корзине, либо перетаскивание карточки в корзину.
   function toggleBudgetItem(id: string) {
@@ -192,8 +219,15 @@ export default function LessonTwo({ onBack }: Props) {
     return hasMandatory && total <= BUDGET_INCOME;
   }
 
+  function isFamilyPersonalCorrect(): boolean {
+    const requiredFamily = familyPersonalItems.filter((item) => item.kind === 'family').map((item) => item.id);
+    const requiredPersonal = familyPersonalItems.filter((item) => item.kind === 'personal').map((item) => item.id);
+    return requiredFamily.every((id) => family.includes(id)) && requiredPersonal.every((id) => personal.includes(id)) && family.length === requiredFamily.length && personal.length === requiredPersonal.length;
+  }
+
   function isSceneCorrect(): boolean {
     if (scene === 1) return isBudgetCorrect();
+    if (scene === 2) return isFamilyPersonalCorrect();
     const requiredIncome = incomeExpenseItems.filter((item) => item.kind === 'income').map((item) => item.id);
     const requiredExpense = incomeExpenseItems.filter((item) => item.kind === 'expense').map((item) => item.id);
     return requiredIncome.every((id) => income.includes(id)) && requiredExpense.every((id) => expense.includes(id)) && income.length === requiredIncome.length && expense.length === requiredExpense.length;
@@ -204,6 +238,8 @@ export default function LessonTwo({ onBack }: Props) {
     setIncome([]);
     setExpense([]);
     setBasket([]);
+    setFamily([]);
+    setPersonal([]);
     setSelected(null);
     setCheckState('idle');
     setHintText(null);
@@ -231,6 +267,15 @@ export default function LessonTwo({ onBack }: Props) {
   }
 
   if (phase === 'video') {
+    // Видео размыто и до, и после проигрывания — той же самой CSS-подложкой
+    // (просто <video> с фильтром blur, без скрытия и без canvas-трюков).
+    // Так гарантированно нет чёрного экрана: даже если реальное
+    // воспроизведение по какой-то причине не удалось (видео не
+    // декодировалось, play() отклонён политикой браузера и т.п.), первый
+    // кадр всё равно загружен (preload="metadata") и просто остаётся
+    // видимым размытым фоном — тот же приём, что уже надёжно работает до
+    // старта видео.
+    const showBlurred = watched || !playing;
     return (
       <div className="relative h-full w-full overflow-hidden bg-[#17152f]">
         <video
@@ -238,16 +283,9 @@ export default function LessonTwo({ onBack }: Props) {
           src={videoSrc}
           playsInline
           preload="metadata"
-          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${watched ? 'opacity-0' : playing ? '' : 'scale-105 blur-xl opacity-60'}`}
+          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${showBlurred ? 'scale-105 blur-xl opacity-60' : ''}`}
         />
-        {/* Снимок последнего кадра — подменяет видео после его окончания,
-            чтобы не было чёрного экрана, пока UI решает, что показать. */}
-        <canvas
-          ref={canvasRef}
-          aria-hidden
-          className={`absolute inset-0 h-full w-full scale-105 object-cover blur-xl transition-opacity duration-300 ${watched ? 'opacity-70' : 'pointer-events-none opacity-0'}`}
-        />
-        {watched && <div className="absolute inset-0 bg-[#17152f]/20" />}
+        {watched && <div className="absolute inset-0 bg-[#17152f]/25" />}
         <button aria-label="Назад" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
         <button onClick={() => { setWatched(true); setPhase('practice'); }} className="absolute right-5 top-7 z-20 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">Пропустить</button>
         {!playing && !watched && (
@@ -268,11 +306,12 @@ export default function LessonTwo({ onBack }: Props) {
 
   const tray = incomeExpenseItems.filter((item) => !income.includes(item.id) && !expense.includes(item.id));
   const budgetTotal = basket.reduce((sum, id) => sum + (budgetItems.find((item) => item.id === id)?.amount ?? 0), 0);
+  const tray3 = familyPersonalItems.filter((item) => !family.includes(item.id) && !personal.includes(item.id));
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
       <style>{`@keyframes lessonSceneIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:scale(1)}}@keyframes lessonItemIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lessonShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}@keyframes lessonCheckIn{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}`}</style>
-      <img key={scene} src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center [animation:lessonSceneIn_420ms_ease-out]" />
+      <img key={scene} src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-top [animation:lessonSceneIn_420ms_ease-out]" />
 
       {/* Кнопка назад повторяет шапку разделов на главной */}
       <button aria-label="Назад к урокам" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
@@ -292,15 +331,6 @@ export default function LessonTwo({ onBack }: Props) {
 
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
-
-      {/* Речевой пузырь с названием и краткой инструкцией упражнения — как в макете. */}
-      {sceneIntro[scene] && (
-        <div key={`intro-${scene}`} className="absolute right-[5%] top-[9%] z-20 max-w-[62%] rounded-[24px] bg-white/95 px-4 py-3 shadow-[0_8px_22px_rgba(50,40,90,.2)] [animation:lessonItemIn_320ms_ease-out]">
-          <div className="absolute -bottom-2 left-9 h-4 w-4 rotate-45 bg-white/95" />
-          <p className="text-[clamp(14px,4.2vw,17px)] font-black leading-tight text-[#1b3f8f]">{sceneIntro[scene].title}</p>
-          <p className="mt-1 text-[clamp(11px,3.2vw,13px)] font-semibold leading-snug text-[#5a6a92]">{sceneIntro[scene].description}</p>
-        </div>
-      )}
 
       <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 flex flex-col gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 0 && (
@@ -402,6 +432,59 @@ export default function LessonTwo({ onBack }: Props) {
                 })}
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-[clamp(11px,3.2vw,13px)] font-black shadow-sm ${budgetTotal > BUDGET_INCOME ? 'bg-[#fde3e3] text-[#c23b3b]' : 'bg-white/85 text-[#4a3f2c]'}`}>{basket.length}/{BUDGET_MAX_ITEMS}</span>
+            </div>
+          </>
+        )}
+
+        {scene === 2 && (
+          <>
+            {/* Упражнение 3 — "Личное или семейное?": та же механика, что и в
+                упражнении 1 — две корзины сверху, лоток с 6 карточками снизу. */}
+            <div className="grid min-h-0 flex-[0.48] grid-cols-2 gap-2">
+              <div className="flex min-h-0 flex-col gap-1">
+                <div className="flex min-w-0 items-center gap-1.5 rounded-2xl bg-[#dbf1ee] px-2 py-1.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm"><img src={houseIcon} alt="" className="h-[18px] w-[18px] object-contain" /></div>
+                  <div className="flex min-w-0 flex-col items-start leading-tight">
+                    <span className="truncate text-[clamp(10.5px,3vw,12.5px)] font-black text-[#146b5c]">Семейное</span>
+                    <span className="truncate text-[clamp(7.5px,2.2vw,9.5px)] font-bold text-[#4d938a]">Общее для дома</span>
+                  </div>
+                </div>
+                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInFamilyBasket('family', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInFamilyBasket('family')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
+                  <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
+                    {familyPersonalItems.filter((item) => family.includes(item.id)).map((item) => (
+                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                        <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-col gap-1">
+                <div className="flex min-w-0 items-center gap-1.5 rounded-2xl bg-[#ece3fb] px-2 py-1.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm"><img src={backpackIcon} alt="" className="h-[18px] w-[18px] object-contain" /></div>
+                  <div className="flex min-w-0 flex-col items-start leading-tight">
+                    <span className="truncate text-[clamp(10.5px,3vw,12.5px)] font-black text-[#5a3fd1]">Личное</span>
+                    <span className="truncate text-[clamp(7.5px,2.2vw,9.5px)] font-bold text-[#8b7cc9]">Только твоё</span>
+                  </div>
+                </div>
+                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInFamilyBasket('personal', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInFamilyBasket('personal')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#c6b3f2] bg-[#f4eefd] p-2">
+                  <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
+                    {familyPersonalItems.filter((item) => personal.includes(item.id)).map((item) => (
+                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                        <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid min-h-0 flex-[1.52] grid-cols-3 grid-rows-2 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
+              {tray3.map((item) => (
+                <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} className="min-h-0 min-w-0">
+                  <SortCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />
+                </div>
+              ))}
             </div>
           </>
         )}
