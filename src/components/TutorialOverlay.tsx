@@ -156,7 +156,7 @@ export default function TutorialOverlay() {
   const text = step.text.replace('{name}', petName);
 
   return (
-    <div ref={rootRef} className="absolute inset-0 z-[65]">
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[65]">
       {rect && containerSize.width > 0 ? (
         <SpotlightMask rect={rect} containerSize={containerSize} pulse={step.action === 'tap'} />
       ) : (
@@ -276,10 +276,14 @@ function TutorialCard({ title, text, action, buttonLabel, rect, ready, scene, on
       style={{ ...style, opacity: ready ? 1 : 0 }}
     >
       {scene && (
+        // bear-avatar.png — вырезанная картинка (альфа-канал, прозрачный
+        // фон вокруг мишки), поэтому без своего фона сквозь неё просвечивало
+        // бы то, что под карточкой. Заливаем круг сплошным белым — тот же
+        // цвет, что и рамка (border-white), чтобы не было "дыр".
         <img
           src={scene}
           alt=""
-          className="mx-auto -mt-11 mb-2 h-[76px] w-[76px] rounded-full border-4 border-white object-cover shadow-lg"
+          className="mx-auto -mt-11 mb-2 h-[76px] w-[76px] rounded-full border-4 border-white bg-white object-cover shadow-lg"
         />
       )}
       <h3 className="text-[16px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
