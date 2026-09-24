@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import videoSrc from '../assets/lesson1/lesson-video.mov';
 import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
+import scene2 from '../assets/lesson1/backgrounds/practice-2.png';
 import scene3 from '../assets/lesson1/backgrounds/practice-3.png';
 import scene4 from '../assets/lesson1/backgrounds/practice-4.png';
 import scene5 from '../assets/lesson1/backgrounds/practice-5.png';
@@ -13,12 +14,25 @@ import medicineIcon from '../assets/lesson-items/medicine.png';
 import stickersIcon from '../assets/lesson-items/stickers.png';
 import basketIcon from '../assets/lesson-items/basket.png';
 import toyCar from '../assets/lesson-items/toy-car.png';
+import waterIcon from '../assets/lesson-items/water.png';
+import leashIcon from '../assets/lesson-items/leash.png';
+import ballIcon from '../assets/lesson-items/ball.png';
+import bowIcon from '../assets/lesson-items/bow.png';
+import candyIcon from '../assets/lesson-items/candy.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void }
 
-const scenes = [scene1, scene4, scene3, scene5, scene1];
+// Пять сцен практики — один и тот же интерфейсный каркас (шапка с прогрессом,
+// кнопка "книга", нижняя панель) поверх разных фоновых иллюстраций. Сцена 2
+// ("Найди лишнее", фон practice-2 — мишка мечтает о машинке) — третье
+// упражнение, см. WALK_SCENE_INDEX ниже.
+const scenes = [scene1, scene4, scene2, scene3, scene5];
+// Индекс сцены с упражнением "Найди лишнее" — вынесен отдельной константой,
+// чтобы не терять смысл magic-number 2 при условных рендерах ниже.
+const WALK_SCENE_INDEX = 2;
+
 const practiceItems = [
   { id: 'food', label: 'Еда', price: 60, image: foodBowl, category: 'must' },
   { id: 'toy', label: 'Игрушка', price: 50, image: toyCar, category: 'want' },
@@ -30,14 +44,25 @@ const budgetItems = [
   { id: 'budget-stickers', label: 'Наклейки', price: 20, image: stickersIcon, category: 'budget' },
   { id: 'budget-toy', label: 'Игрушка', price: 40, image: toyCar, category: 'budget' },
 ] as const;
+// Упражнение 3 — "Найди лишнее": среди 6 предметов для прогулки с собакой
+// нужно перетащить в корзину только необходимое (без цены — тут не покупка,
+// а выбор нужных/ненужных вещей).
+const walkItems = [
+  { id: 'walk-water', label: 'Вода', image: waterIcon, category: 'walk' },
+  { id: 'walk-leash', label: 'Поводок', image: leashIcon, category: 'walk' },
+  { id: 'walk-medicine', label: 'Лекарство', image: medicineIcon, category: 'walk' },
+  { id: 'walk-toy', label: 'Игрушка', image: ballIcon, category: 'walk' },
+  { id: 'walk-bow', label: 'Бантик', image: bowIcon, category: 'walk' },
+  { id: 'walk-candy', label: 'Конфета', image: candyIcon, category: 'walk' },
+] as const;
 
-type PracticeItem = { id: string; label: string; price: number; image: string; category: string };
+type PracticeItem = { id: string; label: string; price?: number; image: string; category: string };
 
 function DraggableItem({ item, sourceSlot, setDragging, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null } | null) => void; onClick: () => void; isDragging?: boolean }) {
   return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onDragEnd={() => setDragging(null)} onClick={onClick} className={`flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : 'animate-[lessonItemIn_220ms_ease-out]'}`}>
     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
     <span className="mt-0.5 text-[clamp(10px,3vw,14px)] font-extrabold leading-none text-[#17469d]">{item.label}</span>
-    <span className="flex items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{item.price}</span>
+    {item.price !== undefined && <span className="flex items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{item.price}</span>}
   </div>;
 }
 
@@ -51,6 +76,7 @@ export default function LessonOne({ onBack }: Props) {
   const [scene, setScene] = useState(0);
   const [placements, setPlacements] = useState<(string | null)[]>([null, null, null]);
   const [budgetCart, setBudgetCart] = useState<string[]>([]);
+  const [walkCart, setWalkCart] = useState<string[]>([]);
   const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -105,6 +131,18 @@ export default function LessonOne({ onBack }: Props) {
     setDragging(null);
   }
 
+  // Корзина упражнения "Найди лишнее" — до 3 предметов, без денежного лимита
+  // (тут проверяется не бюджет, а нужность вещи для прогулки).
+  function addToWalkCart(id: string) {
+    setWalkCart((current) => (current.includes(id) || current.length >= 3 ? current : [...current, id]));
+    setDragging(null);
+  }
+
+  function removeFromWalkCart(id: string) {
+    setWalkCart((current) => current.filter((value) => value !== id));
+    setDragging(null);
+  }
+
   const budgetSpent = budgetCart.reduce((total, id) => total + (budgetItems.find((item) => item.id === id)?.price ?? 0), 0);
   const budgetBalance = 100 - budgetSpent;
 
@@ -150,6 +188,16 @@ export default function LessonOne({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
+      {/* Инструкция упражнения "Найди лишнее" — лежит поверх иллюстрации мишки,
+          над основной сеткой (та начинается ниже, с top-[40%]), справа, чтобы
+          не перекрывать самого мишку слева. */}
+      {scene === WALK_SCENE_INDEX && (
+        <div className="absolute left-[34%] right-[5%] top-[13%] z-20 rounded-[22px] rounded-tl-[6px] bg-white/95 px-4 py-3 shadow-[0_6px_18px_rgba(60,45,90,.18)] backdrop-blur-sm [animation:lessonItemIn_260ms_ease-out]">
+          <h2 className="text-[clamp(15px,4.4vw,19px)] font-black leading-tight text-[#17469d]">Найди лишнее!</h2>
+          <p className="mt-1 text-[clamp(11px,3vw,13px)] font-semibold leading-snug text-[#4a5a8a]">Что нужно взять на прогулку с собачкой? Выбери только необходимое.</p>
+        </div>
+      )}
+
       <div className="absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5">
         {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
           <div className="mx-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[#17469d] shadow-sm"><img src={coinIcon} alt="" className="h-8 w-8" /><span className="text-[clamp(13px,3.8vw,19px)] font-black">Бюджет: {budgetBalance}</span></div>
@@ -161,7 +209,22 @@ export default function LessonOne({ onBack }: Props) {
             <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = budgetItems.find((entry) => entry.id === budgetCart[slot]); return <button type="button" draggable={Boolean(item)} key={slot} onDragStart={() => item && setDragging({ id: item.id, from: null })} onDragEnd={() => setDragging(null)} onClick={() => item && removeFromBudgetCart(item.id)} className="flex aspect-square min-w-0 items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1">{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/75 text-[clamp(14px,4vw,20px)] font-black text-[#17469d]">{budgetCart.length}/3</div>
           </div>
-        </div> : <>
+        </div> : scene === WALK_SCENE_INDEX ? (
+          /* Упражнение 3 — "Найди лишнее": сетка 2×3 (6 предметов, без цены) сверху,
+             компактная строка-корзина (3 слота) снизу — уже, чем в упражнении
+             "Бюджет" (нет шапки с суммой, сама корзина ниже), чтобы 6 карточек
+             в две строки уместились в ту же высоту, что и 4 карточки в одну. */
+          <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+            <div className="grid min-h-0 grid-cols-3 grid-rows-2 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && walkCart.includes(dragging.id) && removeFromWalkCart(dragging.id)}>
+              {walkItems.filter((item) => !walkCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToWalkCart(item.id)} />)}
+            </div>
+            <div className="grid min-w-0 grid-cols-[1fr_2.6fr_auto] items-center gap-2 overflow-hidden rounded-2xl bg-[#fff3df] p-1.5" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && addToWalkCart(dragging.id)}>
+              <div className="flex min-w-0 items-center justify-center"><img src={basketIcon} alt="Корзина" className="h-14 w-16 object-contain" /></div>
+              <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = walkItems.find((entry) => entry.id === walkCart[slot]); return <button type="button" draggable={Boolean(item)} key={slot} onDragStart={() => item && setDragging({ id: item.id, from: null })} onDragEnd={() => setDragging(null)} onClick={() => item && removeFromWalkCart(item.id)} className="flex aspect-square min-w-0 items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1">{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/75 text-[clamp(13px,3.6vw,17px)] font-black text-[#17469d]">{walkCart.length}/3</div>
+            </div>
+          </div>
+        ) : <>
         {[
           { label: 'Обязательное', hint: 'То, без чего нельзя', titleColor: '#1f7a32', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
           { label: 'Накопления', hint: 'Откладываем на будущее', titleColor: '#167b86', color: 'bg-[#d8f7f5]', border: '#78cacc', icon: piggyBank, slot: 1 },
@@ -187,7 +250,7 @@ export default function LessonOne({ onBack }: Props) {
           <span className="flex h-[clamp(36px,10vw,41px)] w-[clamp(36px,10vw,41px)] shrink-0 items-center justify-center rounded-full bg-[#6355f0] text-[clamp(21px,6vw,25px)] shadow-[0_3px_8px_rgba(72,58,200,.35)]">💡</span>
           <span className="whitespace-nowrap">Подсказка</span>
         </button>
-        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
+        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); setWalkCart([]); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
       </div>
     </div>
   );
