@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import videoSrc from '../assets/lesson2/lesson-video.mov';
+import videoSrc from '../assets/lesson2/lesson-video.mp4';
 import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
-import scene2 from '../assets/lesson1/backgrounds/practice-2.png';
 import { IconArrowLeft, IconBook } from '../components/icons';
 import coinsIcon from '../assets/lesson2/items/01_coins.png';
 import giftIcon from '../assets/lesson2/items/02_gift.png';
@@ -21,11 +20,21 @@ interface Props { onBack: () => void }
 
 // Второй урок использует тот же интерфейсный каркас, что и первый (видео,
 // шапка с прогрессом, кнопка "книга", нижняя панель "Подсказка/Проверить").
-// Фоны сцен временно переиспользуют фоны урока 1 — своих материалов для
-// урока 2 ещё нет. Сцены будут добавляться по мере готовности следующих
-// упражнений (сейчас реализованы первые два — "Доход или расход?" и
-// "Балансир бюджета").
-const scenes = [scene1, scene2];
+// Фон сцены временно переиспользует фон первого упражнения урока 1 — своих
+// материалов для урока 2 ещё нет (у practice-2.png/3.png и т.д. есть свой
+// "зашитый" в картинку сюжет из другого упражнения урока 1, который будет
+// конфликтовать с содержанием, поэтому переиспользуем именно practice-1 —
+// нейтральную комнату без сюжетных элементов). Сцены будут добавляться по
+// мере готовности следующих упражнений (сейчас реализованы первые два —
+// "Доход или расход?" и "Балансир бюджета").
+const scenes = [scene1, scene1];
+
+// Заголовок и краткая инструкция упражнения — речевой пузырь у питомца
+// над карточкой практики, как в макете.
+const sceneIntro: Record<number, { title: string; description: string }> = {
+  0: { title: 'Доход или расход?', description: 'Разложи карточки: что приносит монеты, а что их тратит?' },
+  1: { title: 'Балансир бюджета', description: 'Выбери покупки так, чтобы не превысить доход 100 монет и сначала закрыть обязательное.' },
+};
 
 // Упражнение 1 — "Доход или расход?": разложить карточки по двум корзинам —
 // Доходы (+) и Расходы (-). Из сценария (уроки практика.pdf, Урок 2):
@@ -59,10 +68,10 @@ const sceneHints: Record<number, string> = {
 };
 
 function ExerciseCard({ item, selected, onSelect }: { item: (typeof incomeExpenseItems)[number]; selected: boolean; onSelect: () => void }) {
-  return <div onClick={onSelect} className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-0.5 rounded-[15px] bg-white/90 p-1.5 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${selected ? 'ring-2 ring-[#675ff3] ring-offset-1' : ''}`}>
-    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
-    <span className="line-clamp-2 w-full shrink-0 text-[clamp(8.5px,2.4vw,11px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
-    <span className={`flex shrink-0 items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-black ${item.kind === 'income' ? 'text-[#2f9e44]' : 'text-[#e0554a]'}`}>{item.kind === 'income' ? '+' : '−'}{item.amount}</span>
+  return <div onClick={onSelect} className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-1 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${selected ? 'ring-2 ring-[#675ff3] ring-offset-1' : ''}`}>
+    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
+    <span className="line-clamp-2 w-full shrink-0 text-[clamp(9px,2.6vw,11.5px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
+    <span className={`flex shrink-0 items-center gap-1 text-[clamp(9.5px,2.9vw,12.5px)] font-black ${item.kind === 'income' ? 'text-[#2f9e44]' : 'text-[#e0554a]'}`}>{item.kind === 'income' ? '+' : '−'}{item.amount}</span>
   </div>;
 }
 
@@ -73,11 +82,11 @@ function BudgetCard({ item, inBasket, onToggle }: { item: (typeof budgetItems)[n
       draggable={!inBasket}
       onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)}
       onClick={onToggle}
-      className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-0.5 rounded-[15px] bg-white/90 p-1.5 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${inBasket ? 'opacity-40' : ''}`}
+      className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-0.5 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${inBasket ? 'opacity-40' : ''}`}
     >
-      <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
-      <span className="line-clamp-2 w-full shrink-0 text-[clamp(8px,2.3vw,10.5px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
-      <span className="flex shrink-0 items-center gap-1 text-[clamp(9px,2.6vw,11.5px)] font-black text-[#c9862a]"><img src={coinsIcon} alt="" className="h-3 w-3 object-contain" />{item.amount}</span>
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
+      <span className="line-clamp-2 w-full shrink-0 text-[clamp(8.5px,2.4vw,11px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
+      <span className="flex shrink-0 items-center gap-1 text-[clamp(9.5px,2.8vw,12px)] font-black text-[#c9862a]"><img src={coinsIcon} alt="" className="h-3 w-3 object-contain" />{item.amount}</span>
       {item.mandatory && <span className="shrink-0 rounded-full bg-[#fde3e3] px-1.5 py-[1px] text-[clamp(6.5px,1.9vw,8px)] font-black text-[#d1453f]">✓ Обязательно</span>}
     </button>
   );
@@ -284,7 +293,16 @@ export default function LessonTwo({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 flex flex-col gap-2.5 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2.5 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
+      {/* Речевой пузырь с названием и краткой инструкцией упражнения — как в макете. */}
+      {sceneIntro[scene] && (
+        <div key={`intro-${scene}`} className="absolute right-[5%] top-[9%] z-20 max-w-[62%] rounded-[24px] bg-white/95 px-4 py-3 shadow-[0_8px_22px_rgba(50,40,90,.2)] [animation:lessonItemIn_320ms_ease-out]">
+          <div className="absolute -bottom-2 left-9 h-4 w-4 rotate-45 bg-white/95" />
+          <p className="text-[clamp(14px,4.2vw,17px)] font-black leading-tight text-[#1b3f8f]">{sceneIntro[scene].title}</p>
+          <p className="mt-1 text-[clamp(11px,3.2vw,13px)] font-semibold leading-snug text-[#5a6a92]">{sceneIntro[scene].description}</p>
+        </div>
+      )}
+
+      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 flex flex-col gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 0 && (
           <>
             {/* Упражнение 1 — "Доход или расход?": две корзины сверху (клик/drop
@@ -292,7 +310,7 @@ export default function LessonTwo({ onBack }: Props) {
                 карточками снизу. Тап по карточке в лотке выбирает её (подсветка
                 рамкой), затем тап по корзине кладёт её туда — это же работает
                 перетаскиванием для тех, кому удобнее drag. */}
-            <div className="grid min-h-0 flex-[0.72] grid-cols-2 gap-2.5">
+            <div className="grid min-h-0 flex-[0.48] grid-cols-2 gap-2">
               <div className="flex min-h-0 flex-col gap-1">
                 <div className="flex min-w-0 items-center gap-1.5 rounded-2xl bg-[#dbf1ee] px-2 py-1.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm"><img src={coinsIcon} alt="" className="h-[18px] w-[18px] object-contain" /></div>
@@ -331,7 +349,7 @@ export default function LessonTwo({ onBack }: Props) {
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-[1.28] grid-cols-3 grid-rows-2 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
+            <div className="grid min-h-0 flex-[1.52] grid-cols-3 grid-rows-2 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
               {tray.map((item) => (
                 <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} className="min-h-0 min-w-0">
                   <ExerciseCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />
@@ -356,7 +374,7 @@ export default function LessonTwo({ onBack }: Props) {
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-[1.3] grid-cols-4 gap-1.5">
+            <div className="grid min-h-0 flex-[1.5] grid-cols-4 gap-1.5">
               {budgetItems.map((item) => (
                 <BudgetCard key={item.id} item={item} inBasket={basket.includes(item.id)} onToggle={() => toggleBudgetItem(item.id)} />
               ))}
@@ -365,7 +383,7 @@ export default function LessonTwo({ onBack }: Props) {
             <div
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => { const id = event.dataTransfer.getData('text/plain'); if (id) toggleBudgetItem(id); }}
-              className="flex min-h-0 flex-[0.85] items-center gap-2 rounded-[18px] bg-[#f3ede0] p-2"
+              className="flex min-h-0 flex-[0.65] items-center gap-2 rounded-[18px] bg-[#f3ede0] p-2"
             >
               <div className="flex h-full w-[58px] shrink-0 flex-col items-center justify-center gap-0.5">
                 <img src={basketIcon} alt="" className="h-9 w-9 object-contain" />

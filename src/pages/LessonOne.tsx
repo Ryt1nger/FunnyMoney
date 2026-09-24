@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import videoSrc from '../assets/lesson1/lesson-video.mov';
+import videoSrc from '../assets/lesson1/lesson-video.mp4';
 import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
 import scene3 from '../assets/lesson1/backgrounds/practice-3.png';
 import scene4 from '../assets/lesson1/backgrounds/practice-4.png';
@@ -367,7 +367,7 @@ export default function LessonOne({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5 ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
+      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5 ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
           <div className="mx-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[#17469d] shadow-sm"><img src={coinIcon} alt="" className="h-8 w-8" /><span className="text-[clamp(13px,3.8vw,19px)] font-black">Бюджет: {budgetBalance}</span></div>
           <div className="grid min-h-0 grid-cols-4 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && budgetCart.includes(dragging.id) && removeFromBudgetCart(dragging.id)}>
