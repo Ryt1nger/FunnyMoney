@@ -18,6 +18,9 @@ import leashIcon from '../assets/lesson-items/leash.png';
 import ballIcon from '../assets/lesson-items/ball.png';
 import bowIcon from '../assets/lesson-items/bow.png';
 import candyIcon from '../assets/lesson-items/candy.png';
+import laptopIcon from '../assets/lesson-items/laptop.png';
+import checklistIcon from '../assets/lesson-items/checklist.png';
+import groceriesIcon from '../assets/lesson-items/groceries.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
 type Phase = 'video' | 'practice';
@@ -32,6 +35,9 @@ const scenes = [scene1, scene4, scene3, scene5, scene1];
 // Индекс сцены с упражнением "Найди лишнее" — вынесен отдельной константой,
 // чтобы не терять смысл magic-number 2 при условных рендерах ниже.
 const WALK_SCENE_INDEX = 2;
+// Индекс сцены с упражнением "Расставь шаги!" — четвёртая сцена дублирует
+// фон первой (practice-1), как и в новом референсе.
+const ORDER_SCENE_INDEX = 4;
 
 const practiceItems = [
   { id: 'food', label: 'Еда', price: 60, image: foodBowl, category: 'must' },
@@ -55,6 +61,23 @@ const walkItems = [
   { id: 'walk-bow', label: 'Бантик', image: bowIcon, category: 'walk' },
   { id: 'walk-candy', label: 'Конфета', image: candyIcon, category: 'walk' },
 ] as const;
+// Упражнение 4 — "Расставь шаги!": 4 карточки-действия нужно расставить по
+// порядку в пронумерованные слоты (без цены — тут порядок действий, а не
+// покупка).
+const orderItems = [
+  { id: 'order-balance', label: 'Баланс', image: laptopIcon, category: 'order' },
+  { id: 'order-find', label: 'Найти', image: checklistIcon, category: 'order' },
+  { id: 'order-buy', label: 'Купить', image: groceriesIcon, category: 'order' },
+  { id: 'order-toy', label: 'Игрушка', image: toyCar, category: 'order' },
+] as const;
+// Цвета пронумерованных слотов упражнения "Расставь шаги!" (зелёный →
+// бирюзовый → фиолетовый → розовый, как в референсе).
+const orderSlots = [
+  { slot: 0, color: '#4fb35a' },
+  { slot: 1, color: '#2bb0b8' },
+  { slot: 2, color: '#8a5cf0' },
+  { slot: 3, color: '#ef5da8' },
+] as const;
 
 type PracticeItem = { id: string; label: string; price?: number; image: string; category: string };
 
@@ -77,6 +100,7 @@ export default function LessonOne({ onBack }: Props) {
   const [placements, setPlacements] = useState<(string | null)[]>([null, null, null]);
   const [budgetCart, setBudgetCart] = useState<string[]>([]);
   const [walkCart, setWalkCart] = useState<string[]>([]);
+  const [orderPlacements, setOrderPlacements] = useState<(string | null)[]>([null, null, null, null]);
   const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -140,6 +164,23 @@ export default function LessonOne({ onBack }: Props) {
 
   function removeFromWalkCart(id: string) {
     setWalkCart((current) => current.filter((value) => value !== id));
+    setDragging(null);
+  }
+
+  function placeOrderItem(slot: number, id: string) {
+    setOrderPlacements((current) => {
+      const next = [...current];
+      const from = next.indexOf(id);
+      const replaced = next[slot];
+      if (from >= 0) next[from] = replaced ?? null;
+      next[slot] = id;
+      return next;
+    });
+    setDragging(null);
+  }
+
+  function returnOrderItemToTray(id: string) {
+    setOrderPlacements((current) => current.map((value) => value === id ? null : value));
     setDragging(null);
   }
 
@@ -217,6 +258,31 @@ export default function LessonOne({ onBack }: Props) {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/75 text-[clamp(13px,3.6vw,17px)] font-black text-[#17469d]">{walkCart.length}/3</div>
             </div>
           </div>
+        ) : scene === ORDER_SCENE_INDEX ? (
+          /* Упражнение 4 — "Расставь шаги!": тот же каркас карточки, что у
+             соседних упражнений — сверху пронумерованные слоты по порядку
+             (соединены стрелками), снизу лоток с карточками действий. Без
+             текстовой подписи (см. правило "убери эту подпись"). */
+          <div className="col-span-3 row-span-2 mt-[3%] grid min-h-0 grid-rows-[minmax(0,.68fr)_minmax(0,1fr)] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+            <div className="grid min-h-0 grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-1">
+              {orderSlots.flatMap((slotDef, index) => {
+                const item = orderItems.find((entry) => entry.id === orderPlacements[slotDef.slot]);
+                const slotEl = (
+                  <div key={`slot-${slotDef.slot}`} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeOrderItem(slotDef.slot, dragging.id)} className="flex min-h-0 flex-col items-center gap-1">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white" style={{ background: slotDef.color }}>{index + 1}</span>
+                    <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/40 p-1" style={{ borderColor: slotDef.color }}>
+                      {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: slotDef.slot })} onClick={() => returnOrderItemToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
+                    </div>
+                  </div>
+                );
+                if (index === orderSlots.length - 1) return [slotEl];
+                return [slotEl, <span key={`arrow-${slotDef.slot}`} className="text-[clamp(16px,4vw,22px)] font-black text-[#c9bfa8]">→</span>];
+              })}
+            </div>
+            <div className="grid min-h-0 grid-cols-4 gap-2 rounded-[18px] bg-white/55 p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && returnOrderItemToTray(dragging.id)}>
+              {orderItems.filter((item) => !orderPlacements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => placeOrderItem(orderPlacements.findIndex((value) => value === null), item.id)} />)}
+            </div>
+          </div>
         ) : <>
         {[
           { label: 'Обязательное', hint: 'То, без чего нельзя', titleColor: '#1f7a32', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
@@ -243,7 +309,7 @@ export default function LessonOne({ onBack }: Props) {
           <span className="flex h-[clamp(36px,10vw,41px)] w-[clamp(36px,10vw,41px)] shrink-0 items-center justify-center rounded-full bg-[#6355f0] text-[clamp(21px,6vw,25px)] shadow-[0_3px_8px_rgba(72,58,200,.35)]">💡</span>
           <span className="whitespace-nowrap">Подсказка</span>
         </button>
-        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); setWalkCart([]); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
+        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); setWalkCart([]); setOrderPlacements([null, null, null, null]); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
       </div>
     </div>
   );
