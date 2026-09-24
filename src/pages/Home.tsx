@@ -20,6 +20,7 @@ import BottomSheet from '../components/BottomSheet';
 import EarnCoinsModal from '../components/EarnCoinsModal';
 import Lessons from './Lessons';
 import Inventory from './Inventory';
+import Wardrobe from './Wardrobe';
 import Kitchen from './Kitchen';
 import PageLoading from './PageLoading';
 import Shop from './Shop';
@@ -88,7 +89,7 @@ function markLessonVisited() {
   void storage.set('last_lesson_visit_at', String(Date.now()));
 }
 
-type SheetId = TabId | 'inventory' | 'settings' | 'progress' | 'kitchen' | 'piggy';
+type SheetId = TabId | 'inventory' | 'wardrobe' | 'settings' | 'progress' | 'kitchen' | 'piggy';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
@@ -415,7 +416,7 @@ export default function Home() {
               <IconSettingsGear className="h-6 w-6" />
             </button>
             <button
-              onClick={() => setSheet('inventory')}
+              onClick={() => setSheet('wardrobe')}
               className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
               style={{
                 background: 'rgba(26,20,40,0.30)',
@@ -721,6 +722,8 @@ export default function Home() {
             }}
             onClose={closeKitchen}
           />
+        ) : sheet === 'wardrobe' ? (
+          <Wardrobe onClose={closeSheet} />
         ) : sheet === 'inventory' ? (
           <Inventory
             bottomInset={navHeight}
