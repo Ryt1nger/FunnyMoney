@@ -35,7 +35,7 @@ const budgetItems = [
 type PracticeItem = { id: string; label: string; price: number; image: string; category: string };
 
 function DraggableItem({ item, sourceSlot, setDragging, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null } | null) => void; onClick: () => void; isDragging?: boolean }) {
-  return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onDragEnd={() => setDragging(null)} onClick={onClick} className={`flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : ''}`}>
+  return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onDragEnd={() => setDragging(null)} onClick={onClick} className={`flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : 'animate-[lessonItemIn_220ms_ease-out]'}`}>
     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
     <span className="mt-0.5 text-[clamp(10px,3vw,14px)] font-extrabold leading-none text-[#17469d]">{item.label}</span>
     <span className="flex items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{item.price}</span>
@@ -58,6 +58,13 @@ export default function LessonOne({ onBack }: Props) {
   useEffect(() => {
     pauseBackgroundMusic();
     return () => startBackgroundMusic();
+  }, []);
+
+  useEffect(() => {
+    scenes.forEach((source) => {
+      const image = new Image();
+      image.src = source;
+    });
   }, []);
 
   useEffect(() => {
@@ -122,10 +129,11 @@ export default function LessonOne({ onBack }: Props) {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
-      <img src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full object-cover object-center" />
+      <style>{`@keyframes lessonSceneIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:scale(1)}}@keyframes lessonItemIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
+      <img key={scene} src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full object-cover object-center [animation:lessonSceneIn_420ms_ease-out]" />
 
       {/* Кнопка назад повторяет шапку разделов на главной */}
-      <button aria-label="Назад" onClick={scene === 0 ? onBack : () => setScene((value) => value - 1)} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
+      <button aria-label="Назад к урокам" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
 
       <div className="absolute left-1/2 top-[2.8%] z-20 flex h-[6%] w-[44%] -translate-x-1/2 items-center rounded-full border border-white/30 bg-[#4d497d]/55 px-[5%] shadow-[0_4px_14px_rgba(50,42,110,.25)] backdrop-blur-md">
         <div className="relative flex w-full items-center justify-between">
@@ -143,7 +151,7 @@ export default function LessonOne({ onBack }: Props) {
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
       <div className="absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5">
-        {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)]">
+        {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
           <div className="mx-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[#17469d] shadow-sm"><img src={coinIcon} alt="" className="h-8 w-8" /><span className="text-[clamp(13px,3.8vw,19px)] font-black">Бюджет: {budgetBalance}</span></div>
           <div className="grid min-h-0 grid-cols-4 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && budgetCart.includes(dragging.id) && removeFromBudgetCart(dragging.id)}>
             {budgetItems.filter((item) => !budgetCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToBudgetCart(item.id)} />)}
@@ -161,7 +169,7 @@ export default function LessonOne({ onBack }: Props) {
         ].map((category) => {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
-          return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col items-center overflow-hidden rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)]`}>
+          return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col items-center overflow-hidden rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)] animate-[lessonItemIn_220ms_ease-out]`}>
             <div className="flex min-w-0 max-w-full flex-col items-center gap-1 text-center" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-12 w-12 shrink-0 object-contain" /><span className="block max-w-full whitespace-nowrap text-[clamp(8px,2.2vw,10px)] font-black leading-none tracking-[-0.03em]">{category.label}</span></div>
             <div className="mt-2 flex aspect-square w-[88%] flex-none items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
               {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: category.slot })} onClick={() => returnToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/80 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
