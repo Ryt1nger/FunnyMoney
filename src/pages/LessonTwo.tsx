@@ -22,6 +22,8 @@ import backpackIcon from '../assets/lesson2/items/18_backpack.png';
 import piggyCoinsIcon from '../assets/lesson2/items/22_piggy_bank_coins.png';
 import piggyBankIcon from '../assets/lesson2/items/19_piggy_bank.png';
 import candyJarIcon from '../assets/lesson2/items/20_candy_jar.png';
+import walletIcon from '../assets/lesson2/items/21_coin_wallet.png';
+import teddyCarIcon from '../assets/lesson2/items/23_teddy_bear_car.png';
 import basketIcon from '../assets/lesson2/basket.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
@@ -32,10 +34,10 @@ interface Props { onBack: () => void }
 // шапка с прогрессом, кнопка "книга", нижняя панель "Подсказка/Проверить").
 // Фон сцены временно переиспользует фон первого упражнения урока 1 — своих
 // материалов для урока 2 ещё нет. Сцены будут добавляться по мере готовности
-// следующих упражнений (сейчас реализованы первые четыре — "Доход или
-// расход?", "Балансир бюджета", "Личное или семейное?" и "Подарок от
-// бабушки").
-const scenes = [scene1, scene1, scene1, scene1];
+// следующих упражнений (сейчас реализованы первые пять — "Доход или
+// расход?", "Балансир бюджета", "Личное или семейное?", "Подарок от
+// бабушки" и "Шаги умных покупок").
+const scenes = [scene1, scene1, scene1, scene1, scene1];
 
 // Упражнение 1 — "Доход или расход?": разложить карточки по двум корзинам —
 // Доходы (+) и Расходы (-). Из сценария (уроки практика.pdf, Урок 2):
@@ -79,12 +81,31 @@ const GIFT_TOTAL_COINS = 10;
 const GIFT_MIN_PIGGY = 5;
 const giftCoinIds = Array.from({ length: GIFT_TOTAL_COINS }, (_, index) => `gift-coin-${index}`);
 
+// Упражнение 5 — "Шаги умных покупок": 4 карточки-действия нужно расставить
+// по порядку в пронумерованные слоты (та же механика, что и "Расставь шаги!"
+// в первом уроке).
+const stepItems = [
+  { id: 'step-wallet', label: 'Посмотреть кошелёк', image: walletIcon },
+  { id: 'step-food', label: 'Купить еду', image: petBowlIcon },
+  { id: 'step-save', label: 'Отложить монеты', image: piggyCoinsIcon },
+  { id: 'step-toy', label: 'Купить игрушку на остаток', image: teddyCarIcon },
+] as const;
+// Цвета пронумерованных слотов — зелёный → бирюзовый → фиолетовый → розовый,
+// как в референсе (и как в аналогичном упражнении первого урока).
+const stepSlots = [
+  { slot: 0, color: '#4fb35a' },
+  { slot: 1, color: '#2bb0b8' },
+  { slot: 2, color: '#8a5cf0' },
+  { slot: 3, color: '#ef5da8' },
+] as const;
+
 // Подсказки/обратная связь при ошибке — тексты из сценария, ключ — индекс сцены.
 const sceneHints: Record<number, string> = {
   0: 'Деньги приходят — это доход. Деньги уходят за покупку — расход.',
   1: 'Сначала купи обязательное — лекарство. И следи, чтобы сумма покупок не превышала доход 100 монет.',
   2: 'Общее для всей семьи — в «Семейное». То, что нужно только тебе — в «Личное».',
   3: `Раздели все ${GIFT_TOTAL_COINS} монет между копилкой и сладостями. В копилку нужно положить не меньше ${GIFT_MIN_PIGGY}.`,
+  4: 'Сначала смотрим кошелёк, потом покупаем нужное, откладываем часть монет и только потом выбираем игрушку.',
 };
 
 function ExerciseCard({ item, selected, onSelect }: { item: (typeof incomeExpenseItems)[number]; selected: boolean; onSelect: () => void }) {
@@ -116,6 +137,13 @@ function SortCard({ item, selected, onSelect }: { item: (typeof familyPersonalIt
   return <div onClick={onSelect} className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-1 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${selected ? 'ring-2 ring-[#675ff3] ring-offset-1' : ''}`}>
     <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
     <span className="line-clamp-2 w-full shrink-0 text-[clamp(9px,2.6vw,11.5px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
+  </div>;
+}
+
+function StepCard({ item, selected, onSelect }: { item: (typeof stepItems)[number]; selected: boolean; onSelect: () => void }) {
+  return <div onClick={onSelect} className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-1 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${selected ? 'ring-2 ring-[#675ff3] ring-offset-1' : ''}`}>
+    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
+    <span className="line-clamp-3 w-full shrink-0 text-[clamp(7px,2vw,9px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
   </div>;
 }
 
@@ -163,6 +191,7 @@ export default function LessonTwo({ onBack }: Props) {
   const [personal, setPersonal] = useState<string[]>([]);
   const [giftPiggy, setGiftPiggy] = useState<string[]>([]);
   const [giftCandy, setGiftCandy] = useState<string[]>([]);
+  const [stepPlacements, setStepPlacements] = useState<(string | null)[]>([null, null, null, null]);
   const [selected, setSelected] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [checkPulse, setCheckPulse] = useState(0);
@@ -268,6 +297,28 @@ export default function LessonTwo({ onBack }: Props) {
     setSelected(null);
   }
 
+  // Расставить карточку-шаг в пронумерованный слот (упражнение 5) — тап по
+  // выбранной карточке или перетаскивание в слот; если слот занят, прежняя
+  // карточка возвращается в лоток.
+  function placeStepItem(slot: number, draggedId?: string) {
+    const id = draggedId ?? selected;
+    if (!id) return;
+    setStepPlacements((current) => {
+      const next = [...current];
+      const from = next.indexOf(id);
+      const replaced = next[slot];
+      if (from >= 0) next[from] = replaced ?? null;
+      next[slot] = id;
+      return next;
+    });
+    setSelected(null);
+  }
+
+  function returnStepItemToTray(id: string) {
+    setStepPlacements((current) => current.map((value) => (value === id ? null : value)));
+    setSelected(null);
+  }
+
   // Добавить/убрать покупку из корзины бюджета (упражнение 2) — тап по
   // карточке или по занятой корзине, либо перетаскивание карточки в корзину.
   function toggleBudgetItem(id: string) {
@@ -295,10 +346,15 @@ export default function LessonTwo({ onBack }: Props) {
     return giftPiggy.length + giftCandy.length === GIFT_TOTAL_COINS && giftPiggy.length >= GIFT_MIN_PIGGY;
   }
 
+  function isStepsCorrect(): boolean {
+    return stepPlacements[0] === 'step-wallet' && stepPlacements[1] === 'step-food' && stepPlacements[2] === 'step-save' && stepPlacements[3] === 'step-toy';
+  }
+
   function isSceneCorrect(): boolean {
     if (scene === 1) return isBudgetCorrect();
     if (scene === 2) return isFamilyPersonalCorrect();
     if (scene === 3) return isGiftCorrect();
+    if (scene === 4) return isStepsCorrect();
     const requiredIncome = incomeExpenseItems.filter((item) => item.kind === 'income').map((item) => item.id);
     const requiredExpense = incomeExpenseItems.filter((item) => item.kind === 'expense').map((item) => item.id);
     return requiredIncome.every((id) => income.includes(id)) && requiredExpense.every((id) => expense.includes(id)) && income.length === requiredIncome.length && expense.length === requiredExpense.length;
@@ -313,6 +369,7 @@ export default function LessonTwo({ onBack }: Props) {
     setPersonal([]);
     setGiftPiggy([]);
     setGiftCandy([]);
+    setStepPlacements([null, null, null, null]);
     setSelected(null);
     setCheckState('idle');
     setHintText(null);
@@ -394,6 +451,7 @@ export default function LessonTwo({ onBack }: Props) {
   const budgetBalance = BUDGET_INCOME - budgetTotal;
   const tray3 = familyPersonalItems.filter((item) => !family.includes(item.id) && !personal.includes(item.id));
   const giftTray = giftCoinIds.filter((id) => !giftPiggy.includes(id) && !giftCandy.includes(id));
+  const stepTray = stepItems.filter((item) => !stepPlacements.includes(item.id));
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
@@ -587,7 +645,7 @@ export default function LessonTwo({ onBack }: Props) {
               <span className="text-[clamp(15px,4.4vw,18px)] font-black text-[#146b5c]">{GIFT_TOTAL_COINS}</span>
             </div>
 
-            <div className="grid min-h-0 flex-[0.85] grid-cols-2 gap-2">
+            <div className="grid min-h-0 flex-[0.65] grid-cols-2 gap-2">
               <div className="flex min-h-0 flex-col gap-1">
                 <div className="flex min-w-0 items-center gap-1.5 rounded-2xl bg-[#dbeafd] px-2 py-1.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm"><img src={piggyBankIcon} alt="" className="h-[18px] w-[18px] object-contain" /></div>
@@ -620,10 +678,42 @@ export default function LessonTwo({ onBack }: Props) {
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-[1.15] grid-cols-5 grid-rows-2 gap-1.5 rounded-[18px] bg-[#f3ede0] p-2">
+            <div className="grid min-h-0 flex-[1.35] grid-cols-5 grid-rows-2 gap-1.5 rounded-[18px] bg-[#f3ede0] p-2">
               {giftTray.map((id) => (
                 <div key={id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', id)} className="min-h-0 min-w-0">
                   <CoinChip selected={selected === id} onSelect={() => selectCard(id)} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {scene === 4 && (
+          <>
+            {/* Упражнение 5 — "Шаги умных покупок": та же механика, что и
+                "Расставь шаги!" в первом уроке — 4 карточки-действия
+                расставить по порядку в пронумерованные слоты (зелёный →
+                бирюзовый → фиолетовый → розовый). */}
+            <div className="grid min-h-0 flex-[0.65] grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-1">
+              {stepSlots.flatMap((slotDef, index) => {
+                const item = stepItems.find((entry) => entry.id === stepPlacements[slotDef.slot]);
+                const slotEl = (
+                  <div key={`step-slot-${slotDef.slot}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeStepItem(slotDef.slot, event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeStepItem(slotDef.slot)} className="flex min-h-0 flex-col items-center gap-1">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white" style={{ background: slotDef.color }}>{index + 1}</span>
+                    <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/40 p-1" style={{ borderColor: slotDef.color }}>
+                      {item && <div draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} onClick={(event) => { event.stopPropagation(); returnStepItemToTray(item.id); }} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
+                    </div>
+                  </div>
+                );
+                if (index === stepSlots.length - 1) return [slotEl];
+                return [slotEl, <span key={`step-arrow-${slotDef.slot}`} className="text-[clamp(16px,4vw,22px)] font-black text-[#c9bfa8]">→</span>];
+              })}
+            </div>
+
+            <div className="grid min-h-0 flex-[1.35] grid-cols-4 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
+              {stepTray.map((item) => (
+                <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} className="min-h-0 min-w-0">
+                  <StepCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />
                 </div>
               ))}
             </div>

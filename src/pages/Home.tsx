@@ -440,7 +440,7 @@ export default function Home() {
                 borderColor: 'rgba(255,255,255,0.30)',
                 boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
               }}
-              aria-label="Инвентарь"
+              aria-label="Гардероб"
             >
               <IconBackpackLight className="h-6 w-6" />
             </button>

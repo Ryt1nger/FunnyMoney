@@ -200,6 +200,16 @@ function SpotlightMask({
     width: rect.width + PAD * 2,
     height: rect.height + PAD * 2,
   };
+  // Для шагов "нажми на подсвеченное" (pulse) стены НЕ должны перехватывать
+  // клики вовсе: они рассчитаны по прямоугольнику хит-тестинга, а видимый
+  // вырез — скруглённый (clip-path), так что по углам вырез визуально уже,
+  // чем стены думают, и в некоторых Android WebView сам clip-path не режет
+  // хит-тест вовсе (тап по "дырке" в этом случае глохнет в стене, хотя на
+  // вид попадает точно в подсветку — ровно то, на что жалуются: "нажимаю и
+  // ничего не происходит"). Настоящий тап по кнопке ловит отдельный
+  // document-level слушатель в TutorialOverlay, так что здесь безопаснее
+  // вообще не ставить стены — только видимое затемнение.
+  const wallsInteractive = pulse ? 'pointer-events-none' : 'pointer-events-auto';
   return (
     <>
       {/* Затемнение со скруглённым вырезом — ТОЛЬКО визуал (pointer-events:
@@ -213,12 +223,13 @@ function SpotlightMask({
         className="pointer-events-none absolute inset-0"
         style={{ background: SCRIM, clipPath: buildHoleClipPath(containerSize.width, containerSize.height, r, HOLE_RADIUS) }}
       />
-      {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи, а внутри
-          дырки элементов нет вовсе, поэтому тап проходит к настоящей кнопке. */}
-      <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top) }} />
-      <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height }} />
-      <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
-      <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width }} />
+      {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи на шагах
+          "Дальше" (не pulse). На шагах "нажми на подсвеченное" стены
+          отключены (см. комментарий выше) — тап всегда проходит насквозь. */}
+      <div className={`${wallsInteractive} absolute inset-x-0 top-0`} style={{ height: Math.max(0, r.top) }} />
+      <div className={`${wallsInteractive} absolute inset-x-0 bottom-0`} style={{ top: r.top + r.height }} />
+      <div className={`${wallsInteractive} absolute left-0`} style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
+      <div className={`${wallsInteractive} absolute right-0`} style={{ top: r.top, height: r.height, left: r.left + r.width }} />
       {/* Светящееся кольцо вокруг подсветки — притягивает взгляд ребёнка. */}
       <div
         className={`pointer-events-none absolute rounded-[20px] ${pulse ? 'animate-pulse' : ''}`}
