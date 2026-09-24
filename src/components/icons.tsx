@@ -308,14 +308,29 @@ export function IconBackpackDark(props: IconProps) {
   return <IconBackpack stroke="#2c2a5e" {...props} />;
 }
 
-// Вешалка — иконка быстрого перехода в гардероб.
+// Плечики — иконка кнопки гардероба (отдельно от рюкзака-инвентаря).
 export function IconHanger(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M9.4 7.2a2.7 2.7 0 1 1 4.3 2.1c-.8.6-1.7 1.1-1.7 2.2" />
-      <path d="M3.5 17.7 11 13.5a2 2 0 0 1 2 0l7.5 4.2c.8.5.5 1.7-.4 1.7H3.9c-.9 0-1.2-1.2-.4-1.7Z" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12 4a2 2 0 1 1 2 2c-.6 0-1.1.4-1.4.9l-.6 1.1" />
+      <path d="M12 8l8.5 6a1.7 1.7 0 0 1 -1 3h-15a1.7 1.7 0 0 1 -1 -3l8.5 -6" />
+      <path d="M6 20h12" />
     </svg>
   );
+}
+
+// Светлая версия плечиков — белый штрих, для тёмных подложек (та же логика,
+// что и у рюкзака выше).
+export function IconHangerLight(props: IconProps) {
+  return <IconHanger stroke="#ffffff" {...props} />;
 }
 
 export function IconFlag(props: IconProps) {

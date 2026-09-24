@@ -43,6 +43,7 @@ import {
   IconStar,
   IconPlus,
   IconBackpackLight,
+  IconHangerLight,
   IconSettingsGear,
   IconCutlery,
   IconChevronRight,
@@ -432,6 +433,19 @@ export default function Home() {
               <IconSettingsGear className="h-6 w-6" />
             </button>
             <button
+              data-tour="home-inventory"
+              onClick={() => setSheet('inventory')}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Инвентарь"
+            >
+              <IconBackpackLight className="h-6 w-6" />
+            </button>
+            <button
               data-tour="home-wardrobe"
               onClick={() => setSheet('wardrobe')}
               className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
@@ -442,7 +456,7 @@ export default function Home() {
               }}
               aria-label="Гардероб"
             >
-              <IconBackpackLight className="h-6 w-6" />
+              <IconHangerLight className="h-6 w-6" />
             </button>
           </div>
           <button

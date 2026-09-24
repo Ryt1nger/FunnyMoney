@@ -68,10 +68,24 @@ export const tutorialSteps: TutorialStep[] = [
     action: 'next',
   },
   {
-    id: 'home-buttons',
-    targets: ['home-settings', 'home-wardrobe'],
-    title: 'Две кнопки',
-    text: 'Шестерёнка — настройки: звук и музыка. Рюкзак — мой шкаф с одеждой, туда мы ещё заглянем.',
+    id: 'home-settings',
+    targets: ['home-settings'],
+    title: 'Настройки',
+    text: 'Шестерёнка — тут можно включить и выключить звук и музыку.',
+    action: 'next',
+  },
+  {
+    id: 'home-inventory',
+    targets: ['home-inventory'],
+    title: 'Мой инвентарь',
+    text: 'Рюкзак — тут лежат все вещи, которые мы уже купили.',
+    action: 'next',
+  },
+  {
+    id: 'home-wardrobe-preview',
+    targets: ['home-wardrobe'],
+    title: 'Гардероб',
+    text: 'Плечики — мой шкаф с одеждой, туда мы ещё заглянем.',
     action: 'next',
   },
   {
