@@ -201,13 +201,17 @@ export default function LessonOne({ onBack }: Props) {
           </div>
         </div> : scene === WALK_SCENE_INDEX ? (
           /* Упражнение 3 — "Найди лишнее": та же карточка-каркас, что у "Бюджета"
-             (сетка предметов / строка-корзина), но без текстовой шапки — сетка
-             2×3 без цены, а корзина ниже и компактнее (без подписи "Твоя
-             корзина"), чтобы 6 карточек в два ряда уместились в ту же высоту
-             зоны разработки, что и 4 карточки в один ряд у соседа.
+             (шапка / сетка предметов / строка-корзина), только шапка — заголовок
+             задания вместо суммы, сетка — 2×3 без цены, а корзина ниже и компактнее
+             (без подписи "Твоя корзина"), чтобы 6 карточек в два ряда уместились
+             в ту же высоту зоны разработки, что и 4 карточки в один ряд у соседа.
              mt — своя, локальная просадка вниз именно этой карточки (не трогает
              общие top/bottom зоны разработки, общие для всех сцен). */
-          <div className="col-span-3 row-span-2 mt-[3%] grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+          <div className="col-span-3 row-span-2 mt-[3%] grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+            <div className="mx-auto max-w-full rounded-2xl bg-white/90 px-3 py-1.5 text-center shadow-sm">
+              <div className="text-[clamp(12px,3.6vw,15px)] font-black leading-tight text-[#17469d]">Найди лишнее!</div>
+              <div className="mt-0.5 text-[clamp(9px,2.6vw,11px)] font-semibold leading-tight text-[#5a6a95]">Что взять на прогулку с собачкой?</div>
+            </div>
             <div className="grid min-h-0 grid-cols-3 grid-rows-2 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && walkCart.includes(dragging.id) && removeFromWalkCart(dragging.id)}>
               {walkItems.filter((item) => !walkCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToWalkCart(item.id)} />)}
             </div>
