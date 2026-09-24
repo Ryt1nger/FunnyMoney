@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import videoSrc from '../assets/lesson1/lesson-video.mov';
 import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
-import scene2 from '../assets/lesson1/backgrounds/practice-2.png';
 import scene3 from '../assets/lesson1/backgrounds/practice-3.png';
 import scene4 from '../assets/lesson1/backgrounds/practice-4.png';
 import scene5 from '../assets/lesson1/backgrounds/practice-5.png';
@@ -19,7 +18,7 @@ import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgrou
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void }
 
-const scenes = [scene1, scene4, scene3, scene2, scene5];
+const scenes = [scene1, scene4, scene3, scene5, scene1];
 const practiceItems = [
   { id: 'food', label: 'Еда', price: 60, image: foodBowl, category: 'must' },
   { id: 'toy', label: 'Игрушка', price: 50, image: toyCar, category: 'want' },
