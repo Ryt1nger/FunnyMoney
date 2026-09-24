@@ -261,7 +261,7 @@ export default function Stats({ bottomInset = 0, coins, onClose, onOpenEarnModal
         }}
       >
         {/* Подиум топ-3 — закреплён, отступ сверху под конфетти над коронами */}
-        <div className="relative shrink-0 px-4 pt-8">
+        <div data-tour="stats-podium" className="relative shrink-0 px-4 pt-8">
           <div className="relative w-full" style={{ paddingTop: `${(762 / 1400) * 100}%` }}>
             <img
               src={podiumImg}

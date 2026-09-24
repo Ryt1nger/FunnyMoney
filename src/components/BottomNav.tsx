@@ -48,6 +48,7 @@ export default function BottomNav({ active, onChange, dotsEnabled = true }: Prop
         return (
           <button
             key={tab.id}
+            data-tour={`nav-${tab.id}`}
             onClick={() => onChange(tab.id)}
             className="flex flex-1 flex-col items-center gap-1 transition active:scale-95"
           >

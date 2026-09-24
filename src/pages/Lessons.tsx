@@ -172,7 +172,11 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
               </div>
               <div className="flex flex-col gap-2.5">
               {list.filter((lesson) => theme.lessonIds.includes(lesson.id)).map((lesson) => (
-            <div key={lesson.id} className="relative flex min-h-[100px] gap-3 rounded-[22px] bg-white/80 p-2.5 shadow-sm">
+            <div
+              key={lesson.id}
+              data-tour={lesson.id === 'what-is-money' ? 'lessons-first' : undefined}
+              className="relative flex min-h-[100px] gap-3 rounded-[22px] bg-white/80 p-2.5 shadow-sm"
+            >
               <img
                 src={lesson.image}
                 alt=""

@@ -95,11 +95,11 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
   return (
     <div className="h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)] transition-[opacity,transform] duration-300 ease-out" style={{ paddingBottom: bottomInset + (transferMode ? 220 : 16), color: BLUE, opacity: entered ? 1 : 0, transform: entered ? 'translateY(0)' : 'translateY(12px)' }}>
       <header className="mb-2.5 flex h-9 items-center justify-between">
-        <button onClick={onClose} aria-label="Назад" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#4650ad] shadow-[0_2px_10px_rgba(31,37,105,0.08)]"><IconArrowLeft className="h-4 w-4" /></button>
+        <button data-tour="piggy-back" onClick={onClose} aria-label="Назад" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#4650ad] shadow-[0_2px_10px_rgba(31,37,105,0.08)]"><IconArrowLeft className="h-4 w-4" /></button>
         <h1 className="text-[19px] font-black tracking-[-0.3px]">Копилка</h1>
         <div className="h-8 w-8" />
       </header>
-      <section className="grid grid-cols-2 gap-2.5">
+      <section data-tour="piggy-balance" className="grid grid-cols-2 gap-2.5">
         <div className="flex h-[108px] min-w-0 items-center overflow-hidden rounded-[20px] bg-[#fffdf7] px-2.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
           <div className="flex h-[76px] w-[64px] shrink-0 items-center justify-center">
             <img src={walletAsset} alt="" className="h-[60px] w-[60px] max-w-none object-contain" />
@@ -130,14 +130,14 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
           <button onClick={submitTransfer} disabled={!transferAllowed} className="mt-3 flex h-11 w-full items-center justify-center rounded-[14px] text-[12px] font-extrabold text-white transition-opacity active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-100" style={{ background: transferAllowed ? (transferMode === 'deposit' ? VIOLET : 'linear-gradient(180deg, #8b88f4 0%, #716dde 100%)') : '#d9d5ed', color: transferAllowed ? '#ffffff' : '#aaa5c2' }}>{transferMode === 'deposit' ? 'Пополнить копилку' : 'Вывести монеты'}</button>
         </section>
       ) : (
-      <section className="mt-2.5 grid grid-cols-[1fr_34px_1fr] items-center rounded-[20px] bg-white p-2 shadow-[0_3px_14px_rgba(31,37,105,0.06)]">
+      <section data-tour="piggy-transfer" className="mt-2.5 grid grid-cols-[1fr_34px_1fr] items-center rounded-[20px] bg-white p-2 shadow-[0_3px_14px_rgba(31,37,105,0.06)]">
         <button onClick={() => openTransfer('deposit')} className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] text-[11px] font-extrabold text-white" style={{ background: VIOLET }}>Пополнить <span className="text-[18px] leading-none">→</span></button>
         <div className="flex h-7 w-7 items-center justify-center justify-self-center rounded-full bg-[#f0edff] text-[16px] font-black text-[#5965df]">⇄</div>
         <button onClick={() => openTransfer('withdraw')} className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] bg-[#f0edff] text-[11px] font-extrabold"><span className="text-[18px] leading-none">←</span>Вывести</button>
       </section>
       )}
       <div className={`overflow-hidden transition-all duration-300 ${transferMode ? 'pointer-events-none max-h-0 opacity-0' : 'max-h-[800px] opacity-100'}`}>
-      <section className="mt-2.5 rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
+      <section data-tour="piggy-goal" className="mt-2.5 rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-[18px] font-black"><span className="flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-current text-[12px]">↗</span>Моя цель</div>
           <div className="flex items-center gap-1.5 text-[9.5px] font-bold text-[#6971b4]"><img src={bearAvatar} alt="" className="h-7 w-7 rounded-full" />У тебя получится!</div>

@@ -191,7 +191,7 @@ export default function Shop({
       >
         {/* Полоса категорий — единый блок с разделителями, как в макете.
             С кухни (kitchenOnly) видно только «Еду» и «Интерьер». */}
-        <div className="flex overflow-hidden rounded-[20px] bg-white/60 p-1.5">
+        <div data-tour="shop-categories" className="flex overflow-hidden rounded-[20px] bg-white/60 p-1.5">
           {categories.map(({ id, label, icon }, i) => {
             const active = category === id;
             return (
@@ -249,7 +249,7 @@ export default function Shop({
         )}
 
         {category === 'interior' ? (
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          <div data-tour="shop-products" className="mt-2.5 grid grid-cols-2 gap-2.5">
             {interiorRooms.map((room) => {
               const owned = ownedRoomIds.includes(room.id);
               return (
@@ -294,7 +294,7 @@ export default function Shop({
             })}
           </div>
         ) : (
-          <div className="mt-2.5 grid grid-cols-3 gap-2.5">
+          <div data-tour="shop-products" className="mt-2.5 grid grid-cols-3 gap-2.5">
             {products.map((p) => {
               const isFood = p.category === 'food';
               const owned = !isFood && ownedProductIds.includes(p.id);

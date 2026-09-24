@@ -303,6 +303,7 @@ export default function Kitchen({
           Тот же стиль кнопки, что и на главной. */}
       <div className="relative z-20 mt-2 flex items-center justify-between px-4">
         <button
+          data-tour="kitchen-shop"
           onClick={onOpenShop}
           className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
           style={{
@@ -315,6 +316,7 @@ export default function Kitchen({
           <IconCart className="h-6 w-6" />
         </button>
         <button
+          data-tour="kitchen-home"
           onClick={onClose}
           className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
           style={{
@@ -406,6 +408,7 @@ export default function Kitchen({
           Высота — по контенту (не в % экрана), чтобы карточки никогда не
           обрезались нижней навигацией на разных размерах экрана. */}
       <div
+        data-tour="kitchen-food"
         className="relative z-20 shrink-0 rounded-t-[26px] bg-[#fbefe1] px-4 pt-2 shadow-[0_-6px_20px_rgba(0,0,0,0.15)]"
         style={{ paddingBottom: bottomInset + 14 }}
       >

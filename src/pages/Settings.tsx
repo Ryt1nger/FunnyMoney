@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { IconArrowLeft, IconSettingsGear, IconMusicNote, IconBell, IconChatBubble, IconVibration, IconAlarmClock, IconStar, IconLock, IconChevronRight, IconShieldCrown } from '../components/icons';
+import { IconArrowLeft, IconSettingsGear, IconMusicNote, IconBell, IconChatBubble, IconVibration, IconAlarmClock, IconStar, IconLock, IconChevronRight, IconShieldCrown, IconHandPointing } from '../components/icons';
 import Toggle from '../components/Toggle';
 import { useSettingsStore } from '../features/settings/settingsStore';
+import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { setMusicEnabled } from '../services/backgroundMusic';
 import { stopAssistantVoice } from '../services/assistantVoice';
 import { storage } from '../services/storage';
@@ -405,6 +406,33 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
             onChange={setBrightHints}
           />
         </div>
+
+        <SectionLabel>Помощь</SectionLabel>
+        <button
+          onClick={() => {
+            // Обучение показывается поверх главного экрана (Home), поэтому
+            // сначала закрываем настройки — иначе шторка перекроет подсказки.
+            useTutorialStore.getState().restart();
+            onClose();
+          }}
+          className="flex w-full items-center gap-3 rounded-[18px] bg-white/85 px-3.5 py-3 text-left transition active:scale-[0.98]"
+        >
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            style={{ background: '#f0e6d3', color: '#6f6355' }}
+          >
+            <IconHandPointing className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
+              Показать обучение снова
+            </div>
+            <div className="mt-0.5 text-[10.5px] leading-snug" style={{ color: '#9a8f80' }}>
+              Пройти подсказки по приложению ещё раз
+            </div>
+          </div>
+          <IconChevronRight className="h-5 w-5 shrink-0" style={{ color: '#c9bda6' }} />
+        </button>
 
         <SectionLabel>Для взрослых</SectionLabel>
         <button

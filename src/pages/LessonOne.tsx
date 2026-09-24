@@ -137,10 +137,7 @@ export default function LessonOne({ onBack }: Props) {
   // результат проверки не изменился (два неверных подряд и т.п.).
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
-  const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const captureRafRef = useRef<number | null>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -155,75 +152,24 @@ export default function LessonOne({ onBack }: Props) {
     });
   }, []);
 
-  // Пока видео играет, постоянно перерисовываем его в скрытый canvas
-  // (дёшево — просто drawImage). Когда видео заканчивается, берём последний
-  // удачно захваченный кадр и кодируем в JPEG один раз — получаем статичную
-  // картинку, которая не зависит от того, что делает WebView с видео-
-  // поверхностью после 'ended' (на некоторых Android-сборках она чернеет).
+  // По окончании видео не пытаемся поймать "тот самый последний кадр" —
+  // ловить живой кадр через canvas оказалось ненадёжно (WebView иногда даёт
+  // пустой/чёрный результат). Вместо этого просто отматываем видео обратно
+  // на самый первый кадр — тот же кадр, что и так надёжно показывается
+  // блюром ДО старта воспроизведения — и показываем его тем же самым
+  // блюром.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-
-    function ensureCanvas() {
-      if (!captureCanvasRef.current) captureCanvasRef.current = document.createElement('canvas');
-      return captureCanvasRef.current;
-    }
-
-    function captureFrame() {
-      const canvas = ensureCanvas();
-      if (!video || video.videoWidth === 0 || video.videoHeight === 0) return;
-      if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
-      if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      try {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      } catch {
-        // кадр не удалось нарисовать — пропускаем, в canvas остаётся предыдущий.
-      }
-    }
-
-    function loop() {
-      captureFrame();
-      captureRafRef.current = requestAnimationFrame(loop);
-    }
-
-    function stopLoop() {
-      if (captureRafRef.current) {
-        cancelAnimationFrame(captureRafRef.current);
-        captureRafRef.current = null;
-      }
-    }
-
-    function freezeLastFrame() {
-      captureFrame();
-      stopLoop();
-      const canvas = captureCanvasRef.current;
-      if (canvas && canvas.width > 0 && canvas.height > 0) {
-        try {
-          setLastFrameUrl(canvas.toDataURL('image/jpeg', 0.75));
-        } catch {
-          // канвас недоступен для чтения — останемся без картинки, сработает
-          // запасной вариант на <video>.
-        }
+    function onEnded() {
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
       }
       setWatched(true);
     }
-
-    function onPlay() {
-      stopLoop();
-      captureRafRef.current = requestAnimationFrame(loop);
-    }
-
-    video.addEventListener('play', onPlay);
-    video.addEventListener('ended', freezeLastFrame);
-    video.addEventListener('pause', stopLoop);
-    return () => {
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('ended', freezeLastFrame);
-      video.removeEventListener('pause', stopLoop);
-      stopLoop();
-    };
+    video.addEventListener('ended', onEnded);
+    return () => video.removeEventListener('ended', onEnded);
   }, []);
 
   useEffect(() => () => { if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current); }, []);

@@ -272,7 +272,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         }}
       >
         {/* Текущий день + серия — один блок с акцентом на левой плашке */}
-        <div className="flex items-center gap-2.5 rounded-[20px] bg-white/70 p-2 shadow-md">
+        <div data-tour="day-streak" className="flex items-center gap-2.5 rounded-[20px] bg-white/70 p-2 shadow-md">
           <div
             className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-[15px] px-3 py-1.5"
             style={{ background: VIOLET, boxShadow: '0 4px 10px rgba(92,90,216,0.30)' }}
@@ -318,7 +318,7 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
         </div>
 
         {/* Список заданий */}
-        <div className="mt-1.5 flex flex-col gap-2">
+        <div data-tour="day-tasks" className="mt-1.5 flex flex-col gap-2">
           {dayTasks.map((task) => {
             const { Icon, bg, fg } = TASK_ICON[task.icon];
             const done = isTaskDone(task.id);
