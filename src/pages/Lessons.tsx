@@ -6,6 +6,7 @@ import { lessonCards } from '../data/lessonsData';
 import { IconArrowLeft, IconPlus, IconStar } from '../components/icons';
 import bookHero from '../assets/icons/book-3d.png';
 import LessonOne from './LessonOne';
+import LessonTwo from './LessonTwo';
 
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -44,6 +45,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
 
   if (activeLesson === 'what-is-money') {
     return <LessonOne onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
+  }
+  if (activeLesson === 'needs-vs-wants') {
+    return <LessonTwo onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
 
   return (
@@ -207,7 +211,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 {lesson.step}/{lesson.total}
               </span>
               <button
-                onClick={() => { if (lesson.id === 'what-is-money') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
+                onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
                 className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                 style={{
                   background: VIOLET,

@@ -93,6 +93,18 @@ const planCategories = [
   { id: 'plan-gift', label: 'Подарок другу', base: 10, image: giftIcon, color: '#fff3d6', border: '#e8c363' },
 ] as const;
 
+// Подсказки/обратная связь при ошибке — тексты из сценария (уроки практика.pdf),
+// ключ — индекс сцены. Показываются и по кнопке "Подсказка", и после
+// неверной проверки (правило: ошибка не отнимает монеты, а объясняет
+// следующий шаг).
+const sceneHints: Record<number, string> = {
+  0: 'Еда нужна каждый день. Игрушка радует. Копилка помогает накопить на цель.',
+  1: 'Сначала добавь еду и лекарство. Потом посмотри, сколько осталось.',
+  [WALK_SCENE_INDEX]: 'Можно ли обойтись без этого сегодня?',
+  [PLAN_SCENE_INDEX]: 'Ищи экономию в желаниях, не в еде и здоровье.',
+  [ORDER_SCENE_INDEX]: 'Игрушку выбираем только после обязательного.',
+};
+
 type PracticeItem = { id: string; label: string; price?: number; image: string; category: string };
 
 function DraggableItem({ item, sourceSlot, setDragging, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null } | null) => void; onClick: () => void; isDragging?: boolean }) {
@@ -117,7 +129,16 @@ export default function LessonOne({ onBack }: Props) {
   const [orderPlacements, setOrderPlacements] = useState<(string | null)[]>([null, null, null, null]);
   const [planApplied, setPlanApplied] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
+  // Результат последней проверки: 'correct' на короткое время перед переходом
+  // к следующей сцене (показываем галочку), 'wrong' блокирует переход и
+  // держит подсказку на экране, пока задание не решено верно.
+  const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  // Счётчик, чтобы переигрывать CSS-анимацию (тряска/галочка) даже если
+  // результат проверки не изменился (два неверных подряд и т.п.).
+  const [checkPulse, setCheckPulse] = useState(0);
+  const [hintText, setHintText] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     pauseBackgroundMusic();
@@ -138,6 +159,8 @@ export default function LessonOne({ onBack }: Props) {
     video.addEventListener('ended', onEnded);
     return () => video.removeEventListener('ended', onEnded);
   }, []);
+
+  useEffect(() => () => { if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current); }, []);
 
   function placeItem(slot: number, id: string) {
     setPlacements((current) => {
@@ -214,6 +237,62 @@ export default function LessonOne({ onBack }: Props) {
   const budgetSpent = budgetCart.reduce((total, id) => total + (budgetItems.find((item) => item.id === id)?.price ?? 0), 0);
   const budgetBalance = 100 - budgetSpent;
 
+  // Правильное решение для текущей сцены — по одному условию на упражнение,
+  // взято из сценария (уроки практика.pdf).
+  function isSceneCorrect(): boolean {
+    if (scene === 1) {
+      // "Собери корзину": еда + лекарство + наклейки = 100, игрушка остаётся на полке.
+      const required = ['budget-food', 'budget-medicine', 'budget-stickers'];
+      return budgetCart.length === 3 && required.every((id) => budgetCart.includes(id));
+    }
+    if (scene === WALK_SCENE_INDEX) {
+      // "Найди лишнее": в корзину — вода, поводок и лекарство, остальное остаётся.
+      const required = ['walk-water', 'walk-leash', 'walk-medicine'];
+      return walkCart.length === 3 && required.every((id) => walkCart.includes(id));
+    }
+    if (scene === ORDER_SCENE_INDEX) {
+      // "Расставь шаги": баланс -> обязательное -> покупка -> остаток и желание.
+      return orderPlacements[0] === 'order-balance' && orderPlacements[1] === 'order-find' && orderPlacements[2] === 'order-buy' && orderPlacements[3] === 'order-toy';
+    }
+    if (scene === PLAN_SCENE_INDEX) {
+      // "Появилась новая покупка": уменьшить развлечения и перевести 10 на подарок.
+      return planApplied;
+    }
+    // "Разложи расходы": еда -> обязательное, копилка -> накопления, игрушка -> желания.
+    return placements[0] === 'food' && placements[1] === 'savings' && placements[2] === 'toy';
+  }
+
+  function goToNextScene() {
+    setScene((value) => value + 1);
+    setPlacements([null, null, null]);
+    setWalkCart([]);
+    setOrderPlacements([null, null, null, null]);
+    setPlanApplied(false);
+    setCheckState('idle');
+    setHintText(null);
+  }
+
+  function handleCheck() {
+    if (checkState === 'correct') return;
+    if (isSceneCorrect()) {
+      setHintText(null);
+      setCheckState('correct');
+      setCheckPulse((value) => value + 1);
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = setTimeout(() => {
+        if (scene < scenes.length - 1) goToNextScene(); else onBack();
+      }, 700);
+    } else {
+      setCheckState('wrong');
+      setCheckPulse((value) => value + 1);
+      setHintText(sceneHints[scene] ?? 'Попробуй ещё раз.');
+    }
+  }
+
+  function toggleHint() {
+    setHintText((current) => (current ? null : sceneHints[scene] ?? null));
+  }
+
   if (phase === 'video') {
     return (
       <div className="relative h-full w-full overflow-hidden bg-[#17152f]">
@@ -234,7 +313,7 @@ export default function LessonOne({ onBack }: Props) {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
-      <style>{`@keyframes lessonSceneIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:scale(1)}}@keyframes lessonItemIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
+      <style>{`@keyframes lessonSceneIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:scale(1)}}@keyframes lessonItemIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lessonShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}@keyframes lessonCheckIn{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}`}</style>
       <img key={scene} src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center [animation:lessonSceneIn_420ms_ease-out]" />
 
       {/* Кнопка назад повторяет шапку разделов на главной */}
@@ -256,7 +335,7 @@ export default function LessonOne({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div className="absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5">
+      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5 ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
           <div className="mx-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[#17469d] shadow-sm"><img src={coinIcon} alt="" className="h-8 w-8" /><span className="text-[clamp(13px,3.8vw,19px)] font-black">Бюджет: {budgetBalance}</span></div>
           <div className="grid min-h-0 grid-cols-4 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && budgetCart.includes(dragging.id) && removeFromBudgetCart(dragging.id)}>
@@ -371,12 +450,27 @@ export default function LessonOne({ onBack }: Props) {
         </>}
       </div>
 
+      {/* Галочка при верном ответе — общий оверлей поверх зоны упражнения,
+          не завязан на конкретную карточку сцены. */}
+      {checkState === 'correct' && (
+        <div key={checkPulse} className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#4caf50] text-5xl text-white shadow-[0_8px_24px_rgba(76,175,80,.5)] [animation:lessonCheckIn_400ms_cubic-bezier(.34,1.56,.64,1)]">✓</div>
+        </div>
+      )}
+
+      {/* Подсказка/обратная связь при ошибке — над нижней панелью кнопок. */}
+      {hintText && (
+        <div className="absolute bottom-[22%] left-[6%] right-[6%] z-20 rounded-2xl bg-[#fff3cd] px-4 py-2 text-center text-[clamp(11px,3.2vw,13px)] font-bold text-[#7a5b13] shadow-[0_4px_12px_rgba(120,90,20,.2)] [animation:lessonItemIn_200ms_ease-out]">
+          💡 {hintText}
+        </div>
+      )}
+
       <div className="absolute bottom-[3.5%] left-[4%] right-[4%] z-20 flex items-center gap-[6%]">
-        <button type="button" aria-label="Подсказка" className="flex h-14 w-[45%] min-w-0 shrink-0 items-center justify-center gap-3 rounded-[30px] bg-white/95 px-3 text-[clamp(14px,4.2vw,16px)] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">
+        <button type="button" aria-label="Подсказка" onClick={toggleHint} className="flex h-14 w-[45%] min-w-0 shrink-0 items-center justify-center gap-3 rounded-[30px] bg-white/95 px-3 text-[clamp(14px,4.2vw,16px)] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">
           <span className="flex h-[clamp(36px,10vw,41px)] w-[clamp(36px,10vw,41px)] shrink-0 items-center justify-center rounded-full bg-[#6355f0] text-[clamp(21px,6vw,25px)] shadow-[0_3px_8px_rgba(72,58,200,.35)]">💡</span>
           <span className="whitespace-nowrap">Подсказка</span>
         </button>
-        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); setWalkCart([]); setOrderPlacements([null, null, null, null]); setPlanApplied(false); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
+        <button type="button" aria-label="Проверить" disabled={checkState === 'correct'} onClick={handleCheck} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98] disabled:opacity-70">Проверить</button>
       </div>
     </div>
   );
