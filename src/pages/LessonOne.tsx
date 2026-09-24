@@ -137,6 +137,7 @@ export default function LessonOne({ onBack }: Props) {
   // результат проверки не изменился (два неверных подряд и т.п.).
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
+  const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
