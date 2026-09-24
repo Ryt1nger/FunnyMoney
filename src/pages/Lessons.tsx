@@ -26,9 +26,10 @@ interface Props {
   /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
   onOpenEarnModal?: () => void;
   onFullScreenChange?: (hidden: boolean) => void;
+  onLessonTransition?: (direction: 'enter' | 'exit') => void;
 }
 
-export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal, onFullScreenChange }: Props) {
+export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal, onFullScreenChange, onLessonTransition }: Props) {
   const [entered, setEntered] = useState(false);
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
 
@@ -42,7 +43,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   const list = lessonCards;
 
   if (activeLesson === 'what-is-money') {
-    return <LessonOne onBack={() => { setActiveLesson(null); onFullScreenChange?.(false); }} />;
+    return <LessonOne onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
 
   return (
@@ -206,7 +207,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 {lesson.step}/{lesson.total}
               </span>
               <button
-                onClick={() => { if (lesson.id === 'what-is-money') { setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
+                onClick={() => { if (lesson.id === 'what-is-money') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
                 className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                 style={{
                   background: VIOLET,

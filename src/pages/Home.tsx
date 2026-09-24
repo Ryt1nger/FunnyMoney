@@ -127,7 +127,7 @@ export default function Home() {
   const [earnModalOpen, setEarnModalOpen] = useState(false);
   // Экран загрузки между главной и кухней (в обе стороны) — см. SCREEN_LOADING_MS.
   // null — не показан; 'kitchen'/'home' — какой переход сейчас скрыт под ним.
-  const [screenLoading, setScreenLoading] = useState<'kitchen' | 'home' | null>(null);
+  const [screenLoading, setScreenLoading] = useState<'kitchen' | 'home' | 'lesson-enter' | 'lesson-exit' | null>(null);
   const screenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Отдельно от screenLoading (который определяет, ЧТО сейчас скрыто под
   // загрузкой и когда переход считается завершённым) — состояние самого
@@ -207,6 +207,12 @@ export default function Home() {
     screenLoadingTimer.current = setTimeout(() => {
       setScreenLoading(null);
     }, SCREEN_LOADING_MS);
+  }
+
+  function transitionLesson(direction: 'enter' | 'exit') {
+    setScreenLoading(direction === 'enter' ? 'lesson-enter' : 'lesson-exit');
+    if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
+    screenLoadingTimer.current = setTimeout(() => setScreenLoading(null), SCREEN_LOADING_MS);
   }
 
   useEffect(() => {
@@ -650,6 +656,7 @@ export default function Home() {
             xpToNext={xpToNext}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onFullScreenChange={setNavHidden}
+            onLessonTransition={transitionLesson}
             onClose={closeSheet}
           />
         ) : sheet === 'shop' ? (
