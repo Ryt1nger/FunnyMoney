@@ -42,9 +42,9 @@ import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import {
   IconStar,
   IconPlus,
+  IconBackpackLight,
   IconSettingsGear,
   IconCutlery,
-  IconHanger,
   IconChevronRight,
 } from '../components/icons';
 import piggyIcon from '../assets/piggy-bank/piggy.png';
@@ -286,7 +286,12 @@ export default function Home() {
     // на всю высоту кадра: шапка сверху, навигация прижата к низу,
     // медведь занимает всё свободное место между ними.
     <div
-      className={`relative h-full w-full overflow-hidden bg-[#b9835a] ${swipeUpGestureActive ? 'touch-none' : ''}`}
+      // isolate — свой стековый контекст: без него внутренние z-index (в том
+      // числе тур z-[65], см. TutorialOverlay ниже) сравнивались бы напрямую
+      // с оверлеем экрана загрузки в App.tsx (z-50, соседний элемент того же
+      // родителя) и могли вылезти поверх него. С isolate все z-index внутри
+      // Home гарантированно остаются под тем оверлеем, пока он не скрыт.
+      className={`relative isolate h-full w-full overflow-hidden bg-[#b9835a] ${swipeUpGestureActive ? 'touch-none' : ''}`}
       onPointerDown={handleRootPointerDown}
       onPointerUp={handleRootPointerUp}
     >
@@ -409,7 +414,8 @@ export default function Home() {
           />
         </div>
 
-        {/* Быстрые действия: настройки слева, кухня и гардероб справа одной колонкой. */}
+        {/* Кнопки под статистиками: слева стопкой настройки и (под ними) инвентарь,
+            справа — вход в столовую (кормление питомца). Тот же визуальный стиль кнопки. */}
         <div className="relative z-20 mt-2 flex items-start justify-between px-4">
           <div className="flex flex-col gap-2">
             <button
@@ -425,21 +431,6 @@ export default function Home() {
             >
               <IconSettingsGear className="h-6 w-6" />
             </button>
-          </div>
-          <div className="flex flex-col gap-2">
-            <button
-              data-tour="home-kitchen"
-              onClick={openKitchen}
-              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-              style={{
-                background: 'rgba(26,20,40,0.30)',
-                borderColor: 'rgba(255,255,255,0.30)',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-              }}
-              aria-label="Кухня"
-            >
-              <IconCutlery className="h-6 w-6" />
-            </button>
             <button
               data-tour="home-wardrobe"
               onClick={() => setSheet('wardrobe')}
@@ -449,11 +440,28 @@ export default function Home() {
                 borderColor: 'rgba(255,255,255,0.30)',
                 boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
               }}
-              aria-label="Гардероб"
+              aria-label="Инвентарь"
             >
-              <IconHanger className="h-6 w-6" />
+              <IconBackpackLight className="h-6 w-6" />
             </button>
           </div>
+          <button
+            data-tour="home-kitchen"
+            // Кухня — отдельный экран кормления (не фон главного экрана,
+            // см. inventoryStore.activeKitchenRoomId). Открывается шторкой,
+            // как и остальные разделы; вкладка нижней навигации не меняется,
+            // так как своей вкладки у кухни нет.
+            onClick={openKitchen}
+            className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+            style={{
+              background: 'rgba(26,20,40,0.30)',
+              borderColor: 'rgba(255,255,255,0.30)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+            }}
+            aria-label="Столовая"
+          >
+            <IconCutlery className="h-6 w-6" />
+          </button>
         </div>
 
         {/* Медведь — занимает всё свободное место между метриками и карточкой.

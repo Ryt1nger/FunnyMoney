@@ -3,8 +3,7 @@ import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { tutorialSteps, type TutorialStep } from '../data/tutorialSteps';
 import { usePetStore } from '../features/pet/petStore';
 import { hapticTap } from '../services/haptics';
-import bearWave from '../assets/scenes/bear-happy-wave.png';
-import bearHeart from '../assets/scenes/bear-heart.png';
+import bearAvatar from '../assets/pet/bear-avatar.png';
 
 interface Rect {
   left: number;
@@ -25,6 +24,28 @@ function unionRects(rects: Rect[]): Rect | null {
   const right = Math.max(...rects.map((r) => r.left + r.width));
   const bottom = Math.max(...rects.map((r) => r.top + r.height));
   return { left, top, width: right - left, height: bottom - top };
+}
+
+// SVG-путь скруглённого прямоугольника (вручную, без библиотек) — используется
+// как "дырка" в затемнении, см. buildHoleClipPath.
+function roundedRectPath(x: number, y: number, w: number, h: number, radius: number): string {
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+  return (
+    `M${x + r},${y} H${x + w - r} A${r},${r} 0 0 1 ${x + w},${y + r} ` +
+    `V${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} H${x + r} ` +
+    `A${r},${r} 0 0 1 ${x},${y + h - r} V${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`
+  );
+}
+
+// Полное затемнение "минус" скруглённая дырка, одним clip-path (evenodd):
+// внешний прямоугольник контейнера + внутренний скруглённый вырез. Даёт
+// ровные скруглённые углы у подсветки (в отличие от четырёх прямоугольников)
+// и при этом сам вырез остаётся кликабельным "мимо" затемнения — Chromium
+// (в т.ч. системный Android WebView) не хит-тестит зоны, обрезанные clip-path.
+function buildHoleClipPath(containerW: number, containerH: number, hole: Rect, radius: number): string {
+  const outer = `M0,0 H${containerW} V${containerH} H0 Z`;
+  const inner = roundedRectPath(hole.left, hole.top, hole.width, hole.height, radius);
+  return `path(evenodd, "${outer} ${inner}")`;
 }
 
 /**
@@ -50,6 +71,7 @@ export default function TutorialOverlay() {
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [ready, setReady] = useState(false);
 
   // Пересчитывает подсветку под текущий шаг. Целевой элемент может ещё не
@@ -85,6 +107,7 @@ export default function TutorialOverlay() {
         const u = unionRects(rects);
         if (u && u.width > 0 && u.height > 0) {
           setRect(u);
+          setContainerSize({ width: cRect.width, height: cRect.height });
           if (frames < 40) {
             // Ловим анимацию появления (шторка/переход) ещё немного кадров.
             raf = requestAnimationFrame(tick);
@@ -128,29 +151,17 @@ export default function TutorialOverlay() {
 
   if (!active || !step) return null;
 
-  const scene = step.scene === 'wave' ? bearWave : step.scene === 'heart' ? bearHeart : null;
+  const scene = step.scene ? bearAvatar : null;
   const title = step.title.replace('{name}', petName);
   const text = step.text.replace('{name}', petName);
 
   return (
     <div ref={rootRef} className="absolute inset-0 z-[65]">
-      {rect ? (
-        <SpotlightMask rect={rect} pulse={step.action === 'tap'} />
+      {rect && containerSize.width > 0 ? (
+        <SpotlightMask rect={rect} containerSize={containerSize} pulse={step.action === 'tap'} />
       ) : (
         <div className="pointer-events-auto absolute inset-0" style={{ background: SCRIM }} />
       )}
-
-      {/* Пропустить — доступно на любом шаге, не мешает подсказкам */}
-      <button
-        onClick={() => {
-          hapticTap();
-          finish();
-        }}
-        className="pointer-events-auto absolute right-3 rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-bold text-white/90 backdrop-blur-sm transition active:scale-95"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}
-      >
-        Пропустить
-      </button>
 
       <TutorialCard
         title={title}
@@ -164,12 +175,25 @@ export default function TutorialOverlay() {
           hapticTap();
           next();
         }}
+        onSkip={() => {
+          hapticTap();
+          finish();
+        }}
       />
     </div>
   );
 }
 
-function SpotlightMask({ rect, pulse }: { rect: Rect; pulse: boolean }) {
+function SpotlightMask({
+  rect,
+  containerSize,
+  pulse,
+}: {
+  rect: Rect;
+  containerSize: { width: number; height: number };
+  pulse: boolean;
+}) {
+  const HOLE_RADIUS = 20;
   const r = {
     left: rect.left - PAD,
     top: rect.top - PAD,
@@ -178,16 +202,26 @@ function SpotlightMask({ rect, pulse }: { rect: Rect; pulse: boolean }) {
   };
   return (
     <>
-      {/* Четыре прямоугольника вокруг "окошка" — надёжная замена CSS-маске,
-          не требует поддержки clip-path в Android WebView, а сам подсвеченный
-          элемент остаётся некрытым и кликабельным. */}
-      <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top), background: SCRIM }} />
-      <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height, background: SCRIM }} />
-      <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left), background: SCRIM }} />
-      <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width, background: SCRIM }} />
+      {/* Затемнение со скруглённым вырезом — ТОЛЬКО визуал (pointer-events:
+          none). clip-path обрезает картинку, но НЕ хит-тест: браузер (в т.ч.
+          Android WebView) по-прежнему считает кликабельной всю исходную
+          прямоугольную область элемента, даже там, где она визуально не
+          закрашена. Поэтому кликабельность выреза обеспечивает отдельный
+          прозрачный слой ниже (четыре прямоугольника без цвета) — так тап по
+          дырке доходит до настоящей кнопки, а не глохнет в невидимом затемнении. */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: SCRIM, clipPath: buildHoleClipPath(containerSize.width, containerSize.height, r, HOLE_RADIUS) }}
+      />
+      {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи, а внутри
+          дырки элементов нет вовсе, поэтому тап проходит к настоящей кнопке. */}
+      <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top) }} />
+      <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height }} />
+      <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
+      <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width }} />
       {/* Светящееся кольцо вокруг подсветки — притягивает взгляд ребёнка. */}
       <div
-        className={`pointer-events-none absolute rounded-[22px] ${pulse ? 'animate-pulse' : ''}`}
+        className={`pointer-events-none absolute rounded-[20px] ${pulse ? 'animate-pulse' : ''}`}
         style={{
           left: r.left,
           top: r.top,
@@ -209,9 +243,10 @@ interface CardProps {
   ready: boolean;
   scene: string | null;
   onNext: () => void;
+  onSkip: () => void;
 }
 
-function TutorialCard({ title, text, action, buttonLabel, rect, ready, scene, onNext }: CardProps) {
+function TutorialCard({ title, text, action, buttonLabel, rect, ready, scene, onNext, onSkip }: CardProps) {
   const CARD_WIDTH = 'min(86%, 340px)';
   const style: CSSProperties = !rect
     ? { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: CARD_WIDTH }
@@ -259,6 +294,18 @@ function TutorialCard({ title, text, action, buttonLabel, rect, ready, scene, on
           Нажми на подсвеченное →
         </div>
       )}
+
+      {/* "Пропустить" — внутри карточки, а не поверх экрана: карточка сама
+          позиционируется в свободном месте (см. style выше), поэтому кнопка
+          никогда не перекрывает подсвеченный элемент (например, баланс
+          монет в шапке). */}
+      <button
+        onClick={onSkip}
+        className="mt-2.5 text-[11px] font-bold underline-offset-2 transition active:opacity-60"
+        style={{ color: '#a99fc4' }}
+      >
+        Пропустить обучение
+      </button>
     </div>
   );
 }
