@@ -68,24 +68,10 @@ export const tutorialSteps: TutorialStep[] = [
     action: 'next',
   },
   {
-    id: 'home-settings',
-    targets: ['home-settings'],
-    title: 'Настройки',
-    text: 'Шестерёнка — тут можно включить и выключить звук и музыку.',
-    action: 'next',
-  },
-  {
-    id: 'home-inventory',
-    targets: ['home-inventory'],
-    title: 'Мой инвентарь',
-    text: 'Рюкзак — тут лежат все вещи, которые мы уже купили.',
-    action: 'next',
-  },
-  {
-    id: 'home-wardrobe-preview',
-    targets: ['home-wardrobe'],
-    title: 'Гардероб',
-    text: 'Плечики — мой шкаф с одеждой, туда мы ещё заглянем.',
+    id: 'home-buttons',
+    targets: ['home-settings', 'home-wardrobe'],
+    title: 'Две кнопки',
+    text: 'Шестерёнка — настройки: звук и музыка. Рюкзак — мой шкаф с одеждой, туда мы ещё заглянем.',
     action: 'next',
   },
   {
@@ -185,9 +171,16 @@ export const tutorialSteps: TutorialStep[] = [
   },
   {
     id: 'kitchen-food',
-    targets: ['kitchen-food', 'kitchen-shop'],
+    targets: ['kitchen-food'],
     title: 'Покорми меня',
-    text: 'Вот моя еда. Возьми её пальцем и перетащи мне в рот. Еды нет? Корзинка отведёт в магазин.',
+    text: 'Вот моя еда. Возьми её пальцем и перетащи мне в рот!',
+    action: 'next',
+  },
+  {
+    id: 'kitchen-shop',
+    targets: ['kitchen-shop'],
+    title: 'Если еды нет',
+    text: 'Нажми на корзинку — она отведёт прямо в магазин за едой.',
     action: 'next',
   },
   {

@@ -105,7 +105,13 @@ export default function TutorialOverlay() {
           return { left: r.left - cRect.left, top: r.top - cRect.top, width: r.width, height: r.height };
         });
         const u = unionRects(rects);
-        if (u && u.width > 0 && u.height > 0) {
+        // Если несколько целей шага разнесены далеко друг от друга, их общий
+        // прямоугольник растягивается почти на весь экран — подсветка
+        // перестаёт быть подсветкой (см. баг с кухней: поднос внизу + корзинка
+        // вверху). В таком случае ведём себя как при "элемент не найден":
+        // просто затемняем экран целиком, без кривого гигантского выреза.
+        const tooBig = u && cRect.height > 0 && u.height > cRect.height * 0.65;
+        if (u && u.width > 0 && u.height > 0 && !tooBig) {
           setRect(u);
           setContainerSize({ width: cRect.width, height: cRect.height });
           if (frames < 40) {
@@ -156,7 +162,7 @@ export default function TutorialOverlay() {
   const text = step.text.replace('{name}', petName);
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[65]">
+    <div ref={rootRef} className="absolute inset-0 z-[65]">
       {rect && containerSize.width > 0 ? (
         <SpotlightMask rect={rect} containerSize={containerSize} pulse={step.action === 'tap'} />
       ) : (
@@ -169,6 +175,7 @@ export default function TutorialOverlay() {
         action={step.action}
         buttonLabel={step.buttonLabel}
         rect={rect}
+        containerHeight={containerSize.height}
         ready={ready}
         scene={scene}
         onNext={() => {
@@ -200,16 +207,6 @@ function SpotlightMask({
     width: rect.width + PAD * 2,
     height: rect.height + PAD * 2,
   };
-  // Для шагов "нажми на подсвеченное" (pulse) стены НЕ должны перехватывать
-  // клики вовсе: они рассчитаны по прямоугольнику хит-тестинга, а видимый
-  // вырез — скруглённый (clip-path), так что по углам вырез визуально уже,
-  // чем стены думают, и в некоторых Android WebView сам clip-path не режет
-  // хит-тест вовсе (тап по "дырке" в этом случае глохнет в стене, хотя на
-  // вид попадает точно в подсветку — ровно то, на что жалуются: "нажимаю и
-  // ничего не происходит"). Настоящий тап по кнопке ловит отдельный
-  // document-level слушатель в TutorialOverlay, так что здесь безопаснее
-  // вообще не ставить стены — только видимое затемнение.
-  const wallsInteractive = pulse ? 'pointer-events-none' : 'pointer-events-auto';
   return (
     <>
       {/* Затемнение со скруглённым вырезом — ТОЛЬКО визуал (pointer-events:
@@ -223,13 +220,12 @@ function SpotlightMask({
         className="pointer-events-none absolute inset-0"
         style={{ background: SCRIM, clipPath: buildHoleClipPath(containerSize.width, containerSize.height, r, HOLE_RADIUS) }}
       />
-      {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи на шагах
-          "Дальше" (не pulse). На шагах "нажми на подсвеченное" стены
-          отключены (см. комментарий выше) — тап всегда проходит насквозь. */}
-      <div className={`${wallsInteractive} absolute inset-x-0 top-0`} style={{ height: Math.max(0, r.top) }} />
-      <div className={`${wallsInteractive} absolute inset-x-0 bottom-0`} style={{ top: r.top + r.height }} />
-      <div className={`${wallsInteractive} absolute left-0`} style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
-      <div className={`${wallsInteractive} absolute right-0`} style={{ top: r.top, height: r.height, left: r.left + r.width }} />
+      {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи, а внутри
+          дырки элементов нет вовсе, поэтому тап проходит к настоящей кнопке. */}
+      <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top) }} />
+      <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height }} />
+      <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
+      <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width }} />
       {/* Светящееся кольцо вокруг подсветки — притягивает взгляд ребёнка. */}
       <div
         className={`pointer-events-none absolute rounded-[20px] ${pulse ? 'animate-pulse' : ''}`}
@@ -251,24 +247,38 @@ interface CardProps {
   action: TutorialStep['action'];
   buttonLabel?: string;
   rect: Rect | null;
+  /** высота контейнера тура (телефонного экрана), НЕ окна браузера — на
+   *  десктопе окно намного выше мокапа телефона, и брать window.innerHeight
+   *  тут была ошибка (карточка "убегала" за пределы экрана). */
+  containerHeight: number;
   ready: boolean;
   scene: string | null;
   onNext: () => void;
   onSkip: () => void;
 }
 
-function TutorialCard({ title, text, action, buttonLabel, rect, ready, scene, onNext, onSkip }: CardProps) {
+// Сколько места должно оставаться сверху/снизу от подсветки, чтобы карточка
+// туда поместилась. Если не хватает ни сверху, ни снизу (например, подсветка
+// растянута почти на весь экран) — карточка просто встаёт по центру поверх
+// неё вместо того, чтобы вылезать за пределы экрана.
+const CARD_CLEARANCE = 190;
+
+function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight, ready, scene, onNext, onSkip }: CardProps) {
   const CARD_WIDTH = 'min(86%, 340px)';
-  const style: CSSProperties = !rect
-    ? { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: CARD_WIDTH }
-    : (() => {
-        const viewportH = typeof window !== 'undefined' ? window.innerHeight : 800;
-        const spaceBelow = viewportH - (rect.top + rect.height);
-        const showBelow = spaceBelow > 200;
-        return showBelow
-          ? { left: '50%', top: rect.top + rect.height + PAD + 16, transform: 'translateX(-50%)', width: CARD_WIDTH }
-          : { left: '50%', top: Math.max(70, rect.top - PAD - 16), transform: 'translate(-50%, -100%)', width: CARD_WIDTH };
-      })();
+  const style: CSSProperties = (() => {
+    if (!rect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: CARD_WIDTH };
+    const containerH = containerHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
+    const spaceBelow = containerH - (rect.top + rect.height);
+    const spaceAbove = rect.top;
+    if (spaceBelow >= CARD_CLEARANCE) {
+      return { left: '50%', top: rect.top + rect.height + PAD + 16, transform: 'translateX(-50%)', width: CARD_WIDTH };
+    }
+    if (spaceAbove >= CARD_CLEARANCE) {
+      return { left: '50%', top: rect.top - PAD - 16, transform: 'translate(-50%, -100%)', width: CARD_WIDTH };
+    }
+    // Ни сверху, ни снизу не хватает места — центр экрана - надёжный запасной вариант.
+    return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: CARD_WIDTH };
+  })();
 
   return (
     <div
@@ -276,14 +286,10 @@ function TutorialCard({ title, text, action, buttonLabel, rect, ready, scene, on
       style={{ ...style, opacity: ready ? 1 : 0 }}
     >
       {scene && (
-        // bear-avatar.png — вырезанная картинка (альфа-канал, прозрачный
-        // фон вокруг мишки), поэтому без своего фона сквозь неё просвечивало
-        // бы то, что под карточкой. Заливаем круг сплошным белым — тот же
-        // цвет, что и рамка (border-white), чтобы не было "дыр".
         <img
           src={scene}
           alt=""
-          className="mx-auto -mt-11 mb-2 h-[76px] w-[76px] rounded-full border-4 border-white bg-white object-cover shadow-lg"
+          className="mx-auto -mt-11 mb-2 h-[76px] w-[76px] rounded-full border-4 border-white object-cover shadow-lg"
         />
       )}
       <h3 className="text-[16px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
