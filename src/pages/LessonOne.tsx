@@ -6,13 +6,14 @@ import scene3 from '../assets/lesson1/backgrounds/practice-3.png';
 import scene4 from '../assets/lesson1/backgrounds/practice-4.png';
 import scene5 from '../assets/lesson1/backgrounds/practice-5.png';
 import { IconArrowLeft, IconBook } from '../components/icons';
-import foodBowl from '../assets/items/food/bowl-blue-kibble.png';
-import piggyBank from '../assets/piggy-bank/piggy.png';
-import starIcon from '../assets/icons/xp-star.png';
-import coinIcon from '../assets/icons/coin.png';
-import heartIcon from '../assets/icons/shop/heart.png';
-import basketIcon from '../assets/lesson2/basket.png';
-import toyCar from '../assets/lesson1/items/toy-car.png';
+import foodBowl from '../assets/lesson-items/food.png';
+import piggyBank from '../assets/lesson-items/piggy-bank.png';
+import starIcon from '../assets/lesson-items/star.png';
+import coinIcon from '../assets/lesson-items/coin.png';
+import medicineIcon from '../assets/lesson-items/medicine.png';
+import stickersIcon from '../assets/lesson-items/stickers.png';
+import basketIcon from '../assets/lesson-items/basket.png';
+import toyCar from '../assets/lesson-items/toy-car.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
 type Phase = 'video' | 'practice';
@@ -26,8 +27,8 @@ const practiceItems = [
 ] as const;
 const budgetItems = [
   { id: 'budget-food', label: 'Еда', price: 50, image: foodBowl, category: 'budget' },
-  { id: 'budget-medicine', label: 'Лекарство', price: 30, image: heartIcon, category: 'budget' },
-  { id: 'budget-stickers', label: 'Наклейки', price: 20, image: starIcon, category: 'budget' },
+  { id: 'budget-medicine', label: 'Лекарство', price: 30, image: medicineIcon, category: 'budget' },
+  { id: 'budget-stickers', label: 'Наклейки', price: 20, image: stickersIcon, category: 'budget' },
   { id: 'budget-toy', label: 'Игрушка', price: 40, image: toyCar, category: 'budget' },
 ] as const;
 
