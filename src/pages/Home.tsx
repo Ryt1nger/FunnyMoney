@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import bearFull from '../assets/pet/bear-main.png';
 // обрезанный по силуэту вариант — только для отбрасываемой тени,
 // иначе прозрачное поле PNG превращается после отражения в зазор
 import bearSilhouette from '../assets/pet/bear-main-trim.png';
@@ -21,6 +20,7 @@ import EarnCoinsModal from '../components/EarnCoinsModal';
 import Lessons from './Lessons';
 import Inventory from './Inventory';
 import Wardrobe from './Wardrobe';
+import { BearAvatar } from './Wardrobe';
 import Kitchen from './Kitchen';
 import PageLoading from './PageLoading';
 import Shop from './Shop';
@@ -110,6 +110,7 @@ export default function Home() {
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const activeKitchenRoomId = useInventoryStore((s) => s.activeKitchenRoomId);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
+  const outfitIds = useInventoryStore((s) => s.outfitIds);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
   const purchaseConfirmationEnabled = useSettingsStore((s) => s.purchaseConfirmationEnabled);
@@ -486,12 +487,9 @@ export default function Home() {
               filter: 'blur(3px)',
             }}
           />
-          <img
-            src={bearFull}
-            alt={petName}
-            draggable={false}
-            className="pointer-events-none absolute bottom-[31%] left-1/2 h-[66%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
-          />
+          <div className="pointer-events-none absolute bottom-[31%] left-1/2 h-[66%] w-auto -translate-x-1/2 select-none drop-shadow-2xl">
+            <BearAvatar selectedIds={outfitIds} />
+          </div>
 
           {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,
               не влияет на её высоту (см. комментарий выше). */}
