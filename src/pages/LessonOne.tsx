@@ -138,6 +138,7 @@ export default function LessonOne({ onBack }: Props) {
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -152,10 +153,23 @@ export default function LessonOne({ onBack }: Props) {
     });
   }, []);
 
+  // По окончании видео захватываем его последний кадр в canvas — вместо
+  // того чтобы полагаться на застывший кадр самого <video> (на части
+  // устройств это даёт чёрный экран), показываем размытый снимок сразу и
+  // синхронно, без мигания.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onEnded = () => setWatched(true);
+    const onEnded = () => {
+      const canvas = canvasRef.current;
+      if (canvas && video.videoWidth && video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
+      setWatched(true);
+    };
     video.addEventListener('ended', onEnded);
     return () => video.removeEventListener('ended', onEnded);
   }, []);
@@ -301,12 +315,30 @@ export default function LessonOne({ onBack }: Props) {
           src={videoSrc}
           playsInline
           preload="metadata"
-          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${playing ? '' : 'scale-105 blur-xl opacity-60'}`}
+          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${watched ? 'opacity-0' : playing ? '' : 'scale-105 blur-xl opacity-60'}`}
         />
+        {/* Снимок последнего кадра — подменяет видео после его окончания,
+            чтобы не было чёрного экрана, пока UI решает, что показать. */}
+        <canvas
+          ref={canvasRef}
+          aria-hidden
+          className={`absolute inset-0 h-full w-full scale-105 object-cover blur-xl transition-opacity duration-300 ${watched ? 'opacity-70' : 'pointer-events-none opacity-0'}`}
+        />
+        {watched && <div className="absolute inset-0 bg-[#17152f]/20" />}
         <button aria-label="Назад" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
         <button onClick={() => { setWatched(true); setPhase('practice'); }} className="absolute right-5 top-7 z-20 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">Пропустить</button>
-        {!playing && !watched && <button aria-label="Воспроизвести видео" onClick={() => { setPlaying(true); void videoRef.current?.play().catch(() => setWatched(true)); }} className="absolute left-1/2 top-1/2 z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#675ff3] text-5xl text-white shadow-lg">▶</button>}
-        {watched && <button onClick={() => setPhase('practice')} className="absolute bottom-8 left-6 right-6 z-20 rounded-[28px] bg-[#675ff3] py-4 text-xl font-black text-white shadow-lg">Решать</button>}
+        {!playing && !watched && (
+          <button aria-label="Воспроизвести видео" onClick={() => { setPlaying(true); void videoRef.current?.play().catch(() => setWatched(true)); }} className="absolute left-1/2 top-1/2 z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#675ff3] text-white shadow-lg transition active:scale-95">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="ml-[3px] h-9 w-9"><path d="M8 5v14l11-7z" /></svg>
+          </button>
+        )}
+        {watched && (
+          <button onClick={() => setPhase('practice')} className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-full bg-[#675ff3] px-9 py-5 text-xl font-black text-white shadow-[0_10px_30px_rgba(74,60,205,.5)] transition active:scale-95 [animation:lessonVideoCheckIn_420ms_cubic-bezier(.34,1.56,.64,1)]">
+            Решать
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6"><path d="M13 5l7 7-7 7v-4H4v-6h9V5z" /></svg>
+          </button>
+        )}
+        <style>{`@keyframes lessonVideoCheckIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
       </div>
     );
   }
