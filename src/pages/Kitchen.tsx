@@ -334,7 +334,7 @@ export default function Kitchen({
           места. Поэтому высота подноса и количество карточек еды не меняют ни
           размер, ни положение питомца. Зона вокруг него остаётся достаточно
           широкой, чтобы ребёнку не требовалась ювелирная точность. */}
-      <div ref={bearZoneRef} className="absolute inset-x-0 top-[31vh] z-0 h-[40vh]">
+      <div ref={bearZoneRef} className="absolute inset-x-0 top-[27vh] z-0 h-[40vh]">
         <div className="absolute left-1/2 top-[-12%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
             <IconHeart className="h-4 w-4" style={{ color: '#ef4060' }} />
@@ -351,7 +351,7 @@ export default function Kitchen({
           alt=""
           aria-hidden="true"
           draggable={false}
-          className="pointer-events-none absolute left-1/2 h-[38vh] w-auto select-none object-contain"
+          className="pointer-events-none absolute left-1/2 h-[44vh] w-auto select-none object-contain"
           style={{
             bottom: '2%',
             transformOrigin: 'bottom center',
@@ -379,7 +379,7 @@ export default function Kitchen({
           src={kitchenBearClosed}
           alt={petName}
           draggable={false}
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[44vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
         {[{ pose: 2, src: kitchenBearOpen }, { pose: 3, src: kitchenBearOpenWide }].map(({ pose, src }) => {
           const isVisible = pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
@@ -389,7 +389,7 @@ export default function Kitchen({
               src={src}
               alt=""
               draggable={false}
-              className="pointer-events-none absolute bottom-0 left-1/2 h-[38vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
+              className="pointer-events-none absolute bottom-0 left-1/2 h-[44vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transitionDuration: `${BEAR_STEP_MS}ms`,

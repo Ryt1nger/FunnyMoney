@@ -162,7 +162,7 @@ export default function TutorialOverlay() {
   const text = step.text.replace('{name}', petName);
 
   return (
-    <div ref={rootRef} className="absolute inset-0 z-[65]">
+    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[65]">
       {rect && containerSize.width > 0 ? (
         <SpotlightMask rect={rect} containerSize={containerSize} pulse={step.action === 'tap'} />
       ) : (

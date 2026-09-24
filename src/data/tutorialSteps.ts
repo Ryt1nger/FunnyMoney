@@ -68,10 +68,17 @@ export const tutorialSteps: TutorialStep[] = [
     action: 'next',
   },
   {
-    id: 'home-buttons',
-    targets: ['home-settings', 'home-wardrobe'],
-    title: 'Две кнопки',
-    text: 'Шестерёнка — настройки: звук и музыка. Рюкзак — мой шкаф с одеждой, туда мы ещё заглянем.',
+    id: 'home-settings',
+    targets: ['home-settings'],
+    title: 'Настройки',
+    text: 'Шестерёнка — тут можно включить и выключить звук и музыку.',
+    action: 'next',
+  },
+  {
+    id: 'home-inventory',
+    targets: ['home-inventory'],
+    title: 'Мой рюкзак',
+    text: 'В рюкзаке лежат все вещи, которые ты уже купил.',
     action: 'next',
   },
   {
@@ -79,6 +86,13 @@ export const tutorialSteps: TutorialStep[] = [
     targets: ['home-kitchen'],
     title: 'А это кухня',
     text: 'Здесь я кушаю. Скоро сходим туда покормить меня!',
+    action: 'next',
+  },
+  {
+    id: 'home-wardrobe-preview',
+    targets: ['home-wardrobe'],
+    title: 'А это гардероб',
+    text: 'Вешалка — мой шкаф с одеждой, туда мы тоже заглянем.',
     action: 'next',
   },
 
@@ -224,9 +238,16 @@ export const tutorialSteps: TutorialStep[] = [
   },
   {
     id: 'piggy-balance',
-    targets: ['piggy-balance', 'piggy-transfer'],
+    targets: ['piggy-balance'],
     title: 'Кошелёк и копилка',
-    text: 'Слева — монетки на покупки. Справа — монетки в копилке. Кнопками их можно перекладывать туда-сюда.',
+    text: 'Слева — монетки на покупки. Справа — монетки в копилке.',
+    action: 'next',
+  },
+  {
+    id: 'piggy-transfer',
+    targets: ['piggy-transfer'],
+    title: 'Перекладываем монетки',
+    text: 'Этими кнопками можно перекладывать монетки туда-сюда.',
     action: 'next',
   },
   {
