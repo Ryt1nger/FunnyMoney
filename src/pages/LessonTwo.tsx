@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import videoSrc from '../assets/lesson1/lesson-video.mov';
+import videoSrc from '../assets/lesson2/lesson-video.mov';
 import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
 import { IconArrowLeft, IconBook } from '../components/icons';
 import coinsIcon from '../assets/lesson2/items/01_coins.png';
@@ -185,36 +185,40 @@ export default function LessonTwo({ onBack }: Props) {
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
-      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-rows-[minmax(0,.72fr)_minmax(0,1.28fr)] gap-2.5 ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
+      <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[40%] bottom-[21%] z-10 grid grid-rows-[minmax(0,.72fr)_minmax(0,1.28fr)] gap-2.5 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2.5 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {/* Упражнение 1 — "Доход или расход?": две корзины сверху (клик/drop
             кладёт выбранную или перетаскиваемую карточку), лоток с 6
             карточками снизу. Тап по карточке в лотке выбирает её (подсветка
             рамкой), затем тап по корзине кладёт её туда — это же работает
             перетаскиванием для тех, кому удобнее drag. */}
         <div className="grid grid-cols-2 gap-2.5">
-          <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('income', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('income')} className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd4a0] bg-[#e6f9ea] p-2">
-            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#1f7a32]"><span className="text-[clamp(14px,4vw,18px)] font-black">+</span><span className="text-[clamp(11px,3.2vw,14px)] font-black">Доходы</span></div>
-            <div className="grid min-h-0 flex-1 grid-cols-3 gap-1.5">
-              {incomeExpenseItems.filter((item) => income.includes(item.id)).map((item) => (
-                <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
-                  <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
-                </button>
-              ))}
+          <div className="flex min-h-0 flex-col gap-1">
+            <div className="flex items-center justify-center gap-1.5 text-[#1f7a32]"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#c8f0c8] text-[clamp(12px,3.4vw,14px)] font-black">+</span><span className="text-[clamp(11px,3.2vw,13px)] font-black">Доходы</span></div>
+            <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('income', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('income')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd4a0] bg-[#e6f9ea] p-2">
+              <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
+                {incomeExpenseItems.filter((item) => income.includes(item.id)).map((item) => (
+                  <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                    <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('expense', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('expense')} className="flex min-h-0 flex-col overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0a3a3] bg-[#fdeaea] p-2">
-            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#c23b3b]"><span className="text-[clamp(14px,4vw,18px)] font-black">−</span><span className="text-[clamp(11px,3.2vw,14px)] font-black">Расходы</span></div>
-            <div className="grid min-h-0 flex-1 grid-cols-3 gap-1.5">
-              {incomeExpenseItems.filter((item) => expense.includes(item.id)).map((item) => (
-                <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
-                  <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
-                </button>
-              ))}
+          <div className="flex min-h-0 flex-col gap-1">
+            <div className="flex items-center justify-center gap-1.5 text-[#c23b3b]"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#f7cfcf] text-[clamp(12px,3.4vw,14px)] font-black">−</span><span className="text-[clamp(11px,3.2vw,13px)] font-black">Расходы</span></div>
+            <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('expense', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('expense')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0a3a3] bg-[#fdeaea] p-2">
+              <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
+                {incomeExpenseItems.filter((item) => expense.includes(item.id)).map((item) => (
+                  <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                    <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid min-h-0 grid-cols-3 grid-rows-2 gap-2 rounded-[22px] bg-white/55 p-2">
+        <div className="grid min-h-0 grid-cols-3 grid-rows-2 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
           {tray.map((item) => (
             <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)}>
               <ExerciseCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />

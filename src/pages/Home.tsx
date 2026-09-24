@@ -461,9 +461,9 @@ export default function Home() {
             alt=""
             aria-hidden
             draggable={false}
-            className="pointer-events-none absolute left-1/2 h-[58%] w-auto select-none"
+            className="pointer-events-none absolute left-1/2 h-[62%] w-auto select-none"
             style={{
-              bottom: '35.6%',
+              bottom: '37%',
               transformOrigin: 'bottom center',
               // skewX считается ДО отражения (scaleY(-0.18) идёт позже в списке,
               // но применяется к точке раньше skewX — CSS-функции работают
@@ -477,7 +477,7 @@ export default function Home() {
           {/* Плотное касание прямо под лапами — задние лапы (на которых стоит медведь)
               должны приходиться примерно на центр коврика, а не на его ближний край. */}
           <div
-            className="absolute bottom-[33.4%] left-1/2 h-[14px] w-[118px] rounded-[50%]"
+            className="absolute bottom-[35%] left-1/2 h-[15px] w-[126px] rounded-[50%]"
             style={{
               transform: 'translateX(-52%)',
               background:
@@ -489,7 +489,7 @@ export default function Home() {
             src={bearFull}
             alt={petName}
             draggable={false}
-            className="pointer-events-none absolute bottom-[29%] left-1/2 h-[62%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+            className="pointer-events-none absolute bottom-[31%] left-1/2 h-[66%] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
           />
 
           {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,
