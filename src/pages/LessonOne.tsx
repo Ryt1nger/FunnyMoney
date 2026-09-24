@@ -21,6 +21,8 @@ import candyIcon from '../assets/lesson-items/candy.png';
 import laptopIcon from '../assets/lesson-items/laptop.png';
 import checklistIcon from '../assets/lesson-items/checklist.png';
 import groceriesIcon from '../assets/lesson-items/groceries.png';
+import gamepadIcon from '../assets/lesson-items/gamepad.png';
+import giftIcon from '../assets/lesson-items/gift.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 
 type Phase = 'video' | 'practice';
@@ -38,6 +40,9 @@ const WALK_SCENE_INDEX = 2;
 // Индекс сцены с упражнением "Расставь шаги!" — четвёртая сцена дублирует
 // фон первой (practice-1), как и в новом референсе.
 const ORDER_SCENE_INDEX = 4;
+// Индекс сцены с упражнением "Появилась новая покупка!" — третья сцена
+// (фон practice-5) была единственной без своего упражнения.
+const PLAN_SCENE_INDEX = 3;
 
 const practiceItems = [
   { id: 'food', label: 'Еда', price: 60, image: foodBowl, category: 'must' },
@@ -78,6 +83,15 @@ const orderSlots = [
   { slot: 2, color: '#8a5cf0' },
   { slot: 3, color: '#ef5da8' },
 ] as const;
+// Упражнение 5 — "Появилась новая покупка!": 4 статьи плана. Меняются
+// только "Развлечения" (60→ уменьшить на 10) и "Подарок другу" (+10) —
+// еда и копилка остаются без изменений.
+const planCategories = [
+  { id: 'plan-food', label: 'Еда', base: 60, image: foodBowl, color: '#dff8d7', border: '#83cf7a' },
+  { id: 'plan-save', label: 'Копилка', base: 20, image: piggyBank, color: '#d8f7f5', border: '#78cacc' },
+  { id: 'plan-fun', label: 'Развлечения', base: 20, image: gamepadIcon, color: '#eedfff', border: '#b18de9' },
+  { id: 'plan-gift', label: 'Подарок другу', base: 10, image: giftIcon, color: '#fff3d6', border: '#e8c363' },
+] as const;
 
 type PracticeItem = { id: string; label: string; price?: number; image: string; category: string };
 
@@ -101,6 +115,7 @@ export default function LessonOne({ onBack }: Props) {
   const [budgetCart, setBudgetCart] = useState<string[]>([]);
   const [walkCart, setWalkCart] = useState<string[]>([]);
   const [orderPlacements, setOrderPlacements] = useState<(string | null)[]>([null, null, null, null]);
+  const [planApplied, setPlanApplied] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -181,6 +196,18 @@ export default function LessonOne({ onBack }: Props) {
 
   function returnOrderItemToTray(id: string) {
     setOrderPlacements((current) => current.map((value) => value === id ? null : value));
+    setDragging(null);
+  }
+
+  // Перенос 10 монет из "Развлечения" в "Подарок другу" — единое действие
+  // (перетащить жетон в "Новый план" или кликнуть по нему на мобильном).
+  function applyPlanAdjustment() {
+    setPlanApplied(true);
+    setDragging(null);
+  }
+
+  function undoPlanAdjustment() {
+    setPlanApplied(false);
     setDragging(null);
   }
 
@@ -283,6 +310,46 @@ export default function LessonOne({ onBack }: Props) {
               {orderItems.filter((item) => !orderPlacements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => placeOrderItem(orderPlacements.findIndex((value) => value === null), item.id)} />)}
             </div>
           </div>
+        ) : scene === PLAN_SCENE_INDEX ? (
+          /* Упражнение 5 — "Появилась новая покупка!": сверху статичный
+             образец плана (4 статьи), снизу тот же план, куда нужно
+             перенести жетон "-10 → +10", чтобы уменьшить "Развлечения" и
+             увеличить "Подарок другу". Без текстовой подписи-заголовка (см.
+             правило "убери эту подпись") — сами карточки статей плана это
+             часть механики, а не декоративный текст. */
+          <div className="col-span-3 row-span-2 mt-[1%] grid min-h-0 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+            <div className="grid min-h-0 grid-cols-4 gap-1.5">
+              {planCategories.map((cat) => (
+                <div key={`your-${cat.id}`} className="flex min-h-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl p-1" style={{ background: cat.color }}>
+                  <img src={cat.image} alt="" className="h-7 w-7 object-contain" />
+                  <span className="max-w-full truncate text-[clamp(7px,1.8vw,9px)] font-black leading-none text-[#5a4a3a]">{cat.label}</span>
+                  <span className="flex items-center gap-0.5 text-[clamp(8px,2vw,10px)] font-black text-[#17469d]"><img src={coinIcon} alt="" className="h-3 w-3 object-contain" />{cat.base}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-2 py-0.5">
+              {!planApplied ? (
+                <div draggable onDragStart={() => setDragging({ id: 'plan-transfer', from: null })} onDragEnd={() => setDragging(null)} onClick={applyPlanAdjustment} className="flex cursor-grab items-center gap-2 active:cursor-grabbing active:scale-95">
+                  <span className="rounded-full bg-[#ef5350] px-2.5 py-1 text-[clamp(11px,3vw,13px)] font-black text-white shadow-sm">−10</span>
+                  <span className="text-[clamp(14px,4vw,18px)] font-black text-[#e0785a]">→</span>
+                  <span className="rounded-full bg-[#4caf50] px-2.5 py-1 text-[clamp(11px,3vw,13px)] font-black text-white shadow-sm">+10</span>
+                </div>
+              ) : <span className="text-[clamp(10px,2.6vw,12px)] font-bold text-[#6c9a4a]">✓ План обновлён</span>}
+            </div>
+            <div className="grid min-h-0 grid-cols-4 gap-1.5" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging?.id === 'plan-transfer' && applyPlanAdjustment()}>
+              {planCategories.map((cat) => {
+                const value = cat.id === 'plan-fun' ? (planApplied ? cat.base - 10 : cat.base) : cat.id === 'plan-gift' ? (planApplied ? cat.base + 10 : cat.base) : cat.base;
+                const changed = planApplied && (cat.id === 'plan-fun' || cat.id === 'plan-gift');
+                return (
+                  <div key={`new-${cat.id}`} onClick={() => changed && undoPlanAdjustment()} className={`flex min-h-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl border-2 p-1 transition ${changed ? 'cursor-pointer border-[#6c9a4a] bg-[#f2fbe9]' : 'border-dashed'}`} style={{ borderColor: changed ? '#6c9a4a' : cat.border, background: changed ? '#f2fbe9' : cat.color }}>
+                    <img src={cat.image} alt="" className="h-7 w-7 object-contain" />
+                    <span className="max-w-full truncate text-[clamp(7px,1.8vw,9px)] font-black leading-none text-[#5a4a3a]">{cat.label}</span>
+                    <span className="flex items-center gap-0.5 text-[clamp(8px,2vw,10px)] font-black text-[#17469d]"><img src={coinIcon} alt="" className="h-3 w-3 object-contain" />{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ) : <>
         {[
           { label: 'Обязательное', hint: 'То, без чего нельзя', titleColor: '#1f7a32', color: 'bg-[#dff8d7]', border: '#83cf7a', icon: foodBowl, slot: 0 },
@@ -309,7 +376,7 @@ export default function LessonOne({ onBack }: Props) {
           <span className="flex h-[clamp(36px,10vw,41px)] w-[clamp(36px,10vw,41px)] shrink-0 items-center justify-center rounded-full bg-[#6355f0] text-[clamp(21px,6vw,25px)] shadow-[0_3px_8px_rgba(72,58,200,.35)]">💡</span>
           <span className="whitespace-nowrap">Подсказка</span>
         </button>
-        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); setWalkCart([]); setOrderPlacements([null, null, null, null]); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
+        <button type="button" aria-label="Проверить" onClick={() => { if (scene < scenes.length - 1) { setScene((value) => value + 1); setPlacements([null, null, null]); setWalkCart([]); setOrderPlacements([null, null, null, null]); setPlanApplied(false); } else { onBack(); } }} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]">Проверить</button>
       </div>
     </div>
   );
