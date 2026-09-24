@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import videoSrc from '../assets/lesson2/lesson-video.mp4';
-import scene1 from '../assets/lesson2/practice-bg.png';
+import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
 import { IconArrowLeft, IconBook } from '../components/icons';
 import coinsIcon from '../assets/lesson2/items/01_coins.png';
 import giftIcon from '../assets/lesson2/items/02_gift.png';
@@ -29,15 +29,9 @@ interface Props { onBack: () => void }
 // Второй урок использует тот же интерфейсный каркас, что и первый (видео,
 // шапка с прогрессом, кнопка "книга", нижняя панель "Подсказка/Проверить").
 // Фон сцены временно переиспользует фон первого упражнения урока 1 — своих
-// материалов для урока 2 ещё нет. practice-bg.png — локальная копия того
-// фона с ретушью: в оригинале в левом верхнем углу был "зашит" постер с
-// текстом другого упражнения урока 1 ("Шаги — большие цели"), который был
-// не виден только благодаря случайному кадрированию; при показе всей
-// картинки целиком он вылезал поверх медведя и не подходил под содержание
-// урока 2, поэтому угол мягко заблюрен под фоновое боке. Сцены будут
-// добавляться по мере готовности следующих упражнений (сейчас реализованы
-// первые три — "Доход или расход?", "Балансир бюджета" и "Личное или
-// семейное?").
+// материалов для урока 2 ещё нет. Сцены будут добавляться по мере готовности
+// следующих упражнений (сейчас реализованы первые три — "Доход или расход?",
+// "Балансир бюджета" и "Личное или семейное?").
 const scenes = [scene1, scene1, scene1];
 
 // Упражнение 1 — "Доход или расход?": разложить карточки по двум корзинам —
@@ -132,7 +126,10 @@ export default function LessonTwo({ onBack }: Props) {
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
+  const [lastFrameUrl, setLastFrameUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const captureRafRef = useRef<number | null>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,12 +145,78 @@ export default function LessonTwo({ onBack }: Props) {
     });
   }, []);
 
+  // Пока видео играет, постоянно (каждый кадр) перерисовываем его в скрытый
+  // canvas — это дешёвая операция (просто drawImage без кодирования). Как
+  // только видео заканчивается (или его не удалось доиграть), берём именно
+  // последний удачно захваченный кадр и кодируем его один раз в JPEG —
+  // получаем статичную картинку, которая не зависит от того, что делает
+  // WebView с видео-поверхностью после 'ended' (на некоторых Android-сборках
+  // она чернеет). Показываем эту картинку вместо самого <video>.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const onEnded = () => setWatched(true);
-    video.addEventListener('ended', onEnded);
-    return () => video.removeEventListener('ended', onEnded);
+
+    function ensureCanvas() {
+      if (!captureCanvasRef.current) captureCanvasRef.current = document.createElement('canvas');
+      return captureCanvasRef.current;
+    }
+
+    function captureFrame() {
+      const canvas = ensureCanvas();
+      if (!video || video.videoWidth === 0 || video.videoHeight === 0) return;
+      if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+      if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch {
+        // кадр не удалось нарисовать (например, видео ещё не готово) — пропускаем,
+        // в canvas остаётся предыдущий успешно захваченный кадр.
+      }
+    }
+
+    function loop() {
+      captureFrame();
+      captureRafRef.current = requestAnimationFrame(loop);
+    }
+
+    function stopLoop() {
+      if (captureRafRef.current) {
+        cancelAnimationFrame(captureRafRef.current);
+        captureRafRef.current = null;
+      }
+    }
+
+    function freezeLastFrame() {
+      captureFrame();
+      stopLoop();
+      const canvas = captureCanvasRef.current;
+      if (canvas && canvas.width > 0 && canvas.height > 0) {
+        try {
+          setLastFrameUrl(canvas.toDataURL('image/jpeg', 0.75));
+        } catch {
+          // canvas недоступен для чтения (маловероятно, тот же источник) — просто
+          // останемся без картинки, сработает запасной вариант на <video>.
+        }
+      }
+      setWatched(true);
+    }
+
+    function onPlay() {
+      stopLoop();
+      captureRafRef.current = requestAnimationFrame(loop);
+    }
+
+    video.addEventListener('play', onPlay);
+    video.addEventListener('ended', freezeLastFrame);
+    video.addEventListener('pause', stopLoop);
+    return () => {
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('ended', freezeLastFrame);
+      video.removeEventListener('pause', stopLoop);
+      stopLoop();
+    };
   }, []);
 
   useEffect(() => () => { if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current); }, []);
@@ -267,15 +330,15 @@ export default function LessonTwo({ onBack }: Props) {
   }
 
   if (phase === 'video') {
-    // Видео размыто и до, и после проигрывания — той же самой CSS-подложкой
-    // (просто <video> с фильтром blur, без скрытия и без canvas-трюков).
-    // Так гарантированно нет чёрного экрана: даже если реальное
-    // воспроизведение по какой-то причине не удалось (видео не
-    // декодировалось, play() отклонён политикой браузера и т.п.), первый
-    // кадр всё равно загружен (preload="metadata") и просто остаётся
-    // видимым размытым фоном — тот же приём, что уже надёжно работает до
-    // старта видео.
-    const showBlurred = watched || !playing;
+    // До старта — блюр первого кадра видео (preload="metadata"), надёжно
+    // работает. После конца/пропуска/сбоя воспроизведения — показываем не
+    // сам <video>, а картинку последнего захваченного кадра (см. эффект
+    // выше): на некоторых Android WebView видео-поверхность чернеет сразу
+    // после 'ended', а статичная картинка от этого не зависит. Если кадр
+    // захватить не удалось (например, "Пропустить" нажали раньше, чем видео
+    // вообще начало играть) — просто показываем тёмную подложку без экрана
+    // видео, но кнопка "Решать" всё равно на месте.
+    const showVideoBlurred = !watched && !playing;
     return (
       <div className="relative h-full w-full overflow-hidden bg-[#17152f]">
         <video
@@ -283,8 +346,11 @@ export default function LessonTwo({ onBack }: Props) {
           src={videoSrc}
           playsInline
           preload="metadata"
-          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${showBlurred ? 'scale-105 blur-xl opacity-60' : ''}`}
+          className={`absolute inset-0 h-full w-full object-cover transition duration-500 ${watched ? 'opacity-0' : ''} ${showVideoBlurred ? 'scale-105 blur-xl opacity-60' : ''}`}
         />
+        {watched && lastFrameUrl && (
+          <img src={lastFrameUrl} alt="" className="absolute inset-0 h-full w-full scale-105 object-cover opacity-60 blur-xl" />
+        )}
         {watched && <div className="absolute inset-0 bg-[#17152f]/25" />}
         <button aria-label="Назад" onClick={onBack} className="absolute left-4 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-md transition active:scale-95"><IconArrowLeft className="h-5 w-5" /></button>
         <button onClick={() => { setWatched(true); setPhase('practice'); }} className="absolute right-5 top-7 z-20 rounded-full bg-white/20 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">Пропустить</button>
@@ -294,12 +360,11 @@ export default function LessonTwo({ onBack }: Props) {
           </button>
         )}
         {watched && (
-          <button onClick={() => setPhase('practice')} className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-full bg-[#675ff3] px-9 py-5 text-xl font-black text-white shadow-[0_10px_30px_rgba(74,60,205,.5)] transition active:scale-95 [animation:lessonCheckIn_420ms_cubic-bezier(.34,1.56,.64,1)]">
+          <button onClick={() => setPhase('practice')} className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2.5 rounded-full bg-[#675ff3] px-9 py-5 text-xl font-black text-white shadow-[0_10px_30px_rgba(74,60,205,.5)] transition active:scale-95">
             Решать
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6"><path d="M13 5l7 7-7 7v-4H4v-6h9V5z" /></svg>
           </button>
         )}
-        <style>{`@keyframes lessonCheckIn{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}`}</style>
       </div>
     );
   }
@@ -330,7 +395,7 @@ export default function LessonTwo({ onBack }: Props) {
       </div>
 
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
-      <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
+      <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); setLastFrameUrl(null); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
       <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 flex flex-col gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 0 && (
@@ -352,7 +417,7 @@ export default function LessonTwo({ onBack }: Props) {
                 <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('income', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('income')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {incomeExpenseItems.filter((item) => income.includes(item.id)).map((item) => (
-                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
                         <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
                       </button>
                     ))}
@@ -370,7 +435,7 @@ export default function LessonTwo({ onBack }: Props) {
                 <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('expense', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('expense')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0b98a] bg-[#fdf0e4] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {incomeExpenseItems.filter((item) => expense.includes(item.id)).map((item) => (
-                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
                         <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
                       </button>
                     ))}
@@ -452,7 +517,7 @@ export default function LessonTwo({ onBack }: Props) {
                 <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInFamilyBasket('family', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInFamilyBasket('family')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {familyPersonalItems.filter((item) => family.includes(item.id)).map((item) => (
-                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
                         <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
                       </button>
                     ))}
@@ -470,7 +535,7 @@ export default function LessonTwo({ onBack }: Props) {
                 <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInFamilyBasket('personal', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInFamilyBasket('personal')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#c6b3f2] bg-[#f4eefd] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {familyPersonalItems.filter((item) => personal.includes(item.id)).map((item) => (
-                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
+                      <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
                         <img src={item.image} alt={item.label} className="h-full w-full object-contain" />
                       </button>
                     ))}

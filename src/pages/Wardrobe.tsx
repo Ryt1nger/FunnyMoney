@@ -1,18 +1,41 @@
 import { useMemo, useState } from 'react';
 import bearMain from '../assets/pet/bear-main.png';
-import capWhite from '../assets/items/clothing/cap-white-paw.png';
-import beanieRed from '../assets/items/clothing/beanie-red.png';
-import hatBear from '../assets/items/clothing/hat-bear-yellow.png';
-import hoodieBlue from '../assets/items/clothing/hoodie-blue-paw.png';
-import jacketBlue from '../assets/items/clothing/jacket-varsity-blue.png';
-import vestGreen from '../assets/items/clothing/vest-green-puffer.png';
-import dressPink from '../assets/items/clothing/dress-pink-bow.png';
-import tuxedo from '../assets/items/clothing/tuxedo-black.png';
-import bandana from '../assets/items/clothing/bandana-red-paw.png';
-import collar from '../assets/items/clothing/collar-red-bell.png';
-import glassesBlue from '../assets/items/clothing/glasses-blue-paw.png';
-import glassesPink from '../assets/items/clothing/glasses-pink-heart.png';
-import backpack from '../assets/items/clothing/backpack-blue-paw.png';
+import outfit01 from '../assets/wardrobe/01_school_outfit.png';
+import outfit02 from '../assets/wardrobe/02_red_tracksuit.png';
+import outfit03 from '../assets/wardrobe/03_blue_winter_outfit.png';
+import outfit04 from '../assets/wardrobe/04_yellow_rain_outfit.png';
+import outfit05 from '../assets/wardrobe/05_superhero_outfit.png';
+import outfit06 from '../assets/wardrobe/06_tuxedo_outfit.png';
+import outfit07 from '../assets/wardrobe/07_bear_overalls.png';
+import outfit08 from '../assets/wardrobe/08_blue_bear_pajamas.png';
+import head09 from '../assets/wardrobe/09_red_paw_cap.png';
+import head10 from '../assets/wardrobe/10_blue_bear_beanie.png';
+import head11 from '../assets/wardrobe/11_yellow_bear_cap.png';
+import head12 from '../assets/wardrobe/12_green_paw_cap.png';
+import head13 from '../assets/wardrobe/13_red_visor.png';
+import scarf14 from '../assets/wardrobe/14_red_knit_scarf.png';
+import top15 from '../assets/wardrobe/15_blue_paw_hoodie.png';
+import top16 from '../assets/wardrobe/16_bear_tshirt.png';
+import top17 from '../assets/wardrobe/17_yellow_puffer_jacket.png';
+import top18 from '../assets/wardrobe/18_green_striped_sweater.png';
+import top19 from '../assets/wardrobe/19_red_zip_hoodie.png';
+import top20 from '../assets/wardrobe/20_blue_yellow_raincoat.png';
+import bottom21 from '../assets/wardrobe/21_blue_denim_shorts.png';
+import bottom22 from '../assets/wardrobe/22_red_shorts.png';
+import bottom23 from '../assets/wardrobe/23_green_shorts.png';
+import bottom24 from '../assets/wardrobe/24_yellow_shorts.png';
+import bottom25 from '../assets/wardrobe/25_denim_overalls.png';
+import bottom26 from '../assets/wardrobe/26_bear_print_shorts.png';
+import bottom27 from '../assets/wardrobe/27_blue_skirt.png';
+import bottom28 from '../assets/wardrobe/28_khaki_cargo_shorts.png';
+import shoe29 from '../assets/wardrobe/29_red_sneakers.png';
+import shoe30 from '../assets/wardrobe/30_blue_high_tops.png';
+import shoe31 from '../assets/wardrobe/31_yellow_rain_boots.png';
+import shoe32 from '../assets/wardrobe/32_brown_winter_boots.png';
+import shoe33 from '../assets/wardrobe/33_bear_slippers.png';
+import shoe34 from '../assets/wardrobe/34_green_sneakers.png';
+import shoe35 from '../assets/wardrobe/35_brown_sandals.png';
+import shoe36 from '../assets/wardrobe/36_red_roller_skates.png';
 import { IconArrowLeft, IconBackpackLight, IconCheck } from '../components/icons';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 
@@ -20,27 +43,20 @@ type CategoryId = 'head' | 'clothes' | 'bottom' | 'shoes' | 'accessories';
 type WardrobeItem = { id: string; name: string; category: CategoryId; asset: string; price: number; zIndex: number; x: number; y: number; width: number; height: number };
 
 const ITEMS: WardrobeItem[] = [
-  { id: 'cap-white-paw', name: 'Кепка', category: 'head', asset: capWhite, price: 40, zIndex: 50, x: 25, y: -1, width: 50, height: 24 },
-  { id: 'beanie-red', name: 'Шапка', category: 'head', asset: beanieRed, price: 45, zIndex: 50, x: 20, y: -2, width: 60, height: 25 },
-  { id: 'hat-bear-yellow', name: 'Панама', category: 'head', asset: hatBear, price: 55, zIndex: 50, x: 20, y: 0, width: 60, height: 25 },
-  { id: 'hoodie-blue-paw', name: 'Худи', category: 'clothes', asset: hoodieBlue, price: 80, zIndex: 30, x: 12, y: 37, width: 76, height: 44 },
-  { id: 'jacket-varsity-blue', name: 'Куртка', category: 'clothes', asset: jacketBlue, price: 110, zIndex: 35, x: 8, y: 35, width: 84, height: 46 },
-  { id: 'vest-green-puffer', name: 'Жилет', category: 'clothes', asset: vestGreen, price: 95, zIndex: 35, x: 12, y: 37, width: 76, height: 43 },
-  { id: 'dress-pink-bow', name: 'Платье', category: 'bottom', asset: dressPink, price: 90, zIndex: 25, x: 10, y: 50, width: 80, height: 38 },
-  { id: 'tuxedo-black', name: 'Костюм', category: 'bottom', asset: tuxedo, price: 120, zIndex: 25, x: 10, y: 49, width: 80, height: 40 },
-  { id: 'bandana-red-paw', name: 'Шарф', category: 'accessories', asset: bandana, price: 35, zIndex: 60, x: 22, y: 27, width: 56, height: 22 },
-  { id: 'collar-red-bell', name: 'Ошейник', category: 'accessories', asset: collar, price: 30, zIndex: 61, x: 25, y: 29, width: 50, height: 16 },
-  { id: 'glasses-blue-paw', name: 'Очки', category: 'accessories', asset: glassesBlue, price: 45, zIndex: 70, x: 25, y: 21, width: 50, height: 16 },
-  { id: 'glasses-pink-heart', name: 'Сердечки', category: 'accessories', asset: glassesPink, price: 50, zIndex: 70, x: 25, y: 21, width: 50, height: 16 },
-  { id: 'backpack-blue-paw', name: 'Рюкзак', category: 'accessories', asset: backpack, price: 75, zIndex: 20, x: 2, y: 39, width: 35, height: 43 },
+  ...[outfit01, outfit02, outfit03, outfit04, outfit05, outfit06, outfit07, outfit08].map((asset, index) => ({ id: `outfit-${String(index + 1).padStart(2, '0')}`, name: ['Школьный образ', 'Красный спорт', 'Зимний образ', 'Дождевик', 'Супергерой', 'Смокинг', 'Комбинезон', 'Пижама'][index], category: 'clothes' as CategoryId, asset, price: 80 + index * 10, zIndex: 35, x: 5, y: 22, width: 90, height: 72 })),
+  ...[head09, head10, head11, head12, head13].map((asset, index) => ({ id: `head-${index + 9}`, name: ['Красная кепка', 'Синяя шапка', 'Жёлтая кепка', 'Зелёная кепка', 'Визор'][index], category: 'head' as CategoryId, asset, price: 40 + index * 5, zIndex: 50, x: 17, y: -1, width: 66, height: 27 })),
+  { id: 'scarf-14', name: 'Красный шарф', category: 'accessories', asset: scarf14, price: 35, zIndex: 60, x: 18, y: 28, width: 64, height: 23 },
+  ...[top15, top16, top17, top18, top19, top20].map((asset, index) => ({ id: `top-${index + 15}`, name: ['Худи с лапкой', 'Футболка', 'Пуховик', 'Полосатый свитер', 'Красная толстовка', 'Дождевик'][index], category: 'clothes' as CategoryId, asset, price: 65 + index * 8, zIndex: 35, x: 9, y: 36, width: 82, height: 47 })),
+  ...[bottom21, bottom22, bottom23, bottom24, bottom25, bottom26, bottom27, bottom28].map((asset, index) => ({ id: `bottom-${index + 21}`, name: ['Джинсовые шорты', 'Красные шорты', 'Зелёные шорты', 'Жёлтые шорты', 'Джинсовый комбинезон', 'Шорты с мишкой', 'Синяя юбка', 'Карго-шорты'][index], category: 'bottom' as CategoryId, asset, price: 55 + index * 6, zIndex: 25, x: 8, y: 53, width: 84, height: 37 })),
+  ...[shoe29, shoe30, shoe31, shoe32, shoe33, shoe34, shoe35, shoe36].map((asset, index) => ({ id: `shoe-${index + 29}`, name: ['Красные кеды', 'Высокие кеды', 'Дождевые сапоги', 'Зимние ботинки', 'Тапочки', 'Зелёные кеды', 'Сандалии', 'Ролики'][index], category: 'shoes' as CategoryId, asset, price: 60 + index * 7, zIndex: 20, x: 5, y: 74, width: 90, height: 25 })),
 ];
 
 const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
-  { id: 'head', label: 'Головные уборы', icon: capWhite },
-  { id: 'clothes', label: 'Одежда', icon: hoodieBlue },
-  { id: 'bottom', label: 'Низ', icon: dressPink },
-  { id: 'shoes', label: 'Обувь', icon: jacketBlue },
-  { id: 'accessories', label: 'Аксессуары', icon: glassesBlue },
+  { id: 'head', label: 'Головные уборы', icon: head09 },
+  { id: 'clothes', label: 'Одежда', icon: top15 },
+  { id: 'bottom', label: 'Низ', icon: bottom21 },
+  { id: 'shoes', label: 'Обувь', icon: shoe29 },
+  { id: 'accessories', label: 'Аксессуары', icon: scarf14 },
 ];
 
 export function BearAvatar({ selectedIds }: { selectedIds: string[] }) {
