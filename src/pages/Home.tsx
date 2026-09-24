@@ -29,10 +29,12 @@ import Settings from './Settings';
 import Day from './Day';
 import ProgressPage from './Progress';
 import PiggyBank from './PiggyBank';
+import TutorialOverlay from '../components/TutorialOverlay';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
+import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
 import { storage } from '../services/storage';
@@ -40,9 +42,9 @@ import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import {
   IconStar,
   IconPlus,
-  IconBackpackLight,
   IconSettingsGear,
   IconCutlery,
+  IconHanger,
   IconChevronRight,
 } from '../components/icons';
 import piggyIcon from '../assets/piggy-bank/piggy.png';
@@ -223,6 +225,12 @@ export default function Home() {
     };
   }, []);
 
+  // Обучение при первом входе — запускается один раз (см. tutorialStore),
+  // повторно уже не появляется само (можно включить заново из настроек).
+  useEffect(() => {
+    useTutorialStore.getState().startIfNeeded();
+  }, []);
+
   function openLessonsFromReminder() {
     setTab('lessons');
     setSheet('lessons');
@@ -302,6 +310,7 @@ export default function Home() {
               ребёнку, что сюда можно нажать (сам блок иначе выглядел бы как
               обычная неинтерактивная шапка). */}
           <button
+            data-tour="home-level"
             onClick={() => setSheet('progress')}
             className="flex items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
             aria-label="Открыть прогресс уровня"
@@ -353,7 +362,7 @@ export default function Home() {
             />
           </button>
 
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div data-tour="home-coins" className="flex shrink-0 flex-col items-end gap-1.5">
             <div
               className="flex shrink-0 items-center gap-1.5 rounded-full border py-1.5 pl-2.5 pr-1.5 backdrop-blur-md"
               style={{
@@ -376,7 +385,7 @@ export default function Home() {
         </div>
 
         {/* Метрики */}
-        <div className="relative z-20 mt-3 flex items-center gap-2.5 px-4">
+        <div data-tour="home-metrics" className="relative z-20 mt-3 flex items-center gap-2.5 px-4">
           <GlassMetric
             icon={<img src={heartMetricIcon} alt="" className="h-full w-full object-contain" />}
             iconGradient="transparent"
@@ -400,11 +409,11 @@ export default function Home() {
           />
         </div>
 
-        {/* Кнопки под статистиками: слева стопкой настройки и (под ними) инвентарь,
-            справа — вход в столовую (кормление питомца). Тот же визуальный стиль кнопки. */}
+        {/* Быстрые действия: настройки слева, кухня и гардероб справа одной колонкой. */}
         <div className="relative z-20 mt-2 flex items-start justify-between px-4">
           <div className="flex flex-col gap-2">
             <button
+              data-tour="home-settings"
               onClick={() => setSheet('settings')}
               className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
               style={{
@@ -416,7 +425,23 @@ export default function Home() {
             >
               <IconSettingsGear className="h-6 w-6" />
             </button>
+          </div>
+          <div className="flex flex-col gap-2">
             <button
+              data-tour="home-kitchen"
+              onClick={openKitchen}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Кухня"
+            >
+              <IconCutlery className="h-6 w-6" />
+            </button>
+            <button
+              data-tour="home-wardrobe"
               onClick={() => setSheet('wardrobe')}
               className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
               style={{
@@ -424,27 +449,11 @@ export default function Home() {
                 borderColor: 'rgba(255,255,255,0.30)',
                 boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
               }}
-              aria-label="Инвентарь"
+              aria-label="Гардероб"
             >
-              <IconBackpackLight className="h-6 w-6" />
+              <IconHanger className="h-6 w-6" />
             </button>
           </div>
-          <button
-            // Кухня — отдельный экран кормления (не фон главного экрана,
-            // см. inventoryStore.activeKitchenRoomId). Открывается шторкой,
-            // как и остальные разделы; вкладка нижней навигации не меняется,
-            // так как своей вкладки у кухни нет.
-            onClick={openKitchen}
-            className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-            style={{
-              background: 'rgba(26,20,40,0.30)',
-              borderColor: 'rgba(255,255,255,0.30)',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-            }}
-            aria-label="Столовая"
-          >
-            <IconCutlery className="h-6 w-6" />
-          </button>
         </div>
 
         {/* Медведь — занимает всё свободное место между метриками и карточкой.
@@ -559,6 +568,7 @@ export default function Home() {
             {/* Форма — скруглённый прямоугольник (не таблетка), с внутренней
                 тенью и светлым бликом сверху: это даёт объём, как в референсе */}
             <button
+              data-tour="home-piggy"
               onClick={() => setSheet('piggy')}
               className="flex min-w-0 items-center gap-2 rounded-[22px] px-2.5 py-2.5"
               style={{
@@ -800,6 +810,13 @@ export default function Home() {
           <PageLoading durationMs={SCREEN_LOADING_MS} />
         </div>
       )}
+
+      {/* Обучение при первом входе — смонтирован здесь, поверх главного экрана
+          и всех шторок (уроки/день/магазин/рейтинг/кухня/гардероб/копилка),
+          т.к. все они рендерятся внутри этого же корня. Ниже z-70 экрана
+          загрузки перехода — на время короткого перехода тур скрыт под ним,
+          а не мелькает поверх спиннера. */}
+      <TutorialOverlay />
     </div>
   );
 }
