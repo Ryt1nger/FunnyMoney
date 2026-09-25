@@ -14,7 +14,10 @@ export type TabId = 'home' | 'lessons' | 'day' | 'shop' | 'stats';
 const TABS: { id: TabId; label: string; icon: string; iconActive: string; dot?: boolean }[] = [
   { id: 'home', label: 'Главная', icon: navHome, iconActive: navHomeActive },
   { id: 'lessons', label: 'Уроки', icon: navBook, iconActive: navBookActive },
-  { id: 'day', label: 'День', icon: navCalendar, iconActive: navCalendarActive, dot: true },
+  // Раздел "День" переехал за отдельную иконку на главном экране (см.
+  // Home.tsx, кнопка рядом с настройками) — здесь вместо него теперь
+  // раздел "Периоды" (см. Period.tsx), сама вкладка/иконка не поменялись.
+  { id: 'day', label: 'Периоды', icon: navCalendar, iconActive: navCalendarActive, dot: true },
   { id: 'shop', label: 'Магазин', icon: navShop, iconActive: navShopActive },
   { id: 'stats', label: 'Рейтинг', icon: navChart, iconActive: navChartActive },
 ];

@@ -10,6 +10,7 @@ import boneToy from '../assets/items/toys/bone-toy-card.png';
 import boneBlob from '../assets/ui/bone-blob.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
+import navCalendarActive from '../assets/icons/nav/calendar-active.png';
 import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
 import smileMetricIcon from '../assets/icons/metrics/smile-3d.png';
 import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
@@ -434,12 +435,15 @@ export default function Home() {
               <IconSettingsGear className="h-6 w-6" />
             </button>
             <button
+              // Раньше здесь открывался игровой период (монетка) — теперь
+              // "Периоды" переехали на вкладку нижней навигации, а эта
+              // иконка вместо неё открывает "День" (задания дня).
               onClick={() => setSheet('period')}
               className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
               style={{ background: 'rgba(26,20,40,0.30)', borderColor: 'rgba(255,255,255,0.30)', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
-              aria-label="Игровой период"
+              aria-label="День"
             >
-              <img src={coinIcon} alt="" className="h-6 w-6 object-contain" />
+              <img src={navCalendarActive} alt="" className="h-6 w-6 object-contain" />
             </button>
             <button
               data-tour="home-inventory"
@@ -718,12 +722,9 @@ export default function Home() {
             onClose={closeSheet}
           />
         ) : sheet === 'day' ? (
-          <Day
-            bottomInset={navHeight}
-            coins={coins}
-            onOpenEarnModal={() => setEarnModalOpen(true)}
-            onClose={closeSheet}
-          />
+          // Вкладка нижней навигации "day" теперь ведёт в раздел "Периоды" —
+          // сам "День" (задания) переехал на отдельную иконку, см. sheet === 'period' ниже.
+          <Period bottomInset={navHeight} onClose={closeSheet} />
         ) : sheet === 'progress' ? (
           <ProgressPage
             bottomInset={navHeight}
@@ -741,7 +742,15 @@ export default function Home() {
             onClose={closeSheet}
           />
         ) : sheet === 'period' ? (
-          <Period bottomInset={navHeight} onClose={closeSheet} />
+          // Раздел "День" (задания дня) — раньше открывался вкладкой нижней
+          // навигации, теперь только иконкой на главном экране (см. кнопку
+          // рядом с настройками) и через "как заработать монеты".
+          <Day
+            bottomInset={navHeight}
+            coins={coins}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
+            onClose={closeSheet}
+          />
         ) : sheet === 'kitchen' ? (
           <Kitchen
             bottomInset={navHeight}
@@ -795,9 +804,10 @@ export default function Home() {
           setSheet('lessons');
         }}
         onOpenTasks={() => {
+          // "День" больше не отдельная вкладка нижней навигации — открываем
+          // его как оверлей поверх текущей вкладки, не переключая активный таб.
           setEarnModalOpen(false);
-          setTab('day');
-          setSheet('day');
+          setSheet('period');
         }}
       />
 
