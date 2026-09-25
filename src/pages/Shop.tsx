@@ -18,6 +18,9 @@ import {
 } from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { purchaseProduct } from '../features/economy/purchase';
+import { toEconomyProductMeta } from '../features/economy/purchase';
+import { useEconomyStore } from '../features/economy/economyStore';
+import { usePeriodStore } from '../features/economy/periodStore';
 import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
 
 const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
@@ -73,6 +76,8 @@ export default function Shop({
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const foodQty = useInventoryStore((s) => s.foodQty);
+  const savings = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
+  const periodStatus = usePeriodStore((s) => s.status);
   const products = category === 'interior' ? [] : productsByCategory(category);
   const interiorRooms = roomsBySection(kitchenOnly ? 'kitchen' : interiorSection);
   // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
@@ -88,7 +93,9 @@ export default function Shop({
     if (product.category !== 'food' && ownedProductIds.includes(product.id)) return;
     // Не хватает монет — вместо попытки покупки сразу показываем то же окно
     // "как заработать монеты", что и по кнопке "+" у баланса.
-    if (coins < product.price) {
+    const meta = toEconomyProductMeta(product);
+    const balance = meta.savingsOnly ? savings : coins;
+    if (balance < product.price) {
       onOpenEarnModal?.();
       return;
     }
@@ -252,15 +259,17 @@ export default function Shop({
           <div data-tour="shop-products" className="mt-2.5 grid grid-cols-2 gap-2.5">
             {interiorRooms.map((room) => {
               const owned = ownedRoomIds.includes(room.id);
+              const canAfford = periodStatus === 'active' ? savings >= room.price : coins >= room.price;
               return (
                 <button
                   key={room.id}
                   onClick={() => onRoomSelect(room)}
                   className="relative flex flex-col overflow-hidden rounded-[18px] border bg-white/85 text-left shadow-sm transition active:scale-[0.98]"
-                  style={{ borderColor: '#f0e2cb' }}
+                  style={{ borderColor: '#f0e2cb', opacity: owned || canAfford ? 1 : 0.78 }}
                 >
                   <div className="relative h-[150px] w-full overflow-hidden">
                     <img src={room.background} alt="" className="h-full w-full object-cover object-top" />
+                    {!owned && <span className="absolute left-1.5 top-1.5 rounded-full bg-[#35b96b] px-2 py-0.5 text-[9px] font-extrabold text-white shadow-sm">Цель</span>}
                     {owned && (
                       <span
                         className="absolute right-1.5 top-1.5 rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
@@ -285,6 +294,7 @@ export default function Shop({
                           <span className="text-[11.5px] font-bold" style={{ color: '#4a4560' }}>
                             {room.price}
                           </span>
+                          {periodStatus === 'active' && <span className="ml-1 text-[9px] font-semibold text-[#159456]">из копилки</span>}
                         </>
                       )}
                     </div>
@@ -299,7 +309,9 @@ export default function Shop({
               const isFood = p.category === 'food';
               const owned = !isFood && ownedProductIds.includes(p.id);
               const qty = foodQty[p.id] ?? 0;
-              const canAfford = coins >= p.price;
+              const meta = toEconomyProductMeta(p);
+              const canAfford = (meta.savingsOnly ? savings : coins) >= p.price;
+              const badge = meta.expenseType === 'mandatory' ? 'Обязательное' : 'Желание';
               return (
                 <div
                   key={p.id}
@@ -308,6 +320,7 @@ export default function Shop({
                 >
                   <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
                     <img src={p.image} alt="" className="max-h-[66px] w-auto object-contain" />
+                    <span className="absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold text-white" style={{ background: meta.expenseType === 'mandatory' ? '#f36b76' : '#9b73e8' }}>{badge}</span>
                     {isFood && qty > 0 && (
                       <span
                         className="absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-extrabold text-white"
@@ -354,7 +367,13 @@ export default function Shop({
       </div>
 
       <ConfirmPurchaseModal
-        item={confirmProduct ? { name: confirmProduct.name, image: confirmProduct.image, price: confirmProduct.price } : null}
+        item={confirmProduct ? {
+          name: confirmProduct.name,
+          image: confirmProduct.image,
+          price: confirmProduct.price,
+          source: 'wallet',
+          categoryLabel: toEconomyProductMeta(confirmProduct).expenseType === 'mandatory' ? 'Обязательное' : 'Желание',
+        } : null}
         onCancel={() => setConfirmProduct(null)}
         onConfirm={() => {
           if (confirmProduct) handleBuy(confirmProduct);

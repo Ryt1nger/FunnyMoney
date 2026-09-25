@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import type { EconomyState, SavingsGoal, Transaction } from '../../types';
 import { storage } from '../../services/storage';
 import { usePeriodStore } from './periodStore';
+import { ECONOMY_RULES } from '../../core/economy';
+import { usePetStore } from '../pet/petStore';
 
 interface EconomyStore extends EconomyState {
   initIfEmpty: (startingCoins: number) => void;
-  applyCoinsDelta: (amount: number, reason: string) => void;
+  applyCoinsDelta: (amount: number, reason: string, metadata?: Pick<Transaction, 'periodId' | 'category'>) => void;
   applyWealthDelta: (amount: number) => void;
   /** Перечитывает состояние из storage — используется при реальной проверке
    * содержимого на межстраничном экране загрузки (App.tsx / bootstrap.ts). */
@@ -13,6 +15,7 @@ interface EconomyStore extends EconomyState {
   setSavingsGoal: (goal: SavingsGoal) => void;
   depositToSavings: (amount: number) => boolean;
   withdrawFromSavings: (amount: number) => boolean;
+  spendFromSavings: (amount: number, reason: string) => boolean;
 }
 
 const STORAGE_KEY = 'economy';
@@ -62,7 +65,7 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     set(next);
   },
 
-  applyCoinsDelta: (amount, reason) => {
+  applyCoinsDelta: (amount, reason, metadata) => {
     const state = get();
     // Реальный контроль баланса: списание никогда не уводит монеты в минус,
     // даже если вызывающий код случайно не проверил платёжеспособность заранее.
@@ -74,6 +77,7 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
       timestamp: Date.now(),
       amount: appliedAmount,
       reason,
+      ...metadata,
     };
     const next: EconomyState = {
       ...state,
@@ -85,6 +89,10 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     };
     persist(next);
     set(next);
+    const period = usePeriodStore.getState();
+    if (period.status === 'active') {
+      period.ensureCurrentPeriod(nextCoins, next.savingsBalance ?? next.totalSaved);
+    }
   },
 
   applyWealthDelta: (amount) => {
@@ -119,16 +127,26 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     const value = Math.floor(amount);
     const state = get();
     if (!Number.isFinite(value) || value <= 0 || state.coins < value) return false;
+    const period = usePeriodStore.getState();
+    if (period.status === 'active' && (value < ECONOMY_RULES.requiredSavingsDeposit || period.walletBalance !== state.coins)) return false;
     const next: EconomyState = {
       ...state,
       coins: state.coins - value,
       savingsBalance: (state.savingsBalance ?? state.totalSaved) + value,
       totalSaved: state.totalSaved + value,
-      transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: value, reason: 'Пополнение копилки' }],
+        transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: value, reason: 'Пополнение копилки', category: 'savings' as const }],
     };
     persist(next);
     set(next);
-    usePeriodStore.getState().recordSavingsDeposit(value);
+    const periodRewarded = usePeriodStore.getState().recordSavingsDeposit(value);
+    if (periodRewarded) {
+      usePetStore.getState().addXp(ECONOMY_RULES.savingsDepositXp);
+      const period = usePeriodStore.getState();
+      if (value >= ECONOMY_RULES.requiredSavingsDeposit && !period.rewardFlags.cashbackGranted) {
+        useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.cashbackCoins, 'Кэшбэк за накопление', { periodId: period.id, category: 'reward' });
+        usePeriodStore.getState().markCashbackGranted();
+      }
+    }
     return true;
   },
 
@@ -142,6 +160,24 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
       coins: state.coins + value,
       savingsBalance: balance - value,
       transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: -value, reason: 'Вывод из копилки' }],
+    };
+    persist(next);
+    set(next);
+    return true;
+  },
+
+  spendFromSavings: (amount, reason) => {
+    const value = Math.floor(amount);
+    const state = get();
+    const balance = state.savingsBalance ?? state.totalSaved;
+    if (!Number.isFinite(value) || value <= 0 || balance < value) return false;
+    const next: EconomyState = {
+      ...state,
+      savingsBalance: balance - value,
+      transactions: [...state.transactions, {
+        id: crypto.randomUUID(), timestamp: Date.now(), amount: -value, reason,
+        category: 'goal',
+      }],
     };
     persist(next);
     set(next);

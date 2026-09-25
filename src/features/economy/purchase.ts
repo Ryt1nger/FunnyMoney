@@ -54,15 +54,26 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
   // было бы пополнить. Остальные категории по-прежнему покупаются один раз.
   if (!isFood && inventory.isProductOwned(product.id)) return 'already_owned';
 
-  const { coins, applyCoinsDelta } = useEconomyStore.getState();
-  if (coins < product.price) return 'insufficient_funds';
-
+  const economy = useEconomyStore.getState();
+  const meta = toEconomyProductMeta(product);
   const period = usePeriodStore.getState();
-  if (period.status === 'active' && !period.recordPurchase(toEconomyProductMeta(product))) {
+  if (period.status === 'active') {
+    if (meta.savingsOnly) {
+      const savings = economy.savingsBalance ?? economy.totalSaved;
+      if (savings !== period.savingsBalance || savings < product.price || !period.recordGoalPurchase(meta) || !economy.spendFromSavings(product.price, `Цель: ${product.name}`)) {
+        return 'insufficient_funds';
+      }
+    } else if (economy.coins !== period.walletBalance || economy.coins < product.price || !period.recordPurchase(meta)) {
+      return 'insufficient_funds';
+    }
+  } else if (economy.coins < product.price) {
     return 'insufficient_funds';
   }
 
-  applyCoinsDelta(-product.price, `Покупка: ${product.name}`);
+  if (!meta.savingsOnly) economy.applyCoinsDelta(-product.price, `Покупка: ${product.name}`, {
+    periodId: period.status === 'active' ? period.id : undefined,
+    category: meta.expenseType === 'mandatory' ? 'mandatory' : 'optional',
+  });
   inventory.addOwnedProduct(product.id);
 
   if (isFood) {
@@ -96,11 +107,17 @@ export function purchaseRoom(room: RoomProduct): PurchaseResult {
     return 'already_owned';
   }
 
-  const { coins, applyCoinsDelta } = useEconomyStore.getState();
-  if (coins < room.price) return 'insufficient_funds';
-
-  if (room.price > 0) {
-    applyCoinsDelta(-room.price, `Комната: ${room.name}`);
+  const economy = useEconomyStore.getState();
+  const period = usePeriodStore.getState();
+  if (period.status === 'active') {
+    const meta = { id: room.id, price: room.price, expenseType: 'goal' as const, mealType: 'none' as const, satietyEffect: 0, moodEffect: 0, savingsOnly: true, periodEligible: true };
+    const savings = economy.savingsBalance ?? economy.totalSaved;
+    if (savings !== period.savingsBalance || savings < room.price || !period.recordGoalPurchase(meta) || !economy.spendFromSavings(room.price, `Цель: ${room.name}`)) {
+      return 'insufficient_funds';
+    }
+  } else if (room.price > 0) {
+    if (economy.coins < room.price) return 'insufficient_funds';
+    economy.applyCoinsDelta(-room.price, `Комната: ${room.name}`, { category: 'goal' });
   }
   inventory.addOwnedRoom(room.id, room.section);
 

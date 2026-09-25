@@ -4,25 +4,9 @@ import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { storage } from './storage';
+import { ECONOMY_RULES } from '../core/economy';
 
 const RECOVERY_FLAG_KEY = 'debug_recovery_2026_09_20';
-const STARTING_BALANCE_GRANT_FLAG = 'debug_starting_balance_5000_2026_09_22';
-
-/** Тестовый стартовый баланс для текущего прототипа копилки. Применяется один
- * раз только к уже созданному профилю, чтобы не перетирать баланс на каждом
- * запуске приложения. */
-function ensureRequestedStartingBalanceOnce() {
-  if (storage.get(STARTING_BALANCE_GRANT_FLAG)) return;
-  const pet = usePetStore.getState().pet;
-  if (!pet) return;
-  const economy = useEconomyStore.getState();
-  const delta = 5000 - economy.coins;
-  if (delta !== 0) {
-    useEconomyStore.getState().applyCoinsDelta(delta, 'Стартовый баланс копилки');
-  }
-  storage.set(STARTING_BALANCE_GRANT_FLAG, true);
-}
-
 /**
  * Разовое восстановление после замеченного сбоя: у уже игравшего питомца
  * (есть накопленный опыт) обнулились здоровье/счастье и баланс/богатство —
@@ -42,7 +26,7 @@ function recoverFromResetBugOnce() {
   if (!looksBroken) return;
 
   usePetStore.getState().applyDelta({ health: 80, happiness: 80 });
-  useEconomyStore.getState().applyCoinsDelta(5000, 'Восстановление после сбоя');
+  useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.periodIncome, 'Восстановление после сбоя');
   useEconomyStore.getState().applyWealthDelta(80);
 }
 
@@ -65,7 +49,6 @@ export async function bootstrapGame(): Promise<void> {
   useInventoryStore.getState().hydrate();
   useDayProgressStore.getState().hydrate();
   usePeriodStore.getState().hydrate();
-  ensureRequestedStartingBalanceOnce();
   recoverFromResetBugOnce();
   const economy = useEconomyStore.getState();
   usePeriodStore.getState().ensureCurrentPeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);

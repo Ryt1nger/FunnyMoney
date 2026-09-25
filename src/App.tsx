@@ -9,14 +9,14 @@ import { bootstrapGame } from './services/bootstrap';
 import { startBackgroundMusic } from './services/backgroundMusic';
 import { initGlobalTapSound } from './services/globalTapSound';
 import { storage } from './services/storage';
+import { ECONOMY_RULES } from './core/economy';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
 // тапа на любой кнопке приложения без ручной разводки по каждому месту.
 initGlobalTapSound();
 
-// Стартовый баланс — тестовое значение для первого реального прогона на
-// устройстве (пока не подключена финальная экономическая настройка).
-const STARTING_COINS = 5000;
+// Первый период начинается с базового дохода, определённого единым ядром экономики.
+const STARTING_COINS = ECONOMY_RULES.periodIncome;
 
 // Экран загрузки на запуске (большое лого, без прогресс-бара) держится минимум
 // столько — даже если приложение (в нашем случае — мгновенно, синхронно) готово раньше.

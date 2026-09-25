@@ -71,8 +71,13 @@ export interface PeriodState {
   actual: PeriodActuals;
   walletBalance: number;
   savingsBalance: number;
+  /** Балансы на момент старта этого периода, чтобы итог не смешивался с прошлой историей. */
+  startingWalletBalance?: number;
+  startingSavingsBalance?: number;
+  practiceCount?: number;
   rewardFlags: PeriodRewardFlags;
   status: 'planning' | 'active' | 'completed';
+  result?: PeriodResult;
 }
 
 export interface PeriodResult {
@@ -132,7 +137,7 @@ export function applyPurchase(
 }
 
 export function calculatePeriodResult(
-  period: Pick<PeriodState, 'income' | 'plan' | 'actual' | 'walletBalance' | 'savingsBalance'>,
+  period: Pick<PeriodState, 'income' | 'plan' | 'actual' | 'walletBalance' | 'savingsBalance' | 'startingWalletBalance' | 'startingSavingsBalance'>,
 ): PeriodResult {
   const plan = period.plan ?? { mandatory: 0, optional: 0, savings: 0 };
   const planTotal = Math.max(1, plan.mandatory + plan.optional + plan.savings);
@@ -153,8 +158,8 @@ export function calculatePeriodResult(
     mandatoryCovered,
     savingsRegular,
     score,
-    walletDelta: period.walletBalance - period.income,
-    savingsDelta: period.savingsBalance,
+    walletDelta: period.walletBalance - (period.startingWalletBalance ?? period.walletBalance),
+    savingsDelta: period.savingsBalance - (period.startingSavingsBalance ?? period.savingsBalance),
     satietyDelta: mandatoryCovered ? 20 : -20,
     moodDelta: score >= 70 ? 15 : 5,
     nextStep: savingsRegular ? 'choose_optional_purchase' : 'keep_saving',
@@ -166,4 +171,3 @@ export function developmentStageFromPeriods(goodPeriods: number): 1 | 2 | 3 {
   if (goodPeriods >= 2) return 2;
   return 1;
 }
-

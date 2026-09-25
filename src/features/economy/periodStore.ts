@@ -7,6 +7,7 @@ import {
   type PeriodRewardFlags,
   type PeriodState,
   validateBudgetPlan,
+  calculatePeriodResult,
 } from '../../core/economy';
 import { storage } from '../../services/storage';
 
@@ -33,6 +34,9 @@ export function createInitialPeriod(walletBalance: number = ECONOMY_RULES.period
     actual: emptyActuals(),
     walletBalance,
     savingsBalance,
+    startingWalletBalance: walletBalance,
+    startingSavingsBalance: savingsBalance,
+    practiceCount: 0,
     rewardFlags: emptyFlags(),
     status: 'planning',
   };
@@ -62,8 +66,11 @@ interface PeriodStore extends PeriodState {
   ensureCurrentPeriod: (walletBalance: number, savingsBalance: number) => void;
   confirmPlan: (plan: BudgetPlan) => boolean;
   recordPurchase: (product: EconomyProductMeta) => boolean;
+  recordGoalPurchase: (product: EconomyProductMeta) => boolean;
   recordSavingsDeposit: (amount: number) => boolean;
+  markCashbackGranted: () => boolean;
   markDailyRewardGranted: () => boolean;
+  recordPractice: () => boolean;
   completePeriod: () => void;
   advancePeriod: (walletBalance: number, savingsBalance: number) => void;
 }
@@ -89,8 +96,14 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
   ensureCurrentPeriod: (walletBalance, savingsBalance) => {
     const state = get();
     if (state.status === 'completed') return;
-    if (state.walletBalance === walletBalance && state.savingsBalance === savingsBalance) return;
-    const next = { ...state, walletBalance, savingsBalance };
+    if (state.walletBalance === walletBalance && state.savingsBalance === savingsBalance && state.startingWalletBalance !== undefined) return;
+    const next = {
+      ...state,
+      walletBalance,
+      savingsBalance,
+      startingWalletBalance: state.startingWalletBalance ?? walletBalance,
+      startingSavingsBalance: state.startingSavingsBalance ?? savingsBalance,
+    };
     persist(next);
     set(next);
   },
@@ -130,10 +143,23 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     return true;
   },
 
+  recordGoalPurchase: (product) => {
+    const state = get();
+    if (state.status !== 'active' || !product.savingsOnly || product.expenseType !== 'goal') return false;
+    if (product.price <= 0 || state.savingsBalance < product.price) return false;
+    const next: PeriodState = {
+      ...state,
+      savingsBalance: state.savingsBalance - product.price,
+    };
+    persist(next);
+    set(next);
+    return true;
+  },
+
   recordSavingsDeposit: (amount) => {
     const state = get();
     if (state.status !== 'active' || state.rewardFlags.savingsDepositGranted) return false;
-    if (!Number.isInteger(amount) || amount <= 0 || state.walletBalance < amount) return false;
+    if (!Number.isInteger(amount) || amount < ECONOMY_RULES.requiredSavingsDeposit || state.walletBalance < amount) return false;
     const next: PeriodState = {
       ...state,
       actual: { ...state.actual, savings: state.actual.savings + amount },
@@ -149,6 +175,15 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     return true;
   },
 
+  markCashbackGranted: () => {
+    const state = get();
+    if (state.rewardFlags.cashbackGranted) return false;
+    const next = { ...state, rewardFlags: { ...state.rewardFlags, cashbackGranted: true } };
+    persist(next);
+    set(next);
+    return true;
+  },
+
   markDailyRewardGranted: () => {
     const state = get();
     if (state.rewardFlags.dailyRewardGranted) return false;
@@ -158,10 +193,21 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     return true;
   },
 
+  recordPractice: () => {
+    const state = get();
+    const count = state.practiceCount ?? 0;
+    if (state.status !== 'active' || count >= ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp) return false;
+    const next = { ...state, practiceCount: count + 1 };
+    persist(next);
+    set(next);
+    return true;
+  },
+
   completePeriod: () => {
     const state = get();
     if (state.status !== 'active') return;
-    const next = { ...state, status: 'completed' as const };
+    const result = calculatePeriodResult(state);
+    const next = { ...state, status: 'completed' as const, result };
     persist(next);
     set(next);
   },

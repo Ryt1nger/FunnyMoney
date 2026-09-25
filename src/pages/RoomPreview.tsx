@@ -3,6 +3,8 @@ import coinIcon from '../assets/icons/coin.png';
 import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '../components/icons';
 import type { RoomProduct } from '../data/shopData';
 import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
+import { useEconomyStore } from '../features/economy/economyStore';
+import { usePeriodStore } from '../features/economy/periodStore';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
@@ -70,9 +72,12 @@ export default function RoomPreview({
   });
 
   const room = rooms[index];
+  const savings = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
+  const periodStatus = usePeriodStore((s) => s.status);
   const owned = ownedRoomIds.includes(room.id);
   const active = activeRoomId === room.id;
-  const enough = coins >= room.price;
+  const usesSavings = periodStatus === 'active';
+  const enough = (usesSavings ? savings : coins) >= room.price;
   // Подтверждение — только для реальной покупки новой комнаты, а не для
   // "Установить" уже купленную (это не трата монет, спрашивать не о чем).
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -116,7 +121,7 @@ export default function RoomPreview({
           }}
         >
           <img src={coinIcon} alt="" className="h-[22px] w-[22px]" />
-          <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
+          <span className="text-[15px] font-bold leading-none text-white">{usesSavings ? savings : coins}</span>
         </div>
       </div>
 
@@ -177,6 +182,7 @@ export default function RoomPreview({
               </div>
             )}
           </div>
+          {!owned && usesSavings && <div className="mt-1 text-[10px] font-bold text-[#159456]">Покупка цели — из копилки</div>}
 
           <button
             onClick={() => {
@@ -213,7 +219,7 @@ export default function RoomPreview({
       </div>
 
       <ConfirmPurchaseModal
-        item={confirmOpen ? { name: room.name, image: room.background, price: room.price } : null}
+        item={confirmOpen ? { name: room.name, image: room.background, price: room.price, source: usesSavings ? 'savings' : 'wallet', categoryLabel: 'Цель' } : null}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => {
           setConfirmOpen(false);

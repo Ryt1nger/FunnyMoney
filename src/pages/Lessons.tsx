@@ -7,6 +7,10 @@ import { IconArrowLeft, IconPlus, IconStar } from '../components/icons';
 import bookHero from '../assets/icons/book-3d.png';
 import LessonOne from './LessonOne';
 import LessonTwo from './LessonTwo';
+import { useEconomyStore } from '../features/economy/economyStore';
+import { usePeriodStore } from '../features/economy/periodStore';
+import { usePetStore } from '../features/pet/petStore';
+import { ECONOMY_RULES } from '../core/economy';
 
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
@@ -43,11 +47,20 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
   const list = lessonCards;
 
+  function rewardPractice() {
+    if (!usePeriodStore.getState().recordPractice()) return;
+    useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.practiceRewardCoins, 'Награда за практику', {
+      periodId: usePeriodStore.getState().id,
+      category: 'reward',
+    });
+    usePetStore.getState().addXp(ECONOMY_RULES.practiceRewardXp);
+  }
+
   if (activeLesson === 'what-is-money') {
-    return <LessonOne onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
+    return <LessonOne onPracticeComplete={rewardPractice} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
   if (activeLesson === 'needs-vs-wants') {
-    return <LessonTwo onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
+    return <LessonTwo onPracticeComplete={rewardPractice} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
 
   return (
@@ -196,13 +209,13 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                   <span className="flex items-center gap-1">
                     <img src={coinIcon} alt="" className="h-4 w-4" />
                     <span className="text-[11px] font-bold" style={{ color: '#4a4560' }}>
-                      +{lesson.coins}
+                      +{ECONOMY_RULES.practiceRewardCoins} × 5
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
                     <img src={xpIcon} alt="" className="h-4 w-4" />
                     <span className="text-[11px] font-bold" style={{ color: '#4a4560' }}>
-                      +{lesson.xp} XP
+                      +{ECONOMY_RULES.practiceRewardXp} XP × 5
                     </span>
                   </span>
                 </div>

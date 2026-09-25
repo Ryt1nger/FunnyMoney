@@ -29,6 +29,7 @@ import Settings from './Settings';
 import Day from './Day';
 import ProgressPage from './Progress';
 import PiggyBank from './PiggyBank';
+import Period from './Period';
 import TutorialOverlay from '../components/TutorialOverlay';
 import { usePetStore } from '../features/pet/petStore';
 import { useEconomyStore } from '../features/economy/economyStore';
@@ -92,7 +93,7 @@ function markLessonVisited() {
   void storage.set('last_lesson_visit_at', String(Date.now()));
 }
 
-type SheetId = TabId | 'inventory' | 'wardrobe' | 'settings' | 'progress' | 'kitchen' | 'piggy';
+type SheetId = TabId | 'inventory' | 'wardrobe' | 'settings' | 'progress' | 'kitchen' | 'piggy' | 'period';
 
 export default function Home() {
   const pet = usePetStore((s) => s.pet);
@@ -433,6 +434,14 @@ export default function Home() {
               <IconSettingsGear className="h-6 w-6" />
             </button>
             <button
+              onClick={() => setSheet('period')}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{ background: 'rgba(26,20,40,0.30)', borderColor: 'rgba(255,255,255,0.30)', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
+              aria-label="Игровой период"
+            >
+              <img src={coinIcon} alt="" className="h-6 w-6 object-contain" />
+            </button>
+            <button
               data-tour="home-inventory"
               onClick={() => setSheet('inventory')}
               className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
@@ -731,6 +740,8 @@ export default function Home() {
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={closeSheet}
           />
+        ) : sheet === 'period' ? (
+          <Period bottomInset={navHeight} onClose={closeSheet} />
         ) : sheet === 'kitchen' ? (
           <Kitchen
             bottomInset={navHeight}

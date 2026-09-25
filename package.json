@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test:economy": "node --experimental-strip-types tools/test-economy.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

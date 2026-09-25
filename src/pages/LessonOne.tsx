@@ -27,7 +27,7 @@ import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgrou
 import { usePointerDrag } from '../hooks/usePointerDrag';
 
 type Phase = 'video' | 'practice';
-interface Props { onBack: () => void }
+interface Props { onBack: () => void; onPracticeComplete?: () => void }
 
 // Пять сцен практики — один и тот же интерфейсный каркас (шапка с прогрессом,
 // кнопка "книга", нижняя панель) поверх разных фоновых иллюстраций (те же 4
@@ -154,7 +154,7 @@ function ExitConfirm({ onStay, onExit }: { onStay: () => void; onExit: () => voi
 /** Первый урок: видео и чистые фоновые сцены практики.
  * Интерфейс заданий будет добавляться отдельным слоем поверх этого каркаса.
  */
-export default function LessonOne({ onBack }: Props) {
+export default function LessonOne({ onBack, onPracticeComplete }: Props) {
   const [phase, setPhase] = useState<Phase>('video');
   const [playing, setPlaying] = useState(false);
   const [watched, setWatched] = useState(false);
@@ -336,6 +336,7 @@ export default function LessonOne({ onBack }: Props) {
   function handleCheck() {
     if (checkState === 'correct') return;
     if (isSceneCorrect()) {
+      onPracticeComplete?.();
       setHintText(null);
       setCheckState('correct');
       setCheckPulse((value) => value + 1);

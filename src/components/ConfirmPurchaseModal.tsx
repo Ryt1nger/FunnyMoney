@@ -15,7 +15,7 @@ const BACKDROP_BLUR_PX = 2;
 
 interface Props {
   /** null — окно закрыто; объект — что подтверждаем купить */
-  item: { name: string; image: string; price: number } | null;
+  item: { name: string; image: string; price: number; source?: 'wallet' | 'savings'; categoryLabel?: string } | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -115,6 +115,13 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
           <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
             {lastItem.name}
           </p>
+
+          {lastItem.categoryLabel && (
+            <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-[#5c62c9]">
+              <span className="rounded-full bg-[#e9e7ff] px-2.5 py-1">{lastItem.categoryLabel}</span>
+              {lastItem.source === 'savings' && <span className="rounded-full bg-[#e8f8ed] px-2.5 py-1 text-[#149456]">из копилки</span>}
+            </div>
+          )}
 
           <div className="mt-4">
             <button

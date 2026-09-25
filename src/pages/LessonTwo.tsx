@@ -29,7 +29,7 @@ import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgrou
 import { usePointerDrag } from '../hooks/usePointerDrag';
 
 type Phase = 'video' | 'practice';
-interface Props { onBack: () => void }
+interface Props { onBack: () => void; onPracticeComplete?: () => void }
 
 // Второй урок использует тот же интерфейсный каркас, что и первый (видео,
 // шапка с прогрессом, кнопка "книга", нижняя панель "Подсказка/Проверить").
@@ -195,7 +195,7 @@ function ExitConfirm({ onStay, onExit }: { onStay: () => void; onExit: () => voi
 /** Второй урок: видео и практика. Шаблон интерфейса общий с уроком 1 —
  * меняется только содержимое секции практики под конкретное упражнение.
  */
-export default function LessonTwo({ onBack }: Props) {
+export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
   const [phase, setPhase] = useState<Phase>('video');
   const [playing, setPlaying] = useState(false);
   const [watched, setWatched] = useState(false);
@@ -416,6 +416,7 @@ export default function LessonTwo({ onBack }: Props) {
   function handleCheck() {
     if (checkState === 'correct') return;
     if (isSceneCorrect()) {
+      onPracticeComplete?.();
       setHintText(null);
       setCheckState('correct');
       setCheckPulse((value) => value + 1);
