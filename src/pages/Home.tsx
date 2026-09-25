@@ -37,6 +37,7 @@ import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { useDevNavStore } from '../features/dev/devNavStore';
+import { usePeriodStore } from '../features/economy/periodStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
 import { storage } from '../services/storage';
@@ -127,6 +128,7 @@ export default function Home() {
 
   const [tab, setTab] = useState<TabId>('home');
   const [sheet, setSheet] = useState<SheetId | null>(null);
+  const [piggyPrefillAmount, setPiggyPrefillAmount] = useState<number | null>(null);
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
   // уроки, либо на задания дня.
@@ -596,7 +598,7 @@ export default function Home() {
                 тенью и светлым бликом сверху: это даёт объём, как в референсе */}
             <button
               data-tour="home-piggy"
-              onClick={() => setSheet('piggy')}
+              onClick={() => { setPiggyPrefillAmount(null); setSheet('piggy'); }}
               className="flex min-w-0 items-center gap-2 rounded-[22px] px-2.5 py-2.5"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
@@ -631,7 +633,7 @@ export default function Home() {
 
             <button
               type="button"
-              onClick={() => setSheet('piggy')}
+              onClick={() => { setPiggyPrefillAmount(null); setSheet('piggy'); }}
               className="flex min-w-0 cursor-pointer items-center gap-2 rounded-[22px] px-2.5 py-2.5 transition active:scale-[0.98]"
               style={{
                 background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
@@ -716,7 +718,11 @@ export default function Home() {
         ) : sheet === 'day' ? (
           // Вкладка нижней навигации "day" теперь ведёт в раздел "Периоды" —
           // сам "День" (задания) переехал на отдельную иконку, см. sheet === 'period' ниже.
-          <Period bottomInset={navHeight} onClose={closeSheet} />
+          <Period
+            bottomInset={navHeight}
+            onClose={closeSheet}
+            onOpenPiggy={(amount) => { setPiggyPrefillAmount(amount); setSheet('piggy'); }}
+          />
         ) : sheet === 'progress' ? (
           <ProgressPage
             bottomInset={navHeight}
@@ -732,6 +738,8 @@ export default function Home() {
             coins={coins}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             onClose={closeSheet}
+            initialDepositAmount={piggyPrefillAmount}
+            onSavingsPlanChange={(amount) => usePeriodStore.getState().updateSavingsPlan(amount)}
           />
         ) : sheet === 'period' ? (
           // Раздел "День" (задания дня) — раньше открывался вкладкой нижней

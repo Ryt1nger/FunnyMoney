@@ -1,6 +1,7 @@
 import type { Scenario, ScenarioOption, ScenarioResult } from '../../types';
 import { usePetStore } from '../pet/petStore';
 import { useEconomyStore } from '../economy/economyStore';
+import { usePeriodStore } from '../economy/periodStore';
 
 // Чистая функция: применяет последствия выбора к сторам питомца/экономики
 // и возвращает результат для UI (что показать ребёнку и что скажет учитель).
@@ -9,7 +10,11 @@ export function resolveScenarioChoice(scenario: Scenario, option: ScenarioOption
   const { applyCoinsDelta, applyWealthDelta } = useEconomyStore.getState();
 
   if (option.effects.coins) {
-    applyCoinsDelta(option.effects.coins, `${scenario.title}: ${option.label}`);
+    const period = usePeriodStore.getState();
+    applyCoinsDelta(option.effects.coins, `${scenario.title}: ${option.label}`, {
+      periodId: period.status === 'completed' ? undefined : period.id,
+      category: 'reward',
+    });
   }
   if (option.effects.wealth) {
     applyWealthDelta(option.effects.wealth);

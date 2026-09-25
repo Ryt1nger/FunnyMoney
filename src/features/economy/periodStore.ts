@@ -6,10 +6,12 @@ import {
   type PeriodActuals,
   type PeriodRewardFlags,
   type PeriodState,
+  type PeriodSummary,
   validateBudgetPlan,
   calculatePeriodResult,
 } from '../../core/economy';
 import { storage } from '../../services/storage';
+import { useLessonProgressStore } from '../progress/lessonProgressStore';
 
 const STORAGE_KEY = 'economy_period';
 
@@ -23,6 +25,7 @@ function emptyFlags(): PeriodRewardFlags {
     savingsDepositGranted: false,
     cashbackGranted: false,
     dailyRewardGranted: false,
+    periodRewardGranted: false,
   };
 }
 
@@ -41,6 +44,7 @@ export function createInitialPeriod(walletBalance = 0, savingsBalance = 0): Peri
     practiceCount: 0,
     rewardFlags: emptyFlags(),
     status: 'planning',
+    history: [],
   };
 }
 
@@ -59,6 +63,20 @@ function isValidPeriod(value: unknown): value is PeriodState {
   );
 }
 
+function summarizePeriod(state: PeriodState): PeriodSummary {
+  return {
+    id: state.id,
+    income: state.income,
+    plan: state.plan,
+    actual: state.actual,
+    startingWalletBalance: state.startingWalletBalance ?? state.walletBalance,
+    endingWalletBalance: state.walletBalance,
+    startingSavingsBalance: state.startingSavingsBalance ?? state.savingsBalance,
+    endingSavingsBalance: state.savingsBalance,
+    result: state.result,
+  };
+}
+
 function persist(period: PeriodState): void {
   void storage.set(STORAGE_KEY, period);
 }
@@ -67,13 +85,14 @@ interface PeriodStore extends PeriodState {
   hydrate: () => void;
   ensureCurrentPeriod: (walletBalance: number, savingsBalance: number) => void;
   confirmPlan: (plan: BudgetPlan) => boolean;
+  updateSavingsPlan: (amount: number) => boolean;
   recordPurchase: (product: EconomyProductMeta) => boolean;
-  recordGoalPurchase: (product: EconomyProductMeta) => boolean;
   recordSavingsDeposit: (amount: number) => boolean;
   markCashbackGranted: () => boolean;
   markDailyRewardGranted: () => boolean;
+  markPeriodRewardGranted: () => boolean;
   recordPractice: () => boolean;
-  completePeriod: () => void;
+  completePeriod: () => boolean;
   advancePeriod: (walletBalance: number, savingsBalance: number) => void;
   /** Только для дев-панели: принудительно переключить на период id, сохранив
    *  текущие балансы, но сбросив план/факт/флаги этого периода набело. */
@@ -130,10 +149,22 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     return true;
   },
 
+  updateSavingsPlan: (amount) => {
+    const state = get();
+    if (state.status !== 'active' || !state.plan || state.actual.savings > 0) return false;
+    if (!Number.isInteger(amount) || amount <= 0) return false;
+    const nextPlan = { ...state.plan, savings: amount };
+    if (!validateBudgetPlan(state.income, nextPlan).valid) return false;
+    const next = { ...state, plan: nextPlan };
+    persist(next);
+    set(next);
+    return true;
+  },
+
   recordPurchase: (product) => {
     const state = get();
     if (state.status !== 'active' || !state.plan) return false;
-    if (product.savingsOnly || product.expenseType === 'goal') return false;
+    if (product.savingsOnly) return false;
     if (product.price <= 0 || state.walletBalance < product.price) return false;
     const actual: PeriodActuals = {
       ...state.actual,
@@ -144,19 +175,6 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
       ...state,
       actual,
       walletBalance: state.walletBalance - product.price,
-    };
-    persist(next);
-    set(next);
-    return true;
-  },
-
-  recordGoalPurchase: (product) => {
-    const state = get();
-    if (state.status !== 'active' || !product.savingsOnly || product.expenseType !== 'goal') return false;
-    if (product.price <= 0 || state.savingsBalance < product.price) return false;
-    const next: PeriodState = {
-      ...state,
-      savingsBalance: state.savingsBalance - product.price,
     };
     persist(next);
     set(next);
@@ -203,10 +221,19 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     return true;
   },
 
+  markPeriodRewardGranted: () => {
+    const state = get();
+    if (state.rewardFlags.periodRewardGranted) return false;
+    const next = { ...state, rewardFlags: { ...state.rewardFlags, periodRewardGranted: true } };
+    persist(next);
+    set(next);
+    return true;
+  },
+
   recordPractice: () => {
     const state = get();
     const count = state.practiceCount ?? 0;
-    if (state.status !== 'active' || count >= ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp) return false;
+    if (state.status === 'completed' || count >= ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp) return false;
     const next = { ...state, practiceCount: count + 1 };
     persist(next);
     set(next);
@@ -215,11 +242,18 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
 
   completePeriod: () => {
     const state = get();
-    if (state.status !== 'active') return;
+    if (state.status !== 'active') return false;
+    // Для первого тестового периода обязательны две уже реализованные темы.
+    // Второй и третий пока не блокируем несуществующим контентом уроков.
+    if (state.id === 1) {
+      const lessons = useLessonProgressStore.getState();
+      if (!lessons.isCompleted('what-is-money') || !lessons.isCompleted('needs-vs-wants')) return false;
+    }
     const result = calculatePeriodResult(state);
     const next = { ...state, status: 'completed' as const, result };
     persist(next);
     set(next);
+    return true;
   },
 
   advancePeriod: (walletBalance, savingsBalance) => {
@@ -228,6 +262,7 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     const next = {
       ...createInitialPeriod(walletBalance, savingsBalance),
       id: state.id + 1,
+      history: [...(state.history ?? []), summarizePeriod(state)],
     };
     persist(next);
     set(next);
@@ -238,6 +273,7 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     const next = {
       ...createInitialPeriod(state.walletBalance, state.savingsBalance),
       id,
+      history: state.history ?? [],
     };
     persist(next);
     set(next);

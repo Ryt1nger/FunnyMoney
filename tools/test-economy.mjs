@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import {
-  ECONOMY_RULES,
   applyPurchase,
   calculatePeriodResult,
   canPurchase,
@@ -17,9 +16,15 @@ const goal = { id: 'goal', price: 300, expenseType: 'goal', mealType: 'none', sa
 assert.equal(canPurchase(meal, 120, 0), true);
 assert.equal(canPurchase(goal, 200, 300), false);
 assert.equal(applyPurchase(goal, 200, 300), null);
+assert.equal(canPurchase(goal, 300, 0), true);
+assert.deepEqual(applyPurchase(goal, 300, 0), {
+  walletBalance: 0,
+  savingsBalance: 0,
+  actual: { mandatory: 0, optional: 0, savings: 0 },
+});
 
 const result = calculatePeriodResult({
-  income: ECONOMY_RULES.periodIncome,
+  income: 200,
   plan: { mandatory: 120, optional: 30, savings: 50 },
   actual: { mandatory: 120, optional: 30, savings: 100 },
   walletBalance: 0,

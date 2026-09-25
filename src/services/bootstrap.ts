@@ -3,6 +3,7 @@ import { usePetStore } from '../features/pet/petStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { usePeriodStore } from '../features/economy/periodStore';
+import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
 import { storage } from './storage';
 import { ECONOMY_RULES } from '../core/economy';
 
@@ -26,7 +27,7 @@ function recoverFromResetBugOnce() {
   if (!looksBroken) return;
 
   usePetStore.getState().applyDelta({ health: 80, happiness: 80 });
-  useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.periodIncome, 'Восстановление после сбоя');
+  useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.recoveryCoins, 'Восстановление после сбоя');
   useEconomyStore.getState().applyWealthDelta(80);
 }
 
@@ -48,6 +49,7 @@ export async function bootstrapGame(): Promise<void> {
   usePetStore.getState().hydrate();
   useInventoryStore.getState().hydrate();
   useDayProgressStore.getState().hydrate();
+  useLessonProgressStore.getState().hydrate();
   usePeriodStore.getState().hydrate();
   recoverFromResetBugOnce();
   const economy = useEconomyStore.getState();

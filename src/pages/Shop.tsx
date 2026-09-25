@@ -20,7 +20,7 @@ import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { purchaseProduct } from '../features/economy/purchase';
 import { toEconomyProductMeta } from '../features/economy/purchase';
 import { useEconomyStore } from '../features/economy/economyStore';
-import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
+import ConfirmPurchaseModal, { type PurchaseEffect } from '../components/ConfirmPurchaseModal';
 
 const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
   { id: 'food', label: 'Еда', icon: catFood },
@@ -38,6 +38,33 @@ const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const BTN_SHADOW =
   'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)';
 
+/** Короткое текстовое описание товара для модалки подтверждения — без цифр,
+ * сами цифры (влияние на метрики) выносятся отдельно в buildPurchaseEffects. */
+function describeProduct(product: ShopProduct): string {
+  if (product.category === 'food') {
+    const meta = toEconomyProductMeta(product);
+    return meta.mealType === 'fullMeal' ? 'Сытный обед для питомца.' : 'Лёгкий перекус для питомца.';
+  }
+  if (product.category === 'toys') return 'Игрушка, с которой можно играть.';
+  if (product.category === 'clothes') return 'Обновка в гардероб питомца.';
+  return 'Украшение для дома питомца.';
+}
+
+/** Влияние покупки на три метрики игры — Здоровье, Счастье и Богатство.
+ * Показываем все три всегда (в игре нет метрики "сытость" — только эти три):
+ * Здоровье/Счастье берём из эффектов товара (0, если товар их не даёт),
+ * Богатство — всегда отрицательное, в процентах от текущего доступного
+ * баланса (сколько своих денег ребёнок сейчас потратит). */
+function buildPurchaseEffects(product: ShopProduct, availableCoins: number): PurchaseEffect[] {
+  const meta = toEconomyProductMeta(product);
+  const wealthPercent = -Math.round((product.price / Math.max(1, availableCoins)) * 100);
+  return [
+    { label: 'Здоровье', value: meta.satietyEffect ?? 0, icon: '❤️', color: '#f43f5e' },
+    { label: 'Счастье', value: meta.moodEffect ?? 0, icon: '😊', color: '#f59e0b' },
+    { label: 'Богатство', value: wealthPercent, icon: '💰', color: '#22c55e', suffix: '%' },
+  ];
+}
+
 interface Props {
   /** высота нижней навигации: содержимое не должно прятаться под баром */
   bottomInset?: number;
@@ -48,8 +75,8 @@ interface Props {
   onRoomSelect: (room: RoomProduct) => void;
   /** плюсик у баланса — то же окно "как заработать монеты", что и на главной */
   onOpenEarnModal?: () => void;
-  /** родительский контроль (родительский кабинет): если выключено — покупки
-   * (кроме еды, она и так без подтверждения) проходят сразу, без окна "точно купить?" */
+  /** родительский контроль: если выключено — покупки проходят сразу, без окна
+   * подтверждения. По умолчанию подтверждение действует для всего каталога. */
   confirmationEnabled?: boolean;
   /** Открыт корзинкой с экрана кухни — показываем только «Еду» и кухонный
    *  интерьер (без игрушек/одежды/игровой комнаты). Из нижнего меню магазин
@@ -79,8 +106,7 @@ export default function Shop({
   const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   const products = category === 'interior' ? [] : productsByCategory(category);
   const interiorRooms = roomsBySection(kitchenOnly ? 'kitchen' : interiorSection);
-  // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
-  // при покупке чего угодно кроме еды"). Еда покупается сразу, без лишнего клика.
+  // Подтверждение покупки включено для всего каталога, включая еду.
   const [confirmProduct, setConfirmProduct] = useState<ShopProduct | null>(null);
   const [shortfallProduct, setShortfallProduct] = useState<ShopProduct | null>(null);
 
@@ -98,10 +124,9 @@ export default function Shop({
       else onOpenEarnModal?.();
       return;
     }
-    // Еда — всегда без подтверждения (её и так покупают часто и по мелочи).
-    // Остальное — подтверждение по умолчанию, но родитель может отключить
-    // его в родительском кабинете (confirmationEnabled).
-    if (product.category === 'food' || !confirmationEnabled) {
+    // Любая покупка, включая еду, проходит подтверждение. Отключить его можно
+    // только явной настройкой родительского режима.
+    if (!confirmationEnabled) {
       handleBuy(product);
     } else {
       setConfirmProduct(product);
@@ -312,9 +337,13 @@ export default function Shop({
               const canAfford = coins >= p.price;
               const badge = meta.expenseType === 'mandatory' ? 'Обязательное' : 'Желание';
               return (
-                <div
+                <button
                   key={p.id}
-                  className="relative flex flex-col rounded-[18px] border bg-white/85 p-2 shadow-sm"
+                  onClick={() => {
+                    if (!owned) requestBuy(p);
+                  }}
+                  disabled={owned}
+                  className="relative flex flex-col rounded-[18px] border bg-white/85 p-2 text-left shadow-sm transition active:scale-[0.98] disabled:active:scale-100"
                   style={{ borderColor: '#f0e2cb' }}
                 >
                   <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
@@ -341,10 +370,8 @@ export default function Shop({
                       {p.price}
                     </span>
                   </div>
-                  <button
-                    onClick={() => requestBuy(p)}
-                    disabled={owned}
-                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-full py-[5px] text-[11px] font-bold text-white transition active:translate-y-[1px] active:scale-[0.98] disabled:active:translate-y-0 disabled:active:scale-100"
+                  <span
+                    className="mt-2 flex w-full items-center justify-center gap-1 rounded-full py-[5px] text-[11px] font-bold text-white"
                     style={{
                       background: owned ? '#9bd6a8' : canAfford ? VIOLET : '#c9c2d8',
                       boxShadow: owned || !canAfford ? undefined : BTN_SHADOW,
@@ -357,8 +384,8 @@ export default function Shop({
                     ) : (
                       'Купить'
                     )}
-                  </button>
-                </div>
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -372,6 +399,8 @@ export default function Shop({
           price: confirmProduct.price,
           source: 'wallet',
           categoryLabel: toEconomyProductMeta(confirmProduct).expenseType === 'mandatory' ? 'Обязательное' : 'Желание',
+          description: describeProduct(confirmProduct),
+          effects: buildPurchaseEffects(confirmProduct, coins),
         } : null}
         onCancel={() => setConfirmProduct(null)}
         onConfirm={() => {
@@ -395,7 +424,7 @@ export default function Shop({
                   const amount = product.price - coins;
                   if (!withdrawFromSavings(amount)) return;
                   setShortfallProduct(null);
-                  if (product.category === 'food' || !confirmationEnabled) handleBuy(product);
+                  if (!confirmationEnabled) handleBuy(product);
                   else setConfirmProduct(product);
                 }}
                 className="h-11 rounded-[14px] text-[12px] font-extrabold text-white"

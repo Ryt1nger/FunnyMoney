@@ -15,7 +15,6 @@ interface EconomyStore extends EconomyState {
   setSavingsGoal: (goal: SavingsGoal) => void;
   depositToSavings: (amount: number) => boolean;
   withdrawFromSavings: (amount: number) => boolean;
-  spendFromSavings: (amount: number, reason: string) => boolean;
 }
 
 const STORAGE_KEY = 'economy';
@@ -90,7 +89,7 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     persist(next);
     set(next);
     const period = usePeriodStore.getState();
-    if (period.status === 'active') {
+    if (period.status !== 'completed') {
       period.ensureCurrentPeriod(nextCoins, next.savingsBalance ?? next.totalSaved);
     }
   },
@@ -169,21 +168,4 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     return true;
   },
 
-  spendFromSavings: (amount, reason) => {
-    const value = Math.floor(amount);
-    const state = get();
-    const balance = state.savingsBalance ?? state.totalSaved;
-    if (!Number.isFinite(value) || value <= 0 || balance < value) return false;
-    const next: EconomyState = {
-      ...state,
-      savingsBalance: balance - value,
-      transactions: [...state.transactions, {
-        id: crypto.randomUUID(), timestamp: Date.now(), amount: -value, reason,
-        category: 'goal',
-      }],
-    };
-    persist(next);
-    set(next);
-    return true;
-  },
 }));

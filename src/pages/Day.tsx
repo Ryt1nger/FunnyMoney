@@ -24,6 +24,7 @@ import { dayTasks, type DayTask, type DayTaskIcon } from '../data/dayData';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePetStore } from '../features/pet/petStore';
 import { useDayProgressStore, STREAK_MILESTONE_STEP } from '../features/progress/dayProgressStore';
+import { usePeriodStore } from '../features/economy/periodStore';
 
 // Разовая награда за серию дней — тестовое значение баланса, до появления
 // полноценной системы прогресса по серии (Game Core: progress).
@@ -108,7 +109,11 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
 
   function claimStreakBonus() {
     if (streakClaimed) return;
-    applyCoinsDelta(STREAK_BONUS_COINS, 'Бонус за серию дней');
+    const period = usePeriodStore.getState();
+    applyCoinsDelta(STREAK_BONUS_COINS, 'Бонус за серию дней', {
+      periodId: period.status === 'completed' ? undefined : period.id,
+      category: 'reward',
+    });
     claimStreakMilestone(streakDays);
   }
 
@@ -122,7 +127,11 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
       applyPetDelta({ health: task.rewardHeart, happiness: task.rewardSmile });
     }
     if (task.rewardCoins) {
-      applyCoinsDelta(task.rewardCoins, `Задание дня: ${task.title}`);
+      const period = usePeriodStore.getState();
+      applyCoinsDelta(task.rewardCoins, `Задание дня: ${task.title}`, {
+        periodId: period.status === 'completed' ? undefined : period.id,
+        category: 'reward',
+      });
     }
     // Раньше опыт нигде не накапливался (XP на экране "Прогресс" был
     // захардкожен) — теперь реально начисляется в petStore при каждой

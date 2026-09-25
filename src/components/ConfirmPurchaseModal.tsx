@@ -13,9 +13,30 @@ const TRANSITION_MS = 380;
 const EASE = 'cubic-bezier(0.25, 0.8, 0.25, 1)';
 const BACKDROP_BLUR_PX = 2;
 
+/** Одна строка влияния покупки на метрику питомца/семьи — Здоровье, Счастье
+ * или Богатство. value уже со знаком (+/-), suffix — единица (например, "%"
+ * для Богатства, которое считается в процентах от доступного баланса). */
+export interface PurchaseEffect {
+  label: string;
+  value: number;
+  icon: string;
+  color: string;
+  suffix?: string;
+}
+
 interface Props {
   /** null — окно закрыто; объект — что подтверждаем купить */
-  item: { name: string; image: string; price: number; source?: 'wallet' | 'savings'; categoryLabel?: string } | null;
+  item: {
+    name: string;
+    image: string;
+    price: number;
+    source?: 'wallet' | 'savings';
+    categoryLabel?: string;
+    /** Краткое текстовое описание товара, без цифр — сами цифры вынесены в effects. */
+    description?: string;
+    /** Влияние на метрики (Здоровье/Счастье/Богатство) — отдельно от описания. */
+    effects?: PurchaseEffect[];
+  } | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -120,6 +141,29 @@ export default function ConfirmPurchaseModal({ item, onCancel, onConfirm }: Prop
             <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-[#5c62c9]">
               <span className="rounded-full bg-[#e9e7ff] px-2.5 py-1">{lastItem.categoryLabel}</span>
               {lastItem.source === 'savings' && <span className="rounded-full bg-[#e8f8ed] px-2.5 py-1 text-[#149456]">из копилки</span>}
+            </div>
+          )}
+
+          {lastItem.description && (
+            <p className="mt-2.5 text-center text-[11.5px] font-semibold leading-snug" style={{ color: '#8a8593' }}>
+              {lastItem.description}
+            </p>
+          )}
+
+          {lastItem.effects && lastItem.effects.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+              {lastItem.effects.map((effect) => (
+                <span
+                  key={effect.label}
+                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold"
+                  style={{ background: `${effect.color}1f`, color: effect.color }}
+                >
+                  <span aria-hidden>{effect.icon}</span>
+                  {effect.value > 0 ? '+' : ''}
+                  {effect.value}
+                  {effect.suffix ?? ''} {effect.label}
+                </span>
+              ))}
             </div>
           )}
 

@@ -19,9 +19,16 @@ const tabs: { id: ShopCategoryId | 'rooms'; label: string; icon: string }[] = [
   { id: 'interior', label: 'Интерьер', icon: catInterior },
   { id: 'clothes', label: 'Одежда', icon: catClothes },
 ];
-interface Props { bottomInset?: number; coins: number; onClose: () => void; onOpenEarnModal?: () => void }
+interface Props {
+  bottomInset?: number;
+  coins: number;
+  onClose: () => void;
+  onOpenEarnModal?: () => void;
+  initialDepositAmount?: number | null;
+  onSavingsPlanChange?: (amount: number) => boolean;
+}
 
-export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
+export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepositAmount = null, onSavingsPlanChange }: Props) {
   const [entered, setEntered] = useState(false);
   const goal = useEconomyStore((s) => s.savingsGoal);
   const saved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
@@ -30,8 +37,8 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
   const depositToSavings = useEconomyStore((s) => s.depositToSavings);
   const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   const [choosing, setChoosing] = useState(false);
-  const [transferMode, setTransferMode] = useState<'deposit' | 'withdraw' | null>(null);
-  const [amount, setAmount] = useState('');
+  const [transferMode, setTransferMode] = useState<'deposit' | 'withdraw' | null>(() => initialDepositAmount ? 'deposit' : null);
+  const [amount, setAmount] = useState(() => initialDepositAmount ? String(initialDepositAmount) : '');
   const [transferError, setTransferError] = useState('');
   const [historyTab, setHistoryTab] = useState<'income' | 'expense'>('income');
   const [tab, setTab] = useState<ShopCategoryId | 'rooms'>('toys');
@@ -82,6 +89,10 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose }: Props) {
     const value = Number(amount.replace(',', '.'));
     if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) {
       setTransferError('Введи целое число монет');
+      return;
+    }
+    if (transferMode === 'deposit' && onSavingsPlanChange && !onSavingsPlanChange(value)) {
+      setTransferError('Эта сумма не помещается в план периода');
       return;
     }
     const ok = transferMode === 'deposit' ? depositToSavings(value) : withdrawFromSavings(value);

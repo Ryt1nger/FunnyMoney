@@ -7,7 +7,9 @@
  */
 
 export const ECONOMY_RULES = {
-  periodIncome: 200,
+  // Используется только аварийным восстановлением повреждённого профиля,
+  // не является доходом игрового периода.
+  recoveryCoins: 200,
   practiceRewardCoins: 20,
   practiceRewardXp: 10,
   maxPracticeRewardCoins: 100,
@@ -62,6 +64,7 @@ export interface PeriodRewardFlags {
   savingsDepositGranted: boolean;
   cashbackGranted: boolean;
   dailyRewardGranted: boolean;
+  periodRewardGranted: boolean;
 }
 
 export interface PeriodState {
@@ -78,6 +81,7 @@ export interface PeriodState {
   rewardFlags: PeriodRewardFlags;
   status: 'planning' | 'active' | 'completed';
   result?: PeriodResult;
+  history?: PeriodSummary[];
 }
 
 export interface PeriodResult {
@@ -90,6 +94,20 @@ export interface PeriodResult {
   satietyDelta: number;
   moodDelta: number;
   nextStep: 'plan_next_period' | 'keep_saving' | 'choose_optional_purchase';
+}
+
+/** Снимок завершённого периода. События намеренно не входят в историю:
+ * их отдельная модель появится после утверждения содержания. */
+export interface PeriodSummary {
+  id: number;
+  income: number;
+  plan: BudgetPlan | null;
+  actual: PeriodActuals;
+  startingWalletBalance: number;
+  endingWalletBalance: number;
+  startingSavingsBalance: number;
+  endingSavingsBalance: number;
+  result?: PeriodResult;
 }
 
 export function validateBudgetPlan(income: number, plan: BudgetPlan): BudgetValidation {
