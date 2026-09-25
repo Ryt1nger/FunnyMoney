@@ -25,7 +25,9 @@ export function toEconomyProductMeta(product: ShopProduct) {
     mealType: isFullMeal ? 'fullMeal' as const : isFood ? 'snack' as const : 'none' as const,
     satietyEffect: product.effects?.health ?? 0,
     moodEffect: product.effects?.happiness ?? 0,
-    savingsOnly: isInterior,
+    // Даже цель оплачивается из кошелька. Если кошелёк пуст, экран покупки
+    // должен отдельно предложить вывести недостающую сумму из копилки.
+    savingsOnly: false,
     periodEligible: true,
   };
 }
@@ -58,19 +60,14 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
   const meta = toEconomyProductMeta(product);
   const period = usePeriodStore.getState();
   if (period.status === 'active') {
-    if (meta.savingsOnly) {
-      const savings = economy.savingsBalance ?? economy.totalSaved;
-      if (savings !== period.savingsBalance || savings < product.price || !period.recordGoalPurchase(meta) || !economy.spendFromSavings(product.price, `Цель: ${product.name}`)) {
-        return 'insufficient_funds';
-      }
-    } else if (economy.coins !== period.walletBalance || economy.coins < product.price || !period.recordPurchase(meta)) {
+    if (economy.coins !== period.walletBalance || economy.coins < product.price || !period.recordPurchase(meta)) {
       return 'insufficient_funds';
     }
   } else if (economy.coins < product.price) {
     return 'insufficient_funds';
   }
 
-  if (!meta.savingsOnly) economy.applyCoinsDelta(-product.price, `Покупка: ${product.name}`, {
+  economy.applyCoinsDelta(-product.price, `Покупка: ${product.name}`, {
     periodId: period.status === 'active' ? period.id : undefined,
     category: meta.expenseType === 'mandatory' ? 'mandatory' : 'optional',
   });
@@ -111,8 +108,7 @@ export function purchaseRoom(room: RoomProduct): PurchaseResult {
   const period = usePeriodStore.getState();
   if (period.status === 'active') {
     const meta = { id: room.id, price: room.price, expenseType: 'goal' as const, mealType: 'none' as const, satietyEffect: 0, moodEffect: 0, savingsOnly: true, periodEligible: true };
-    const savings = economy.savingsBalance ?? economy.totalSaved;
-    if (savings !== period.savingsBalance || savings < room.price || !period.recordGoalPurchase(meta) || !economy.spendFromSavings(room.price, `Цель: ${room.name}`)) {
+    if (economy.coins !== period.walletBalance || economy.coins < room.price || !period.recordPurchase({ ...meta, savingsOnly: false })) {
       return 'insufficient_funds';
     }
   } else if (room.price > 0) {

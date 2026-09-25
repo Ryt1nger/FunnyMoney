@@ -15,12 +15,8 @@ assert.equal(validateBudgetPlan(200, { mandatory: 120, optional: 0, savings: 80 
 const meal = { id: 'meal', price: 120, expenseType: 'mandatory', mealType: 'fullMeal', satietyEffect: 20, moodEffect: 0, savingsOnly: false, periodEligible: true };
 const goal = { id: 'goal', price: 300, expenseType: 'goal', mealType: 'none', satietyEffect: 0, moodEffect: 10, savingsOnly: true, periodEligible: true };
 assert.equal(canPurchase(meal, 120, 0), true);
-assert.equal(canPurchase(goal, 200, 300), true);
-assert.deepEqual(applyPurchase(goal, 200, 300), {
-  walletBalance: 200,
-  savingsBalance: 0,
-  actual: { mandatory: 0, optional: 0, savings: 0 },
-});
+assert.equal(canPurchase(goal, 200, 300), false);
+assert.equal(applyPurchase(goal, 200, 300), null);
 
 const result = calculatePeriodResult({
   income: ECONOMY_RULES.periodIncome,

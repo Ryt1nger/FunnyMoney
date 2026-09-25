@@ -11,8 +11,10 @@ interface Props {
   onClose: () => void;
   /** Открыть раздел уроков */
   onOpenLessons: () => void;
-  /** Открыть задания дня (экран "День") */
-  onOpenTasks: () => void;
+  /** Открыть задания дня (экран "День"). "День" временно отключён —
+   *  пропс необязательный, и пока его не передают, кнопка "Задания" не
+   *  показывается вовсе (см. вызов в Home.tsx). */
+  onOpenTasks?: () => void;
 }
 
 // Длительность анимации появления/скрытия — единая константа, чтобы плавный
@@ -113,7 +115,7 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenTas
             Как заработать монеты?
           </h2>
           <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-            Проходи уроки или выполняй задания дня — за них тоже дают монеты
+            {onOpenTasks ? 'Проходи уроки или выполняй задания дня — за них тоже дают монеты' : 'Проходи уроки — за них дают монеты и звёздочки опыта'}
           </p>
 
           <div className="mt-4 flex flex-col gap-2.5">
@@ -129,23 +131,25 @@ export default function EarnCoinsModal({ open, onClose, onOpenLessons, onOpenTas
               <IconChevronRight className="ml-auto h-4 w-4 text-white/70" />
             </button>
 
-            <button
-              onClick={onOpenTasks}
-              className="flex items-center gap-3 rounded-[18px] px-3.5 py-3 text-left transition active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
-                boxShadow:
-                  'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 3px rgba(150,105,40,0.18), 0 4px 10px rgba(150,105,40,0.16)',
-              }}
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/55">
-                <IconGift className="h-5 w-5" />
-              </span>
-              <span className="text-[14px] font-bold" style={{ color: '#7d6034' }}>
-                Задания
-              </span>
-              <IconChevronRight className="ml-auto h-4 w-4" style={{ color: '#c2a876' }} />
-            </button>
+            {onOpenTasks && (
+              <button
+                onClick={onOpenTasks}
+                className="flex items-center gap-3 rounded-[18px] px-3.5 py-3 text-left transition active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
+                  boxShadow:
+                    'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 3px rgba(150,105,40,0.18), 0 4px 10px rgba(150,105,40,0.16)',
+                }}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/55">
+                  <IconGift className="h-5 w-5" />
+                </span>
+                <span className="text-[14px] font-bold" style={{ color: '#7d6034' }}>
+                  Задания
+                </span>
+                <IconChevronRight className="ml-auto h-4 w-4" style={{ color: '#c2a876' }} />
+              </button>
+            )}
           </div>
         </div>
       </div>

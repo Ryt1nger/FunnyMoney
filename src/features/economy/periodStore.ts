@@ -26,10 +26,12 @@ function emptyFlags(): PeriodRewardFlags {
   };
 }
 
-export function createInitialPeriod(walletBalance: number = ECONOMY_RULES.periodIncome, savingsBalance: number = 0): PeriodState {
+export function createInitialPeriod(walletBalance = 0, savingsBalance = 0): PeriodState {
   return {
     id: 1,
-    income: ECONOMY_RULES.periodIncome,
+    // Доход периода не является фиксированной суммой: это фактический
+    // доступный кошелёк на момент планирования.
+    income: walletBalance,
     plan: null,
     actual: emptyActuals(),
     walletBalance,
@@ -73,6 +75,9 @@ interface PeriodStore extends PeriodState {
   recordPractice: () => boolean;
   completePeriod: () => void;
   advancePeriod: (walletBalance: number, savingsBalance: number) => void;
+  /** Только для дев-панели: принудительно переключить на период id, сохранив
+   *  текущие балансы, но сбросив план/факт/флаги этого периода набело. */
+  setPeriod: (id: 1 | 2 | 3) => void;
 }
 
 function loadInitial(): PeriodState {
@@ -111,9 +116,11 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
   confirmPlan: (plan) => {
     const state = get();
     if (state.status === 'completed' || state.rewardFlags.planConfirmed) return false;
-    if (!validateBudgetPlan(state.income, plan).valid) return false;
+    const budget = Math.max(0, state.walletBalance);
+    if (!validateBudgetPlan(budget, plan).valid) return false;
     const next: PeriodState = {
       ...state,
+      income: budget,
       plan,
       status: 'active',
       rewardFlags: { ...state.rewardFlags, planConfirmed: true },
@@ -158,8 +165,11 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
 
   recordSavingsDeposit: (amount) => {
     const state = get();
-    if (state.status !== 'active' || state.rewardFlags.savingsDepositGranted) return false;
-    if (!Number.isInteger(amount) || amount < ECONOMY_RULES.requiredSavingsDeposit || state.walletBalance < amount) return false;
+    // Пополнение копилки относится к подготовке бюджета и доступно уже на
+    // этапе планирования. После завершения периода новые пополнения в его
+    // фактические расходы не записываем.
+    if (state.status === 'completed') return false;
+    if (!Number.isInteger(amount) || amount <= 0 || state.walletBalance < amount) return false;
     const next: PeriodState = {
       ...state,
       actual: { ...state.actual, savings: state.actual.savings + amount },
@@ -214,9 +224,20 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
 
   advancePeriod: (walletBalance, savingsBalance) => {
     const state = get();
+    if (state.status !== 'completed' || state.id >= 3) return;
     const next = {
       ...createInitialPeriod(walletBalance, savingsBalance),
       id: state.id + 1,
+    };
+    persist(next);
+    set(next);
+  },
+
+  setPeriod: (id) => {
+    const state = get();
+    const next = {
+      ...createInitialPeriod(state.walletBalance, state.savingsBalance),
+      id,
     };
     persist(next);
     set(next);

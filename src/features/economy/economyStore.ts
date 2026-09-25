@@ -128,13 +128,13 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     const state = get();
     if (!Number.isFinite(value) || value <= 0 || state.coins < value) return false;
     const period = usePeriodStore.getState();
-    if (period.status === 'active' && (value < ECONOMY_RULES.requiredSavingsDeposit || period.walletBalance !== state.coins)) return false;
+    if (period.status === 'active' && period.walletBalance !== state.coins) return false;
     const next: EconomyState = {
       ...state,
       coins: state.coins - value,
       savingsBalance: (state.savingsBalance ?? state.totalSaved) + value,
       totalSaved: state.totalSaved + value,
-        transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: value, reason: 'Пополнение копилки', category: 'savings' as const }],
+        transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: value, reason: 'Пополнение копилки', periodId: period.status === 'completed' ? undefined : period.id, category: 'savings' as const }],
     };
     persist(next);
     set(next);
@@ -159,10 +159,13 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
       ...state,
       coins: state.coins + value,
       savingsBalance: balance - value,
-      transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: -value, reason: 'Вывод из копилки' }],
+      transactions: [...state.transactions, { id: crypto.randomUUID(), timestamp: Date.now(), amount: -value, reason: 'Вывод из копилки', category: 'savings' as const }],
     };
     persist(next);
     set(next);
+    // Кошелёк изменился через экран копилки — синхронизируем его с текущим
+    // периодом, иначе следующая покупка будет ошибочно считаться рассинхроном.
+    usePeriodStore.getState().ensureCurrentPeriod(next.coins, next.savingsBalance ?? next.totalSaved);
     return true;
   },
 

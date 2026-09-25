@@ -9,14 +9,16 @@ import { bootstrapGame } from './services/bootstrap';
 import { startBackgroundMusic } from './services/backgroundMusic';
 import { initGlobalTapSound } from './services/globalTapSound';
 import { storage } from './services/storage';
-import { ECONOMY_RULES } from './core/economy';
+import { usePeriodStore } from './features/economy/periodStore';
+import { useDevNavStore } from './features/dev/devNavStore';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
 // тапа на любой кнопке приложения без ручной разводки по каждому месту.
 initGlobalTapSound();
 
-// Первый период начинается с базового дохода, определённого единым ядром экономики.
-const STARTING_COINS = ECONOMY_RULES.periodIncome;
+// Новая игра начинается без искусственно выданного дохода. Монеты приходят
+// только из уроков, практики и других игровых действий.
+const STARTING_COINS = 0;
 
 // Экран загрузки на запуске (большое лого, без прогресс-бара) держится минимум
 // столько — даже если приложение (в нашем случае — мгновенно, синхронно) готово раньше.
@@ -46,6 +48,7 @@ function delay(ms: number) {
 // на реальном мобильном экране (и в APK) занимает весь экран.
 function App() {
   const [screen, setScreen] = useState<Screen>(() => (isOnboarded() ? 'home' : 'onboarding'));
+  const currentPeriodId = usePeriodStore((s) => s.id);
   const [overlay, setOverlay] = useState<OverlayPhase>('in');
   const [overlayKind, setOverlayKind] = useState<OverlayKind>('startup');
   // Видимость overlay отделена от overlay: сначала монтируем с opacity 0,
@@ -208,6 +211,30 @@ function App() {
         >
           Главный экран
         </button>
+
+        {/* Прыжок сразу в нужный период (демо-режим, п. 2.5 доп. ТЗ: "следующий
+            период" без ожидания реального прохождения). Переключает реальный
+            usePeriodStore и просит Home открыть раздел "Периоды" — см. devNavStore. */}
+        <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Периоды</span>
+        <div className="flex gap-2">
+          {([1, 2, 3] as const).map((id) => (
+            <button
+              key={id}
+              onClick={() => {
+                usePeriodStore.getState().setPeriod(id);
+                useDevNavStore.getState().requestScreen('period');
+                goTo('home');
+              }}
+              className={`flex-1 rounded-xl px-3 py-2 text-[13px] font-semibold transition ${
+                screen === 'home' && currentPeriodId === id
+                  ? 'bg-[#6262e4] text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              Период {id}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => {
             void storage.resetAll().then(() => window.location.reload());

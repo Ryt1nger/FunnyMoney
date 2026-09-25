@@ -10,7 +10,6 @@ import boneToy from '../assets/items/toys/bone-toy-card.png';
 import boneBlob from '../assets/ui/bone-blob.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
-import navCalendarActive from '../assets/icons/nav/calendar-active.png';
 import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
 import smileMetricIcon from '../assets/icons/metrics/smile-3d.png';
 import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
@@ -37,6 +36,7 @@ import { useEconomyStore } from '../features/economy/economyStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
+import { useDevNavStore } from '../features/dev/devNavStore';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
 import { storage } from '../services/storage';
@@ -45,7 +45,6 @@ import {
   IconStar,
   IconPlus,
   IconBackpackLight,
-  IconHangerLight,
   IconSettingsGear,
   IconCutlery,
   IconChevronRight,
@@ -233,6 +232,18 @@ export default function Home() {
   useEffect(() => {
     useTutorialStore.getState().startIfNeeded();
   }, []);
+
+  // Мост для дев-панели (App.tsx, вне "телефона"): кнопки "Период 1/2/3" там
+  // переключают usePeriodStore и просят здесь открыть раздел "Периоды" — сама
+  // Home ничего не знает про дев-панель, только слушает этот запрос и сразу
+  // его гасит, чтобы повторный клик по той же кнопке тоже срабатывал.
+  const devNavRequest = useDevNavStore((s) => s.request);
+  useEffect(() => {
+    if (devNavRequest === 'period') {
+      setSheet('day');
+      useDevNavStore.getState().clearRequest();
+    }
+  }, [devNavRequest]);
 
   function openLessonsFromReminder() {
     setTab('lessons');
@@ -434,17 +445,11 @@ export default function Home() {
             >
               <IconSettingsGear className="h-6 w-6" />
             </button>
-            <button
-              // Раньше здесь открывался игровой период (монетка) — теперь
-              // "Периоды" переехали на вкладку нижней навигации, а эта
-              // иконка вместо неё открывает "День" (задания дня).
-              onClick={() => setSheet('period')}
-              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-              style={{ background: 'rgba(26,20,40,0.30)', borderColor: 'rgba(255,255,255,0.30)', boxShadow: '0 4px 14px rgba(0,0,0,0.18)' }}
-              aria-label="День"
-            >
-              <img src={navCalendarActive} alt="" className="h-6 w-6 object-contain" />
-            </button>
+            {/* "День" (задания дня, экран Day.tsx) и "Гардероб" временно
+                отключены по просьбе пользователя — кнопки убраны, сами экраны
+                и их код не удалены (sheet === 'period' → Day, sheet === 'wardrobe'
+                → Wardrobe остаются в дереве ниже, просто больше никем не
+                открываются). Чтобы вернуть — верните сюда две кнопки, см. git history. */}
             <button
               data-tour="home-inventory"
               onClick={() => setSheet('inventory')}
@@ -457,19 +462,6 @@ export default function Home() {
               aria-label="Инвентарь"
             >
               <IconBackpackLight className="h-6 w-6" />
-            </button>
-            <button
-              data-tour="home-wardrobe"
-              onClick={() => setSheet('wardrobe')}
-              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-              style={{
-                background: 'rgba(26,20,40,0.30)',
-                borderColor: 'rgba(255,255,255,0.30)',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-              }}
-              aria-label="Гардероб"
-            >
-              <IconHangerLight className="h-6 w-6" />
             </button>
           </div>
           <button
@@ -803,12 +795,8 @@ export default function Home() {
           setTab('lessons');
           setSheet('lessons');
         }}
-        onOpenTasks={() => {
-          // "День" больше не отдельная вкладка нижней навигации — открываем
-          // его как оверлей поверх текущей вкладки, не переключая активный таб.
-          setEarnModalOpen(false);
-          setSheet('period');
-        }}
+        // onOpenTasks не передан: "День" временно отключён, кнопка "Задания"
+        // в этом окне сама не рендерится (см. EarnCoinsModal.tsx).
       />
 
       {previewRoom && (

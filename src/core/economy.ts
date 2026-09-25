@@ -112,11 +112,13 @@ export function validateBudgetPlan(income: number, plan: BudgetPlan): BudgetVali
 export function canPurchase(
   product: EconomyProductMeta,
   walletBalance: number,
-  savingsBalance: number,
+  _savingsBalance: number,
 ): boolean {
   if (!Number.isInteger(product.price) || product.price <= 0) return false;
   if (!product.periodEligible) return false;
-  return product.savingsOnly ? savingsBalance >= product.price : walletBalance >= product.price;
+  // Копилка — только место хранения цели. Любая покупка проходит через
+  // кошелёк; при нехватке UI позже предложит вывести нужную сумму из копилки.
+  return walletBalance >= product.price;
 }
 
 export function applyPurchase(
@@ -126,8 +128,8 @@ export function applyPurchase(
 ): { walletBalance: number; savingsBalance: number; actual: PeriodActuals } | null {
   if (!canPurchase(product, walletBalance, savingsBalance)) return null;
 
-  const nextWallet = product.savingsOnly ? walletBalance : walletBalance - product.price;
-  const nextSavings = product.savingsOnly ? savingsBalance - product.price : savingsBalance;
+  const nextWallet = walletBalance - product.price;
+  const nextSavings = savingsBalance;
   const actual: PeriodActuals = {
     mandatory: product.expenseType === 'mandatory' ? product.price : 0,
     optional: product.expenseType === 'optional' ? product.price : 0,

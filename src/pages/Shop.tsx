@@ -20,7 +20,6 @@ import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { purchaseProduct } from '../features/economy/purchase';
 import { toEconomyProductMeta } from '../features/economy/purchase';
 import { useEconomyStore } from '../features/economy/economyStore';
-import { usePeriodStore } from '../features/economy/periodStore';
 import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
 
 const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
@@ -77,12 +76,13 @@ export default function Shop({
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const foodQty = useInventoryStore((s) => s.foodQty);
   const savings = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
-  const periodStatus = usePeriodStore((s) => s.status);
+  const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   const products = category === 'interior' ? [] : productsByCategory(category);
   const interiorRooms = roomsBySection(kitchenOnly ? 'kitchen' : interiorSection);
   // Подтверждение покупки — для всего, кроме еды (см. запрос: "уведомление
   // при покупке чего угодно кроме еды"). Еда покупается сразу, без лишнего клика.
   const [confirmProduct, setConfirmProduct] = useState<ShopProduct | null>(null);
+  const [shortfallProduct, setShortfallProduct] = useState<ShopProduct | null>(null);
 
   function handleBuy(product: ShopProduct) {
     purchaseProduct(product); // 'ok' | 'already_owned' | 'insufficient_funds' — кнопка сама отражает итог по инвентарю/балансу
@@ -92,11 +92,10 @@ export default function Shop({
     // Еда — расходник, покупается сколько угодно раз (запас копится); остальное — один раз.
     if (product.category !== 'food' && ownedProductIds.includes(product.id)) return;
     // Не хватает монет — вместо попытки покупки сразу показываем то же окно
-    // "как заработать монеты", что и по кнопке "+" у баланса.
-    const meta = toEconomyProductMeta(product);
-    const balance = meta.savingsOnly ? savings : coins;
-    if (balance < product.price) {
-      onOpenEarnModal?.();
+    // предложение вывести ровно недостающую сумму из копилки.
+    if (coins < product.price) {
+      if (savings >= product.price - coins) setShortfallProduct(product);
+      else onOpenEarnModal?.();
       return;
     }
     // Еда — всегда без подтверждения (её и так покупают часто и по мелочи).
@@ -259,7 +258,7 @@ export default function Shop({
           <div data-tour="shop-products" className="mt-2.5 grid grid-cols-2 gap-2.5">
             {interiorRooms.map((room) => {
               const owned = ownedRoomIds.includes(room.id);
-              const canAfford = periodStatus === 'active' ? savings >= room.price : coins >= room.price;
+              const canAfford = coins >= room.price;
               return (
                 <button
                   key={room.id}
@@ -294,7 +293,7 @@ export default function Shop({
                           <span className="text-[11.5px] font-bold" style={{ color: '#4a4560' }}>
                             {room.price}
                           </span>
-                          {periodStatus === 'active' && <span className="ml-1 text-[9px] font-semibold text-[#159456]">из копилки</span>}
+                          <span className="ml-1 text-[9px] font-semibold text-[#5360d9]">из кошелька</span>
                         </>
                       )}
                     </div>
@@ -310,7 +309,7 @@ export default function Shop({
               const owned = !isFood && ownedProductIds.includes(p.id);
               const qty = foodQty[p.id] ?? 0;
               const meta = toEconomyProductMeta(p);
-              const canAfford = (meta.savingsOnly ? savings : coins) >= p.price;
+              const canAfford = coins >= p.price;
               const badge = meta.expenseType === 'mandatory' ? 'Обязательное' : 'Желание';
               return (
                 <div
@@ -380,6 +379,34 @@ export default function Shop({
           setConfirmProduct(null);
         }}
       />
+
+      {shortfallProduct && (
+        <div className="absolute inset-0 z-[64] flex items-center justify-center bg-[rgba(20,14,26,0.5)] px-5">
+          <div className="w-full rounded-[24px] bg-white p-4 text-center shadow-2xl">
+            <h2 className="text-[18px] font-black text-[#111b72]">Не хватает монет</h2>
+            <p className="mt-2 text-[12px] font-semibold leading-snug text-[#777da8]">
+              Вывести из копилки ровно {shortfallProduct.price - coins} монет и продолжить покупку?
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button onClick={() => setShortfallProduct(null)} className="h-11 rounded-[14px] bg-[#f0eef7] text-[12px] font-extrabold text-[#686d9a]">Отмена</button>
+              <button
+                onClick={() => {
+                  const product = shortfallProduct;
+                  const amount = product.price - coins;
+                  if (!withdrawFromSavings(amount)) return;
+                  setShortfallProduct(null);
+                  if (product.category === 'food' || !confirmationEnabled) handleBuy(product);
+                  else setConfirmProduct(product);
+                }}
+                className="h-11 rounded-[14px] text-[12px] font-extrabold text-white"
+                style={{ background: VIOLET }}
+              >
+                Вывести и купить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
