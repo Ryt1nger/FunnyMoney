@@ -30,6 +30,8 @@ export interface Transaction {
   timestamp: number;
   amount: number; // negative = spend, positive = earn
   reason: string;
+  periodId?: number;
+  category?: 'mandatory' | 'optional' | 'savings' | 'goal' | 'reward';
 }
 
 export interface SavingsGoal {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { EconomyState, SavingsGoal, Transaction } from '../../types';
 import { storage } from '../../services/storage';
+import { usePeriodStore } from './periodStore';
 
 interface EconomyStore extends EconomyState {
   initIfEmpty: (startingCoins: number) => void;
@@ -127,6 +128,7 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     };
     persist(next);
     set(next);
+    usePeriodStore.getState().recordSavingsDeposit(value);
     return true;
   },
 

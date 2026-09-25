@@ -26,6 +26,7 @@ import walletIcon from '../assets/lesson2/items/21_coin_wallet.png';
 import teddyCarIcon from '../assets/lesson2/items/23_teddy_bear_car.png';
 import basketIcon from '../assets/lesson2/basket.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
+import { usePointerDrag } from '../hooks/usePointerDrag';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void }
@@ -108,6 +109,19 @@ const sceneHints: Record<number, string> = {
   4: 'Сначала смотрим кошелёк, потом покупаем нужное, откладываем часть монет и только потом выбираем игрушку.',
 };
 
+// Объединённый список карточек всех упражнений — только чтобы найти
+// картинку для плавающей копии карточки во время перетаскивания; id
+// уникальны между упражнениями, конфликтов нет. Монетки подарка (упражнение
+// 4) не карточки, а одинаковые id вида gift-coin-N — для них ghost рисуется
+// отдельно (см. рендер ниже), картинка всегда coinsIcon.
+const dragItemLookup: { id: string; image: string }[] = [...incomeExpenseItems, ...budgetItems, ...familyPersonalItems, ...stepItems];
+
+// Тип usePointerDrag() — та же тройка start/move/end/cancel, что и у
+// кормления на кухне (Kitchen.tsx), но с центральным "куда бросили" через
+// data-drop вместо привязки к одной цели.
+type PointerDnd = ReturnType<typeof usePointerDrag>;
+type DropHandler = (id: string, from: number | null, zone: string | null) => void;
+
 function ExerciseCard({ item, selected, onSelect }: { item: (typeof incomeExpenseItems)[number]; selected: boolean; onSelect: () => void }) {
   return <div onClick={onSelect} className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-1 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${selected ? 'ring-2 ring-[#675ff3] ring-offset-1' : ''}`}>
     <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
@@ -116,14 +130,16 @@ function ExerciseCard({ item, selected, onSelect }: { item: (typeof incomeExpens
   </div>;
 }
 
-function BudgetCard({ item, inBasket, onToggle }: { item: (typeof budgetItems)[number]; inBasket: boolean; onToggle: () => void }) {
+function BudgetCard({ item, inBasket, dnd, onDrop, onToggle }: { item: (typeof budgetItems)[number]; inBasket: boolean; dnd: PointerDnd; onDrop: DropHandler; onToggle: () => void }) {
   return (
     <button
       type="button"
-      draggable={!inBasket}
-      onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)}
+      onPointerDown={(e) => !inBasket && dnd.start(e, item.id, null)}
+      onPointerMove={dnd.move}
+      onPointerUp={(e) => dnd.end(e, onDrop)}
+      onPointerCancel={dnd.cancel}
       onClick={onToggle}
-      className={`flex h-full w-full min-h-0 min-w-0 cursor-grab flex-col items-center justify-between gap-0.5 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${inBasket ? 'opacity-40' : ''}`}
+      className={`flex h-full w-full min-h-0 min-w-0 touch-none select-none cursor-grab flex-col items-center justify-between gap-0.5 rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 animate-[lessonItemIn_220ms_ease-out] ${inBasket ? 'opacity-40' : ''}`}
     >
       <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-0.5" /></div>
       <span className="line-clamp-2 w-full shrink-0 text-[clamp(8.5px,2.4vw,11px)] font-extrabold leading-[1.15] text-[#17469d]">{item.label}</span>
@@ -198,6 +214,13 @@ export default function LessonTwo({ onBack }: Props) {
   const [hintText, setHintText] = useState<string | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const lessonCompletedRef = useRef(false);
+  // Перетаскивание пальцем — та же техника, что и кормление на кухне
+  // (Kitchen.tsx): Pointer Events вместо нативного HTML5 drag-and-drop,
+  // который на Android почти не работает без долгого нажатия. Тап по
+  // карточке (select) продолжает работать как раньше — drag это просто
+  // дополнительный способ того же самого действия.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const dnd = usePointerDrag(rootRef);
   const videoRef = useRef<HTMLVideoElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -318,6 +341,21 @@ export default function LessonTwo({ onBack }: Props) {
     setStepPlacements((current) => current.map((value) => (value === id ? null : value)));
     setSelected(null);
   }
+
+  // Единая точка "куда бросили карточку" для всех упражнений — вызывается
+  // после реального перетаскивания (см. usePointerDrag). Зона определяется
+  // по атрибуту data-drop того элемента, над которым отпустили палец.
+  const handleDrop: DropHandler = (id, _from, zone) => {
+    if (!zone) return;
+    if (zone === 'income-basket') { placeInBasket('income', id); return; }
+    if (zone === 'expense-basket') { placeInBasket('expense', id); return; }
+    if (zone === 'family-basket') { placeInFamilyBasket('family', id); return; }
+    if (zone === 'personal-basket') { placeInFamilyBasket('personal', id); return; }
+    if (zone === 'piggy-basket') { placeGiftCoin('piggy', id); return; }
+    if (zone === 'candy-basket') { placeGiftCoin('candy', id); return; }
+    if (zone === 'budget-cart') { toggleBudgetItem(id); return; }
+    if (zone.startsWith('step-slot-')) { placeStepItem(Number(zone.slice('step-slot-'.length)), id); return; }
+  };
 
   // Добавить/убрать покупку из корзины бюджета (упражнение 2) — тап по
   // карточке или по занятой корзине, либо перетаскивание карточки в корзину.
@@ -454,7 +492,7 @@ export default function LessonTwo({ onBack }: Props) {
   const stepTray = stepItems.filter((item) => !stepPlacements.includes(item.id));
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
+    <div ref={rootRef} className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
       <style>{`@keyframes lessonSceneIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:scale(1)}}@keyframes lessonItemIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lessonShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}@keyframes lessonCheckIn{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}@keyframes lessonFadeIn{from{opacity:0}to{opacity:1}}`}</style>
       <img key={scene} src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-top [animation:lessonSceneIn_420ms_ease-out]" />
 
@@ -494,7 +532,7 @@ export default function LessonTwo({ onBack }: Props) {
                     <span className="truncate text-[clamp(7.5px,2.2vw,9.5px)] font-bold text-[#4d938a]">Монетки приходят</span>
                   </div>
                 </div>
-                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('income', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('income')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
+                <div data-drop="income-basket" onClick={() => placeInBasket('income')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {incomeExpenseItems.filter((item) => income.includes(item.id)).map((item) => (
                       <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
@@ -512,7 +550,7 @@ export default function LessonTwo({ onBack }: Props) {
                     <span className="truncate text-[clamp(7.5px,2.2vw,9.5px)] font-bold text-[#c98a5e]">Монетки уходят</span>
                   </div>
                 </div>
-                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInBasket('expense', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInBasket('expense')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0b98a] bg-[#fdf0e4] p-2">
+                <div data-drop="expense-basket" onClick={() => placeInBasket('expense')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0b98a] bg-[#fdf0e4] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {incomeExpenseItems.filter((item) => expense.includes(item.id)).map((item) => (
                       <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
@@ -526,7 +564,7 @@ export default function LessonTwo({ onBack }: Props) {
 
             <div className="grid min-h-0 flex-[1.35] grid-cols-3 grid-rows-2 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
               {tray.map((item) => (
-                <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} className="min-h-0 min-w-0">
+                <div key={item.id} onPointerDown={(e) => dnd.start(e, item.id, null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} className="min-h-0 min-w-0 touch-none select-none">
                   <ExerciseCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />
                 </div>
               ))}
@@ -551,13 +589,12 @@ export default function LessonTwo({ onBack }: Props) {
 
             <div className="grid min-h-0 flex-[1.5] grid-cols-4 gap-1.5">
               {budgetItems.map((item) => (
-                <BudgetCard key={item.id} item={item} inBasket={basket.includes(item.id)} onToggle={() => toggleBudgetItem(item.id)} />
+                <BudgetCard key={item.id} item={item} inBasket={basket.includes(item.id)} dnd={dnd} onDrop={handleDrop} onToggle={() => toggleBudgetItem(item.id)} />
               ))}
             </div>
 
             <div
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => { const id = event.dataTransfer.getData('text/plain'); if (id) toggleBudgetItem(id); }}
+              data-drop="budget-cart"
               className="flex min-h-0 flex-[0.65] items-center gap-2 rounded-[18px] bg-[#f3ede0] p-2"
             >
               <div className="flex h-full w-[58px] shrink-0 flex-col items-center justify-center gap-0.5">
@@ -594,7 +631,7 @@ export default function LessonTwo({ onBack }: Props) {
                     <span className="truncate text-[clamp(7.5px,2.2vw,9.5px)] font-bold text-[#4d938a]">Общее для дома</span>
                   </div>
                 </div>
-                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInFamilyBasket('family', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInFamilyBasket('family')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
+                <div data-drop="family-basket" onClick={() => placeInFamilyBasket('family')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fd6c9] bg-[#eaf9f6] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {familyPersonalItems.filter((item) => family.includes(item.id)).map((item) => (
                       <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
@@ -612,7 +649,7 @@ export default function LessonTwo({ onBack }: Props) {
                     <span className="truncate text-[clamp(7.5px,2.2vw,9.5px)] font-bold text-[#8b7cc9]">Только твоё</span>
                   </div>
                 </div>
-                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeInFamilyBasket('personal', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeInFamilyBasket('personal')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#c6b3f2] bg-[#f4eefd] p-2">
+                <div data-drop="personal-basket" onClick={() => placeInFamilyBasket('personal')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#c6b3f2] bg-[#f4eefd] p-2">
                   <div className="grid h-full min-h-0 grid-cols-3 gap-1.5">
                     {familyPersonalItems.filter((item) => personal.includes(item.id)).map((item) => (
                       <button type="button" key={item.id} onClick={(event) => { event.stopPropagation(); returnToFamilyTray(item.id); }} className="flex h-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1 shadow-sm active:scale-95">
@@ -626,7 +663,7 @@ export default function LessonTwo({ onBack }: Props) {
 
             <div className="grid min-h-0 flex-[1.35] grid-cols-3 grid-rows-2 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
               {tray3.map((item) => (
-                <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} className="min-h-0 min-w-0">
+                <div key={item.id} onPointerDown={(e) => dnd.start(e, item.id, null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} className="min-h-0 min-w-0 touch-none select-none">
                   <SortCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />
                 </div>
               ))}
@@ -651,7 +688,7 @@ export default function LessonTwo({ onBack }: Props) {
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm"><img src={piggyBankIcon} alt="" className="h-[18px] w-[18px] object-contain" /></div>
                   <span className="truncate text-[clamp(10.5px,3vw,12.5px)] font-black text-[#1c5faa]">Копилка</span>
                 </div>
-                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeGiftCoin('piggy', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeGiftCoin('piggy')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fbde6] bg-[#eaf3fd] p-2">
+                <div data-drop="piggy-basket" onClick={() => placeGiftCoin('piggy')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#8fbde6] bg-[#eaf3fd] p-2">
                   <div className="grid h-full min-h-0 grid-cols-5 gap-1">
                     {giftPiggy.map((id) => (
                       <button type="button" key={id} onClick={(event) => { event.stopPropagation(); returnGiftCoinToTray(id); }} className="flex h-full min-w-0 items-center justify-center rounded-full bg-white/85 p-0.5 shadow-sm active:scale-95">
@@ -666,7 +703,7 @@ export default function LessonTwo({ onBack }: Props) {
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm"><img src={candyJarIcon} alt="" className="h-[18px] w-[18px] object-contain" /></div>
                   <span className="truncate text-[clamp(10.5px,3vw,12.5px)] font-black text-[#b8571e]">Сладости</span>
                 </div>
-                <div onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeGiftCoin('candy', event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeGiftCoin('candy')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0b98a] bg-[#fdf0e4] p-2">
+                <div data-drop="candy-basket" onClick={() => placeGiftCoin('candy')} className="min-h-0 flex-1 overflow-hidden rounded-[20px] border-2 border-dashed border-[#f0b98a] bg-[#fdf0e4] p-2">
                   <div className="grid h-full min-h-0 grid-cols-5 gap-1">
                     {giftCandy.map((id) => (
                       <button type="button" key={id} onClick={(event) => { event.stopPropagation(); returnGiftCoinToTray(id); }} className="flex h-full min-w-0 items-center justify-center rounded-full bg-white/85 p-0.5 shadow-sm active:scale-95">
@@ -680,7 +717,7 @@ export default function LessonTwo({ onBack }: Props) {
 
             <div className="grid min-h-0 flex-[1.35] grid-cols-5 grid-rows-2 gap-1.5 rounded-[18px] bg-[#f3ede0] p-2">
               {giftTray.map((id) => (
-                <div key={id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', id)} className="min-h-0 min-w-0">
+                <div key={id} onPointerDown={(e) => dnd.start(e, id, null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} className="min-h-0 min-w-0 touch-none select-none">
                   <CoinChip selected={selected === id} onSelect={() => selectCard(id)} />
                 </div>
               ))}
@@ -698,10 +735,10 @@ export default function LessonTwo({ onBack }: Props) {
               {stepSlots.flatMap((slotDef, index) => {
                 const item = stepItems.find((entry) => entry.id === stepPlacements[slotDef.slot]);
                 const slotEl = (
-                  <div key={`step-slot-${slotDef.slot}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => placeStepItem(slotDef.slot, event.dataTransfer.getData('text/plain') || undefined)} onClick={() => placeStepItem(slotDef.slot)} className="flex min-h-0 flex-col items-center gap-1">
+                  <div key={`step-slot-${slotDef.slot}`} data-drop={`step-slot-${slotDef.slot}`} onClick={() => placeStepItem(slotDef.slot)} className="flex min-h-0 flex-col items-center gap-1">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white" style={{ background: slotDef.color }}>{index + 1}</span>
                     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/40 p-1" style={{ borderColor: slotDef.color }}>
-                      {item && <div draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} onClick={(event) => { event.stopPropagation(); returnStepItemToTray(item.id); }} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
+                      {item && <div onPointerDown={(e) => dnd.start(e, item.id, slotDef.slot)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={(event) => { event.stopPropagation(); returnStepItemToTray(item.id); }} className="flex h-full w-full cursor-grab touch-none select-none items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
                     </div>
                   </div>
                 );
@@ -712,7 +749,7 @@ export default function LessonTwo({ onBack }: Props) {
 
             <div className="grid min-h-0 flex-[1.35] grid-cols-4 gap-2 rounded-[18px] bg-[#f3ede0] p-2">
               {stepTray.map((item) => (
-                <div key={item.id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', item.id)} className="min-h-0 min-w-0">
+                <div key={item.id} onPointerDown={(e) => dnd.start(e, item.id, null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} className="min-h-0 min-w-0 touch-none select-none">
                   <StepCard item={item} selected={selected === item.id} onSelect={() => selectCard(item.id)} />
                 </div>
               ))}
@@ -742,6 +779,37 @@ export default function LessonTwo({ onBack }: Props) {
         </button>
         <button type="button" aria-label="Проверить" disabled={checkState === 'correct'} onClick={handleCheck} className="h-14 min-w-0 flex-1 rounded-[30px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] px-2 text-[clamp(18px,5.8vw,22px)] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98] disabled:opacity-70">Проверить</button>
       </div>
+
+      {/* Плавающая копия карточки — следует за пальцем поверх экрана, та же
+          техника, что и у еды на кухне (Kitchen.tsx). Показывается только
+          когда палец реально сдвинулся (dnd.drag.moved) — простой тап
+          по-прежнему обрабатывается обычным onClick/onSelect карточки. */}
+      {dnd.drag?.moved && (() => {
+        const dragging = dnd.drag;
+        if (!dragging) return null;
+        if (dragging.id.startsWith('gift-coin-')) {
+          return (
+            <img
+              src={coinsIcon}
+              alt=""
+              draggable={false}
+              className="pointer-events-none absolute z-[999] h-[48px] w-[48px] object-contain drop-shadow-2xl"
+              style={{ left: dragging.x - 24, top: dragging.y - 48, transform: 'scale(1.1)' }}
+            />
+          );
+        }
+        const dragged = dragItemLookup.find((entry) => entry.id === dragging.id);
+        if (!dragged) return null;
+        return (
+          <img
+            src={dragged.image}
+            alt=""
+            draggable={false}
+            className="pointer-events-none absolute z-[999] h-[64px] w-[64px] object-contain drop-shadow-2xl"
+            style={{ left: dragging.x - 32, top: dragging.y - 64, transform: 'scale(1.1)' }}
+          />
+        );
+      })()}
 
       {showExitConfirm && <ExitConfirm onStay={() => setShowExitConfirm(false)} onExit={onBack} />}
     </div>

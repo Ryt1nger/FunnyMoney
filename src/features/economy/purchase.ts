@@ -2,12 +2,33 @@ import { useEconomyStore } from './economyStore';
 import { usePetStore } from '../pet/petStore';
 import { useInventoryStore } from '../inventory/inventoryStore';
 import { useDayProgressStore } from '../progress/dayProgressStore';
+import { usePeriodStore } from './periodStore';
 import type { ShopProduct, RoomProduct } from '../../data/shopData';
 import { dayTasks } from '../../data/dayData';
 
 export type PurchaseResult = 'ok' | 'already_owned' | 'insufficient_funds';
 
 const SHOP_TASK_XP = dayTasks.find((t) => t.id === 'shop')?.xp ?? 0;
+
+/** Преобразует текущую витрину в экономические признаки из утвержденной модели.
+ * До полной миграции каталога используем безопасные правила по категории и цене:
+ * полноценная еда от 120 монет — обязательная, дешевые перекусы — желание,
+ * интерьер — цель, оплачиваемая из накоплений в следующем слое UI. */
+export function toEconomyProductMeta(product: ShopProduct) {
+  const isFood = product.category === 'food';
+  const isInterior = product.category === 'interior';
+  const isFullMeal = isFood && product.price >= 120;
+  return {
+    id: product.id,
+    price: product.price,
+    expenseType: isInterior ? 'goal' as const : isFullMeal ? 'mandatory' as const : 'optional' as const,
+    mealType: isFullMeal ? 'fullMeal' as const : isFood ? 'snack' as const : 'none' as const,
+    satietyEffect: product.effects?.health ?? 0,
+    moodEffect: product.effects?.happiness ?? 0,
+    savingsOnly: isInterior,
+    periodEligible: true,
+  };
+}
 
 /** Засчитывает задание дня «Купи что-нибудь в магазине» — но только один раз
  *  за день, и только тогда реально начисляет его опыт (иначе вторая и
@@ -35,6 +56,11 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
 
   const { coins, applyCoinsDelta } = useEconomyStore.getState();
   if (coins < product.price) return 'insufficient_funds';
+
+  const period = usePeriodStore.getState();
+  if (period.status === 'active' && !period.recordPurchase(toEconomyProductMeta(product))) {
+    return 'insufficient_funds';
+  }
 
   applyCoinsDelta(-product.price, `Покупка: ${product.name}`);
   inventory.addOwnedProduct(product.id);

@@ -2,6 +2,7 @@ import { useEconomyStore } from '../features/economy/economyStore';
 import { usePetStore } from '../features/pet/petStore';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useDayProgressStore } from '../features/progress/dayProgressStore';
+import { usePeriodStore } from '../features/economy/periodStore';
 import { storage } from './storage';
 
 const RECOVERY_FLAG_KEY = 'debug_recovery_2026_09_20';
@@ -63,6 +64,9 @@ export async function bootstrapGame(): Promise<void> {
   usePetStore.getState().hydrate();
   useInventoryStore.getState().hydrate();
   useDayProgressStore.getState().hydrate();
+  usePeriodStore.getState().hydrate();
   ensureRequestedStartingBalanceOnce();
   recoverFromResetBugOnce();
+  const economy = useEconomyStore.getState();
+  usePeriodStore.getState().ensureCurrentPeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
 }

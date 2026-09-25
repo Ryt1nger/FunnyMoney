@@ -24,6 +24,7 @@ import groceriesIcon from '../assets/lesson-items/groceries.png';
 import gamepadIcon from '../assets/lesson-items/gamepad.png';
 import giftIcon from '../assets/lesson-items/gift.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
+import { usePointerDrag } from '../hooks/usePointerDrag';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void }
@@ -93,6 +94,12 @@ const planCategories = [
   { id: 'plan-gift', label: 'Подарок другу', base: 10, image: giftIcon, color: '#fff3d6', border: '#e8c363' },
 ] as const;
 
+// Объединённый список карточек всех упражнений — только чтобы найти
+// картинку для плавающей копии карточки во время перетаскивания (см.
+// dragItemLookup ниже); id уникальны между упражнениями, так что конфликтов
+// нет, а показывается за раз всегда только карточка активной сцены.
+const dragItemLookup: { id: string; image: string }[] = [...practiceItems, ...budgetItems, ...walkItems, ...orderItems];
+
 // Подсказки/обратная связь при ошибке — тексты из сценария (уроки практика.pdf),
 // ключ — индекс сцены. Показываются и по кнопке "Подсказка", и после
 // неверной проверки (правило: ошибка не отнимает монеты, а объясняет
@@ -106,9 +113,20 @@ const sceneHints: Record<number, string> = {
 };
 
 type PracticeItem = { id: string; label: string; price?: number; image: string; category: string };
+// Тип возвращаемого usePointerDrag() — та же тройка start/move/end/cancel,
+// что и в кормлении на кухне (Kitchen.tsx), но с центральным "куда бросили"
+// через data-drop вместо привязки к одной цели.
+type PointerDnd = ReturnType<typeof usePointerDrag>;
+type DropHandler = (id: string, from: number | null, zone: string | null) => void;
 
-function DraggableItem({ item, sourceSlot, setDragging, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; setDragging: (value: { id: string; from: number | null } | null) => void; onClick: () => void; isDragging?: boolean }) {
-  return <div draggable onDragStart={() => setDragging({ id: item.id, from: sourceSlot ?? null })} onDragEnd={() => setDragging(null)} onClick={onClick} className={`flex min-h-0 cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : 'animate-[lessonItemIn_220ms_ease-out]'}`}>
+function DraggableItem({ item, sourceSlot, dnd, onDrop, onClick, isDragging = false }: { item: PracticeItem; sourceSlot?: number; dnd: PointerDnd; onDrop: DropHandler; onClick: () => void; isDragging?: boolean }) {
+  return <div
+    onPointerDown={(e) => dnd.start(e, item.id, sourceSlot ?? null)}
+    onPointerMove={dnd.move}
+    onPointerUp={(e) => dnd.end(e, onDrop)}
+    onPointerCancel={dnd.cancel}
+    onClick={onClick}
+    className={`flex min-h-0 touch-none select-none cursor-grab flex-col items-center justify-center rounded-[15px] bg-white/90 p-1 text-center shadow-[0_3px_8px_rgba(83,65,90,.12)] transition-all duration-200 active:cursor-grabbing active:scale-95 ${isDragging ? 'opacity-0' : 'animate-[lessonItemIn_220ms_ease-out]'}`}>
     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-white/70"><img src={item.image} alt="" className="h-full w-full object-contain p-1" /></div>
     <span className="mt-0.5 text-[clamp(10px,3vw,14px)] font-extrabold leading-none text-[#17469d]">{item.label}</span>
     {item.price !== undefined && <span className="flex items-center gap-1 text-[clamp(9px,2.7vw,12px)] font-bold text-[#17469d]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{item.price}</span>}
@@ -146,7 +164,12 @@ export default function LessonOne({ onBack }: Props) {
   const [walkCart, setWalkCart] = useState<string[]>([]);
   const [orderPlacements, setOrderPlacements] = useState<(string | null)[]>([null, null, null, null]);
   const [planApplied, setPlanApplied] = useState(false);
-  const [dragging, setDragging] = useState<{ id: string; from: number | null } | null>(null);
+  // Перетаскивание пальцем — та же техника, что и кормление на кухне
+  // (Kitchen.tsx): Pointer Events вместо нативного HTML5 drag-and-drop,
+  // который на Android почти не работает без долгого нажатия.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const dnd = usePointerDrag(rootRef);
+  const dragging = dnd.drag;
   // Результат последней проверки: 'correct' на короткое время перед переходом
   // к следующей сцене (показываем галочку), 'wrong' блокирует переход и
   // держит подсказку на экране, пока задание не решено верно.
@@ -203,12 +226,10 @@ export default function LessonOne({ onBack }: Props) {
       next[slot] = id;
       return next;
     });
-    setDragging(null);
   }
 
   function returnToTray(id: string) {
     setPlacements((current) => current.map((value) => value === id ? null : value));
-    setDragging(null);
   }
 
   function addToBudgetCart(id: string) {
@@ -217,24 +238,20 @@ export default function LessonOne({ onBack }: Props) {
       const nextTotal = current.reduce((total, value) => total + (budgetItems.find((entry) => entry.id === value)?.price ?? 0), 0) + (item?.price ?? 0);
       return !item || current.includes(id) || current.length >= 3 || nextTotal > 100 ? current : [...current, id];
     });
-    setDragging(null);
   }
 
   function removeFromBudgetCart(id: string) {
     setBudgetCart((current) => current.filter((value) => value !== id));
-    setDragging(null);
   }
 
   // Корзина упражнения "Найди лишнее" — до 3 предметов, без денежного лимита
   // (тут проверяется не бюджет, а нужность вещи для прогулки).
   function addToWalkCart(id: string) {
     setWalkCart((current) => (current.includes(id) || current.length >= 3 ? current : [...current, id]));
-    setDragging(null);
   }
 
   function removeFromWalkCart(id: string) {
     setWalkCart((current) => current.filter((value) => value !== id));
-    setDragging(null);
   }
 
   function placeOrderItem(slot: number, id: string) {
@@ -246,25 +263,37 @@ export default function LessonOne({ onBack }: Props) {
       next[slot] = id;
       return next;
     });
-    setDragging(null);
   }
 
   function returnOrderItemToTray(id: string) {
     setOrderPlacements((current) => current.map((value) => value === id ? null : value));
-    setDragging(null);
   }
 
   // Перенос 10 монет из "Развлечения" в "Подарок другу" — единое действие
   // (перетащить жетон в "Новый план" или кликнуть по нему на мобильном).
   function applyPlanAdjustment() {
     setPlanApplied(true);
-    setDragging(null);
   }
 
   function undoPlanAdjustment() {
     setPlanApplied(false);
-    setDragging(null);
   }
+
+  // Единая точка "куда бросили карточку" для всех упражнений — вызывается
+  // после реального перетаскивания (см. usePointerDrag). Зона определяется
+  // по атрибуту data-drop того элемента, над которым отпустили палец.
+  const handleDrop: DropHandler = (id, _from, zone) => {
+    if (!zone) return;
+    if (zone.startsWith('cat-')) { placeItem(Number(zone.slice(4)), id); return; }
+    if (zone === 'tray-categorize') { returnToTray(id); return; }
+    if (zone === 'budget-tray') { if (budgetCart.includes(id)) removeFromBudgetCart(id); return; }
+    if (zone === 'budget-cart') { addToBudgetCart(id); return; }
+    if (zone === 'walk-tray') { if (walkCart.includes(id)) removeFromWalkCart(id); return; }
+    if (zone === 'walk-cart') { addToWalkCart(id); return; }
+    if (zone.startsWith('order-slot-')) { placeOrderItem(Number(zone.slice('order-slot-'.length)), id); return; }
+    if (zone === 'order-tray') { returnOrderItemToTray(id); return; }
+    if (zone === 'plan-target' && id === 'plan-transfer') { applyPlanAdjustment(); return; }
+  };
 
   const budgetSpent = budgetCart.reduce((total, id) => total + (budgetItems.find((item) => item.id === id)?.price ?? 0), 0);
   const budgetBalance = 100 - budgetSpent;
@@ -371,7 +400,7 @@ export default function LessonOne({ onBack }: Props) {
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
+    <div ref={rootRef} className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
       <style>{`@keyframes lessonSceneIn{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:scale(1)}}@keyframes lessonItemIn{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes lessonShake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}@keyframes lessonCheckIn{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}@keyframes lessonFadeIn{from{opacity:0}to{opacity:1}}`}</style>
       <img key={scene} src={scenes[scene]} alt="Фон практического задания" className="absolute inset-0 h-full w-full scale-[1.02] object-cover object-center [animation:lessonSceneIn_420ms_ease-out]" />
 
@@ -397,12 +426,12 @@ export default function LessonOne({ onBack }: Props) {
       <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 grid grid-cols-3 grid-rows-[minmax(0,1.18fr)_minmax(0,.82fr)] gap-2.5 ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 1 ? <div className="col-span-3 row-span-2 grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
           <div className="mx-auto flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-[#17469d] shadow-sm"><img src={coinIcon} alt="" className="h-8 w-8" /><span className="text-[clamp(13px,3.8vw,19px)] font-black">Баланс: {budgetBalance}</span></div>
-          <div className="grid min-h-0 grid-cols-4 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && budgetCart.includes(dragging.id) && removeFromBudgetCart(dragging.id)}>
-            {budgetItems.filter((item) => !budgetCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToBudgetCart(item.id)} />)}
+          <div data-drop="budget-tray" className="grid min-h-0 grid-cols-4 gap-2">
+            {budgetItems.filter((item) => !budgetCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} dnd={dnd} onDrop={handleDrop} isDragging={dragging?.id === item.id} onClick={() => addToBudgetCart(item.id)} />)}
           </div>
-          <div className="grid min-w-0 grid-cols-[1.25fr_2.8fr_auto] items-center gap-2 overflow-hidden rounded-2xl bg-[#fff3df] p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && addToBudgetCart(dragging.id)}>
+          <div data-drop="budget-cart" className="grid min-w-0 grid-cols-[1.25fr_2.8fr_auto] items-center gap-2 overflow-hidden rounded-2xl bg-[#fff3df] p-2">
             <div className="flex min-w-0 flex-col items-center text-center"><img src={basketIcon} alt="Корзина" className="h-20 w-24 object-contain" /><span className="max-w-full whitespace-nowrap text-[clamp(8px,1.8vw,10px)] font-black tracking-[-0.03em] text-[#17469d]">Твоя корзина</span></div>
-            <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = budgetItems.find((entry) => entry.id === budgetCart[slot]); return <button type="button" draggable={Boolean(item)} key={slot} onDragStart={() => item && setDragging({ id: item.id, from: null })} onDragEnd={() => setDragging(null)} onClick={() => item && removeFromBudgetCart(item.id)} className="flex aspect-square min-w-0 items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1">{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
+            <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = budgetItems.find((entry) => entry.id === budgetCart[slot]); return <button type="button" key={slot} onPointerDown={(e) => item && dnd.start(e, item.id, null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={() => item && removeFromBudgetCart(item.id)} className={`flex aspect-square min-w-0 touch-none select-none items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1 ${item ? 'cursor-grab active:cursor-grabbing active:scale-95' : ''}`}>{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/75 text-[clamp(14px,4vw,20px)] font-black text-[#17469d]">{budgetCart.length}/3</div>
           </div>
         </div> : scene === WALK_SCENE_INDEX ? (
@@ -414,12 +443,12 @@ export default function LessonOne({ onBack }: Props) {
              mt — своя, локальная просадка вниз именно этой карточки (не трогает
              общие top/bottom зоны разработки, общие для всех сцен). */
           <div className="col-span-3 row-span-2 mt-[3%] grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
-            <div className="grid min-h-0 grid-cols-3 grid-rows-2 gap-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && walkCart.includes(dragging.id) && removeFromWalkCart(dragging.id)}>
-              {walkItems.filter((item) => !walkCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => addToWalkCart(item.id)} />)}
+            <div data-drop="walk-tray" className="grid min-h-0 grid-cols-3 grid-rows-2 gap-2">
+              {walkItems.filter((item) => !walkCart.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} dnd={dnd} onDrop={handleDrop} isDragging={dragging?.id === item.id} onClick={() => addToWalkCart(item.id)} />)}
             </div>
-            <div className="grid min-w-0 grid-cols-[1fr_2.6fr_auto] items-center gap-2 overflow-hidden rounded-2xl bg-[#fff3df] p-1.5" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && addToWalkCart(dragging.id)}>
+            <div data-drop="walk-cart" className="grid min-w-0 grid-cols-[1fr_2.6fr_auto] items-center gap-2 overflow-hidden rounded-2xl bg-[#fff3df] p-1.5">
               <div className="flex min-w-0 items-center justify-center"><img src={basketIcon} alt="Корзина" className="h-14 w-16 object-contain" /></div>
-              <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = walkItems.find((entry) => entry.id === walkCart[slot]); return <button type="button" draggable={Boolean(item)} key={slot} onDragStart={() => item && setDragging({ id: item.id, from: null })} onDragEnd={() => setDragging(null)} onClick={() => item && removeFromWalkCart(item.id)} className="flex aspect-square min-w-0 items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1">{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
+              <div className="grid min-w-0 grid-cols-3 gap-1.5">{[0, 1, 2].map((slot) => { const item = walkItems.find((entry) => entry.id === walkCart[slot]); return <button type="button" key={slot} onPointerDown={(e) => item && dnd.start(e, item.id, null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={() => item && removeFromWalkCart(item.id)} className={`flex aspect-square min-w-0 touch-none select-none items-center justify-center rounded-xl border-2 border-dashed border-[#87cfe0] bg-[#fffaf3] p-1 ${item ? 'cursor-grab active:cursor-grabbing active:scale-95' : ''}`}>{item && <img src={item.image} alt={item.label} className="h-full w-full object-contain" />}</button>; })}</div>
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/75 text-[clamp(13px,3.6vw,17px)] font-black text-[#17469d]">{walkCart.length}/3</div>
             </div>
           </div>
@@ -433,10 +462,10 @@ export default function LessonOne({ onBack }: Props) {
               {orderSlots.flatMap((slotDef, index) => {
                 const item = orderItems.find((entry) => entry.id === orderPlacements[slotDef.slot]);
                 const slotEl = (
-                  <div key={`slot-${slotDef.slot}`} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeOrderItem(slotDef.slot, dragging.id)} className="flex min-h-0 flex-col items-center gap-1">
+                  <div key={`slot-${slotDef.slot}`} data-drop={`order-slot-${slotDef.slot}`} className="flex min-h-0 flex-col items-center gap-1">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white" style={{ background: slotDef.color }}>{index + 1}</span>
                     <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/40 p-1" style={{ borderColor: slotDef.color }}>
-                      {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: slotDef.slot })} onClick={() => returnOrderItemToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
+                      {item && <div onPointerDown={(e) => dnd.start(e, item.id, slotDef.slot)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={() => returnOrderItemToTray(item.id)} className="flex h-full w-full cursor-grab touch-none select-none items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
                     </div>
                   </div>
                 );
@@ -444,8 +473,8 @@ export default function LessonOne({ onBack }: Props) {
                 return [slotEl, <span key={`arrow-${slotDef.slot}`} className="text-[clamp(16px,4vw,22px)] font-black text-[#c9bfa8]">→</span>];
               })}
             </div>
-            <div className="grid min-h-0 grid-cols-4 gap-2 rounded-[18px] bg-white/55 p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && returnOrderItemToTray(dragging.id)}>
-              {orderItems.filter((item) => !orderPlacements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => placeOrderItem(orderPlacements.findIndex((value) => value === null), item.id)} />)}
+            <div data-drop="order-tray" className="grid min-h-0 grid-cols-4 gap-2 rounded-[18px] bg-white/55 p-2">
+              {orderItems.filter((item) => !orderPlacements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} dnd={dnd} onDrop={handleDrop} isDragging={dragging?.id === item.id} onClick={() => placeOrderItem(orderPlacements.findIndex((value) => value === null), item.id)} />)}
             </div>
           </div>
         ) : scene === PLAN_SCENE_INDEX ? (
@@ -467,14 +496,14 @@ export default function LessonOne({ onBack }: Props) {
             </div>
             <div className="flex items-center justify-center gap-2 py-0.5">
               {!planApplied ? (
-                <div draggable onDragStart={() => setDragging({ id: 'plan-transfer', from: null })} onDragEnd={() => setDragging(null)} onClick={applyPlanAdjustment} className="flex cursor-grab items-center gap-2 active:cursor-grabbing active:scale-95">
+                <div onPointerDown={(e) => dnd.start(e, 'plan-transfer', null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={applyPlanAdjustment} className="flex cursor-grab touch-none select-none items-center gap-2 active:cursor-grabbing active:scale-95">
                   <span className="rounded-full bg-[#ef5350] px-2.5 py-1 text-[clamp(11px,3vw,13px)] font-black text-white shadow-sm">−10</span>
                   <span className="text-[clamp(14px,4vw,18px)] font-black text-[#e0785a]">→</span>
                   <span className="rounded-full bg-[#4caf50] px-2.5 py-1 text-[clamp(11px,3vw,13px)] font-black text-white shadow-sm">+10</span>
                 </div>
               ) : <span className="text-[clamp(10px,2.6vw,12px)] font-bold text-[#6c9a4a]">✓ План обновлён</span>}
             </div>
-            <div className="grid min-h-0 grid-cols-4 gap-1.5" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging?.id === 'plan-transfer' && applyPlanAdjustment()}>
+            <div data-drop="plan-target" className="grid min-h-0 grid-cols-4 gap-1.5">
               {planCategories.map((cat) => {
                 const value = cat.id === 'plan-fun' ? (planApplied ? cat.base - 10 : cat.base) : cat.id === 'plan-gift' ? (planApplied ? cat.base + 10 : cat.base) : cat.base;
                 const changed = planApplied && (cat.id === 'plan-fun' || cat.id === 'plan-gift');
@@ -496,15 +525,15 @@ export default function LessonOne({ onBack }: Props) {
         ].map((category) => {
           const placed = placements[category.slot];
           const item = practiceItems.find((entry) => entry.id === placed);
-          return <div key={category.label} onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && placeItem(category.slot, dragging.id)} className={`flex min-h-0 flex-col items-center overflow-hidden rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)] animate-[lessonItemIn_220ms_ease-out]`}>
+          return <div key={category.label} data-drop={`cat-${category.slot}`} className={`flex min-h-0 flex-col items-center overflow-hidden rounded-[20px] ${category.color} p-2 shadow-[0_4px_12px_rgba(85,71,100,.14)] animate-[lessonItemIn_220ms_ease-out]`}>
             <div className="flex min-w-0 max-w-full flex-col items-center gap-1 text-center" style={{ color: category.titleColor }}><img src={category.icon} alt="" className="h-12 w-12 shrink-0 object-contain" /><span className="block max-w-full whitespace-nowrap text-[clamp(8px,2.2vw,10px)] font-black leading-none tracking-[-0.03em]">{category.label}</span></div>
             <div className="mt-2 flex aspect-square w-[88%] flex-none items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/10 p-1" style={{ borderColor: category.border }}>
-              {item && <div draggable onDragStart={() => setDragging({ id: item.id, from: category.slot })} onClick={() => returnToTray(item.id)} className="flex h-full w-full cursor-grab items-center justify-center overflow-hidden rounded-lg bg-white/80 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
+              {item && <div onPointerDown={(e) => dnd.start(e, item.id, category.slot)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={() => returnToTray(item.id)} className="flex h-full w-full cursor-grab touch-none select-none items-center justify-center overflow-hidden rounded-lg bg-white/80 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
             </div>
           </div>;
         })}
-        <div className="col-span-3 grid min-h-0 grid-cols-3 gap-2 rounded-[22px] bg-white/55 p-2" onDragOver={(event) => event.preventDefault()} onDrop={() => dragging && returnToTray(dragging.id)}>
-          {practiceItems.filter((item) => !placements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} setDragging={setDragging} isDragging={dragging?.id === item.id} onClick={() => placeItem(placements.findIndex((value) => value === null), item.id)} />)}
+        <div data-drop="tray-categorize" className="col-span-3 grid min-h-0 grid-cols-3 gap-2 rounded-[22px] bg-white/55 p-2">
+          {practiceItems.filter((item) => !placements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} dnd={dnd} onDrop={handleDrop} isDragging={dragging?.id === item.id} onClick={() => placeItem(placements.findIndex((value) => value === null), item.id)} />)}
         </div>
         </>}
       </div>
@@ -533,6 +562,38 @@ export default function LessonOne({ onBack }: Props) {
       </div>
 
       {showExitConfirm && <ExitConfirm onStay={() => setShowExitConfirm(false)} onExit={onBack} />}
+
+      {/* Плавающая копия карточки — следует за пальцем поверх экрана, та же
+          техника, что и у еды на кухне (Kitchen.tsx). Показывается только
+          когда палец реально сдвинулся (dragging.moved), иначе это простой
+          тап и работает обычный onClick карточки. */}
+      {dragging?.moved && (() => {
+        const dragged = dragItemLookup.find((entry) => entry.id === dragging.id);
+        if (dragged) {
+          return (
+            <img
+              src={dragged.image}
+              alt=""
+              draggable={false}
+              className="pointer-events-none absolute z-[999] h-[64px] w-[64px] object-contain drop-shadow-2xl"
+              style={{ left: dragging.x - 32, top: dragging.y - 64, transform: 'scale(1.1)' }}
+            />
+          );
+        }
+        if (dragging.id === 'plan-transfer') {
+          return (
+            <div
+              className="pointer-events-none absolute z-[999] flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 shadow-2xl"
+              style={{ left: dragging.x - 62, top: dragging.y - 22, transform: 'scale(1.1)' }}
+            >
+              <span className="rounded-full bg-[#ef5350] px-2.5 py-1 text-[13px] font-black text-white shadow-sm">−10</span>
+              <span className="text-[16px] font-black text-[#e0785a]">→</span>
+              <span className="rounded-full bg-[#4caf50] px-2.5 py-1 text-[13px] font-black text-white shadow-sm">+10</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 }

@@ -155,6 +155,32 @@ export default function TutorialOverlay() {
     return () => document.removeEventListener('click', onDocClick, true);
   }, [active, step, next]);
 
+  // Пока идёт обучение, ребёнок не должен случайно нажать на кнопку, не
+  // относящуюся к текущему шагу, и уйти "непонятно куда". Геометрические
+  // "стены" в SpotlightMask закрывают клики только по видимой площади
+  // экрана — этого недостаточно, если какой-то элемент (например, шторка)
+  // рендерится с z-index выше самого оверлея. Поэтому дополнительно жёстко
+  // выключаем pointer-events у ВСЕХ элементов с data-tour, кроме тех, что
+  // относятся к текущему шагу — так работает только то, что входит в тур,
+  // независимо от порядка наложения слоёв. После шага/выхода из обучения
+  // возвращаем элементам их исходное значение pointer-events.
+  useEffect(() => {
+    if (!active || !step) return;
+    const allowedIds = new Set(step.targets ?? []);
+    const all = document.querySelectorAll<HTMLElement>('[data-tour]');
+    const prevValues: Array<[HTMLElement, string]> = [];
+    all.forEach((el) => {
+      const id = el.getAttribute('data-tour');
+      prevValues.push([el, el.style.pointerEvents]);
+      el.style.pointerEvents = id && allowedIds.has(id) ? '' : 'none';
+    });
+    return () => {
+      prevValues.forEach(([el, val]) => {
+        el.style.pointerEvents = val;
+      });
+    };
+  }, [active, step]);
+
   if (!active || !step) return null;
 
   const scene = step.scene ? bearAvatar : null;
