@@ -82,6 +82,7 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
       health: product.effects.health,
       happiness: product.effects.happiness,
     });
+    usePetStore.getState().registerInteraction();
   }
 
   // Задание дня «Купи что-нибудь в магазине» засчитывается любой реальной покупкой.
@@ -116,6 +117,7 @@ export function purchaseRoom(room: RoomProduct): PurchaseResult {
     economy.applyCoinsDelta(-room.price, `Комната: ${room.name}`, { category: 'goal' });
   }
   inventory.addOwnedRoom(room.id, room.section);
+  usePetStore.getState().registerInteraction();
 
   // Покупка комнаты — тоже реальная покупка в магазине, засчитывает задание дня.
   completeShopTaskOnce();
@@ -136,6 +138,7 @@ export function feedPet(product: ShopProduct): boolean {
       happiness: product.effects.happiness,
     });
   }
+  usePetStore.getState().registerInteraction();
 
   return true;
 }

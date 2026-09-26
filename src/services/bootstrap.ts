@@ -4,6 +4,7 @@ import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
+import { usePeriodEventStore } from '../features/periodEvents/eventStore';
 import { storage } from './storage';
 import { ECONOMY_RULES } from '../core/economy';
 
@@ -50,6 +51,7 @@ export async function bootstrapGame(): Promise<void> {
   useInventoryStore.getState().hydrate();
   useDayProgressStore.getState().hydrate();
   useLessonProgressStore.getState().hydrate();
+  usePeriodEventStore.getState().hydrate();
   usePeriodStore.getState().hydrate();
   recoverFromResetBugOnce();
   const economy = useEconomyStore.getState();

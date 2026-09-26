@@ -11,6 +11,9 @@ import { initGlobalTapSound } from './services/globalTapSound';
 import { storage } from './services/storage';
 import { usePeriodStore } from './features/economy/periodStore';
 import { useDevNavStore } from './features/dev/devNavStore';
+import { usePeriodEventStore } from './features/periodEvents/eventStore';
+import { PERIOD_EVENTS } from './features/periodEvents/eventData';
+import { useLessonProgressStore } from './features/progress/lessonProgressStore';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
 // тапа на любой кнопке приложения без ручной разводки по каждому месту.
@@ -144,6 +147,15 @@ function App() {
     showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame, () => setScreen(next));
   }
 
+  // Дев-панель "Периоды"/"События": стор уже обновлён (setPeriod/debugJumpToEvent),
+  // и если мы и так на главном экране — Home сам подхватит изменения реактивно,
+  // без полноэкранного перехода. Оверлей нужен только когда мы реально СМЕНИЛИ
+  // экран (например, были на онбординге) — тогда используем обычный goTo.
+  function jumpToHome() {
+    if (screen === 'home') return;
+    goTo('home');
+  }
+
   function handleOnboardingComplete(age: number, petName: string) {
     void storage.set('onboarded', '1');
     void storage.set('user_age', String(age));
@@ -223,7 +235,7 @@ function App() {
               onClick={() => {
                 usePeriodStore.getState().setPeriod(id);
                 useDevNavStore.getState().requestScreen('period');
-                goTo('home');
+                jumpToHome();
               }}
               className={`flex-1 rounded-xl px-3 py-2 text-[13px] font-semibold transition ${
                 screen === 'home' && currentPeriodId === id
@@ -235,6 +247,50 @@ function App() {
             </button>
           ))}
         </div>
+        {/* Прыжок сразу к конкретному событию периода (дев-панель): топит
+            кошелёк, форсирует активный статус периода с тестовым планом,
+            помечает предыдущие события в цепочке выполненными и, если у
+            события есть привязка к уроку, засчитывает этот урок — иначе
+            getAvailableEvent() событие не отдаст. Реальные эффекты/награды
+            пропущенных событий при этом не начисляются. */}
+        <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">События</span>
+        <div className="flex flex-col gap-2">
+          {([1, 2, 3] as const).map((periodId) => (
+            <div key={periodId} className="flex gap-2">
+              {PERIOD_EVENTS.filter((event) => event.periodId === periodId).map((event) => (
+                <button
+                  key={event.id}
+                  onClick={() => {
+                    // Открываем именно модалку события (она смонтирована
+                    // глобально в Home.tsx и всплывает поверх любого экрана),
+                    // а не раздел "Периоды" — requestScreen('period') здесь
+                    // специально не вызываем.
+                    useEconomyStore.getState().applyCoinsDelta(300, 'Дев: тест события', { category: 'reward' });
+                    usePeriodStore.getState().setPeriod(event.periodId);
+                    usePeriodStore.getState().confirmPlan({ mandatory: 100, optional: 100, savings: 100 });
+                    usePeriodEventStore.getState().debugJumpToEvent(event.id);
+                    if (event.lessonId) useLessonProgressStore.getState().completeLesson(event.lessonId);
+                    jumpToHome();
+                  }}
+                  title={event.title}
+                  className="flex-1 truncate rounded-xl bg-neutral-100 px-2 py-2 text-[11px] font-semibold text-neutral-600 transition hover:bg-neutral-200"
+                >
+                  {event.order}. {event.title}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => {
+            useEconomyStore.getState().applyCoinsDelta(5000, 'Дев: +5000 монет', { category: 'reward' });
+          }}
+          className="rounded-xl bg-amber-50 px-4 py-2 text-left text-[13px] font-semibold text-amber-600 transition hover:bg-amber-100"
+        >
+          +5000 монет
+        </button>
+
         <button
           onClick={() => {
             void storage.resetAll().then(() => window.location.reload());

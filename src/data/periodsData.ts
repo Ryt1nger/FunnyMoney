@@ -1,9 +1,7 @@
-// Статическое содержимое трёх игровых периодов — карточки, награды и события.
-// Цифры "Распределение" (Обязательное/Желания/Накопления) для ТЕКУЩЕГО периода
-// берутся из реального usePeriodStore (см. Period.tsx); эти данные — только
-// оформление (картинки, тексты, список событий), которого в геймплейном сторе
-// пока нет. Когда появится бэкенд-модель событий периода — событийная часть
-// подключается сюда же, без переверстки экрана.
+// Содержимое карточек трёх периодов — иллюстрации, названия и порядок событий.
+// Правила, доступность, решения и последствия событий живут в
+// features/periodEvents; этот файл только связывает их id с визуальными
+// карточками и обложками периодов.
 
 import cardPeriod1 from '../assets/periods/card-period1.jpg';
 import cardPeriod2 from '../assets/periods/card-period2.jpg';
@@ -51,9 +49,9 @@ export const PERIODS: PeriodContent[] = [
     rewardCoins: 40,
     rewardXp: 5,
     events: [
-      { id: 'fair', title: 'Ярмарка добрых дел', subtitle: 'Украшена площадка', image: eventFair },
-      { id: 'mystery', title: 'Подарок-сюрприз', subtitle: 'Открой коробку', image: eventGiftP1 },
-      { id: 'wallet', title: 'Находка в парке', subtitle: 'Реши, что делать', image: eventWallet },
+      { id: 'period-1-feed-first', title: 'Корм закончился', subtitle: 'Сначала важное', image: eventFair },
+      { id: 'period-1-help-reward', title: 'Награда за помощь', subtitle: 'Доход и расход', image: eventGiftP1 },
+      { id: 'period-1-bowl-breaks', title: 'Разбилась миска', subtitle: 'Приоритет и бюджет', image: eventWallet },
     ],
   },
   {
@@ -66,9 +64,9 @@ export const PERIODS: PeriodContent[] = [
     rewardCoins: 40,
     rewardXp: 5,
     events: [
-      { id: 'rain', title: 'Дождь перед прогулкой', subtitle: '', image: eventRain },
-      { id: 'discount', title: 'Скидка только сегодня', subtitle: '', image: eventDiscount },
-      { id: 'birthday', title: 'День рождения друга', subtitle: '', image: eventGift },
+      { id: 'period-2-smart-shopping', title: 'Большой поход в магазин', subtitle: 'Список и сравнение', image: eventRain },
+      { id: 'period-2-real-discount', title: 'Большая акция!', subtitle: 'Настоящая выгода', image: eventDiscount },
+      { id: 'period-2-overloaded-cart', title: 'Лишнее в корзине', subtitle: 'План и бюджет', image: eventGift },
     ],
   },
   {
@@ -81,9 +79,19 @@ export const PERIODS: PeriodContent[] = [
     rewardCoins: 40,
     rewardXp: 5,
     events: [
-      { id: 'sick', title: 'Мани простудился', subtitle: '', image: eventSick },
-      { id: 'invent', title: 'Конкурс изобретателей', subtitle: '', image: eventInventor },
-      { id: 'goal', title: 'Большая цель', subtitle: '', image: eventMountain },
+      { id: 'period-3-dream-house', title: 'Домик мечты', subtitle: 'Начинаем копить', image: eventSick },
+      { id: 'period-3-plan-changed', title: 'План изменился', subtitle: 'План и факт', image: eventInventor },
+      { id: 'period-3-last-ten', title: 'Последние 10 монет', subtitle: 'Цель или желание', image: eventMountain },
     ],
   },
 ];
+
+/** Карта id события → иллюстрация, для использования в модалке события
+ * (EventModal), не завязанная на текущую открытую вкладку периода. */
+export function getPeriodEventImage(eventId: string): string | undefined {
+  for (const period of PERIODS) {
+    const found = period.events.find((event) => event.id === eventId);
+    if (found) return found.image;
+  }
+  return undefined;
+}

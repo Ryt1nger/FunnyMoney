@@ -21,6 +21,10 @@ export interface PetState {
   happiness: number; // 0-100
   mood: PetMood;
   customization: PetCustomization;
+  /** Версия последнего явного действия ребёнка с питомцем. */
+  careVersion?: number;
+  /** Время последнего кормления/ухода/покупки для питомца. */
+  lastCareAt?: number;
 }
 
 // ===== Economy =====

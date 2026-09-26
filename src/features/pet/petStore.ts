@@ -7,6 +7,8 @@ interface PetStore {
   pet: PetState | null;
   createPet: (species: PetSpecies, name: string) => void;
   applyDelta: (delta: { health?: number; happiness?: number }) => void;
+  registerInteraction: () => void;
+  tickNeeds: (now?: number) => void;
   /** Начисляет опыт (например, за задание дня) и пересчитывает уровень по порогам
    *  из progressLevels — единственное место, где xp/level реально меняются. */
   addXp: (amount: number) => void;
@@ -21,6 +23,8 @@ const STORAGE_KEY = 'pet';
 function clamp(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
+
+const NEED_DECAY_INTERVAL_MS = 5 * 60 * 1000;
 
 // Уровень = сколько порогов xpThreshold уже пройдено (+1), но не выше MAX_LEVEL —
 // та же логика чтения progressLevels, что использует экран "Прогресс".
@@ -48,7 +52,13 @@ export function isValidPetState(value: unknown): value is PetState {
 // нулевым и пересчитываем level от этого нуля, ничего не теряя и не ломая.
 function normalizePet(pet: PetState): PetState {
   const xp = typeof pet.xp === 'number' ? pet.xp : 0;
-  return { ...pet, xp, level: levelForXp(xp) };
+  return {
+    ...pet,
+    xp,
+    level: levelForXp(xp),
+    careVersion: typeof pet.careVersion === 'number' ? pet.careVersion : 0,
+    lastCareAt: typeof pet.lastCareAt === 'number' ? pet.lastCareAt : Date.now(),
+  };
 }
 
 function loadInitial(): PetState | null {
@@ -70,6 +80,8 @@ export const usePetStore = create<PetStore>((set, get) => ({
       happiness: 50,
       mood: 'neutral',
       customization: { accessories: [], roomItems: [] },
+      careVersion: 0,
+      lastCareAt: Date.now(),
     };
     storage.set(STORAGE_KEY, pet);
     set({ pet });
@@ -82,6 +94,36 @@ export const usePetStore = create<PetStore>((set, get) => ({
       ...current,
       health: clamp(current.health + (delta.health ?? 0)),
       happiness: clamp(current.happiness + (delta.happiness ?? 0)),
+    };
+    storage.set(STORAGE_KEY, next);
+    set({ pet: next });
+  },
+
+  registerInteraction: () => {
+    const current = get().pet;
+    if (!current) return;
+    const next: PetState = {
+      ...current,
+      careVersion: (current.careVersion ?? 0) + 1,
+      lastCareAt: Date.now(),
+    };
+    storage.set(STORAGE_KEY, next);
+    set({ pet: next });
+  },
+
+  tickNeeds: (now = Date.now()) => {
+    const current = get().pet;
+    if (!current) return;
+    const lastCareAt = current.lastCareAt ?? now;
+    const elapsed = now - lastCareAt;
+    const steps = Math.floor(elapsed / NEED_DECAY_INTERVAL_MS);
+    if (steps <= 0) return;
+    const next: PetState = {
+      ...current,
+      health: clamp(current.health - steps),
+      happiness: clamp(current.happiness - steps),
+      lastCareAt: lastCareAt + steps * NEED_DECAY_INTERVAL_MS,
+      mood: current.happiness - steps <= 30 ? 'worried' : current.health - steps <= 35 ? 'hungry' : current.mood,
     };
     storage.set(STORAGE_KEY, next);
     set({ pet: next });

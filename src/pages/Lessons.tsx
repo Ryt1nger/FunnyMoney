@@ -7,6 +7,8 @@ import { IconArrowLeft, IconPlus, IconStar, IconLock } from '../components/icons
 import bookHero from '../assets/icons/book-3d.png';
 import LessonOne from './LessonOne';
 import LessonTwo from './LessonTwo';
+import LessonThree from './LessonThree';
+import LessonFour from './LessonFour';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { usePetStore } from '../features/pet/petStore';
@@ -15,6 +17,7 @@ import { ECONOMY_RULES } from '../core/economy';
 
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
+const GREEN = 'linear-gradient(180deg, #62d67d 0%, #40bd61 50%, #2fa64f 100%)';
 // 3 темы курса ↔ 3 игровых периода: тема periodId открывается вместе с
 // периодом того же номера (usePeriodStore().id) — тема текущего и уже
 // пройденных периодов доступна, темы будущих периодов заблокированы
@@ -56,21 +59,57 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
   const list = lessonCards;
 
+  // Награда за практику — лимит на каждый урок (5 верных ответов по +монеты/+XP),
+  // повторное прохождение уже выданных наград не даёт. Что выдано (или что
+  // лимит исчерпан) показывается всплывашкой поверх урока.
+  const [reward, setReward] = useState<{ key: number; paid: boolean } | null>(null);
+  useEffect(() => {
+    if (!reward) return;
+    const id = setTimeout(() => setReward(null), 1700);
+    return () => clearTimeout(id);
+  }, [reward]);
+
   function rewardPractice(lessonId: string) {
-    useLessonProgressStore.getState().completeLesson(lessonId);
-    if (!usePeriodStore.getState().recordPractice()) return;
-    useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.practiceRewardCoins, 'Награда за практику', {
-      periodId: usePeriodStore.getState().id,
-      category: 'reward',
-    });
-    usePetStore.getState().addXp(ECONOMY_RULES.practiceRewardXp);
+    const progress = useLessonProgressStore.getState();
+    progress.completeLesson(lessonId);
+    const paid = progress.claimPracticeReward(lessonId, ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp);
+    if (paid) {
+      useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.practiceRewardCoins, 'Награда за практику', {
+        periodId: usePeriodStore.getState().id,
+        category: 'reward',
+      });
+      usePetStore.getState().addXp(ECONOMY_RULES.practiceRewardXp);
+    }
+    setReward({ key: Date.now(), paid });
   }
 
+  const rewardToast = reward ? (
+    <div key={reward.key} className="pointer-events-none absolute inset-x-0 top-[17%] z-[60] flex justify-center">
+      <style>{`@keyframes lessonRewardPop{0%{opacity:0;transform:translateY(12px) scale(.9)}15%{opacity:1;transform:translateY(0) scale(1)}80%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-14px) scale(1)}}`}</style>
+      <div className="flex items-center gap-3 rounded-full bg-white/95 px-4 py-2 shadow-[0_8px_22px_rgba(60,45,120,.28)] [animation:lessonRewardPop_1700ms_ease-out_forwards]">
+        {reward.paid ? (
+          <>
+            <span className="flex items-center gap-1.5 text-[17px] font-black text-[#c9862a]"><img src={coinIcon} alt="" className="h-6 w-6" />+{ECONOMY_RULES.practiceRewardCoins}</span>
+            <span className="flex items-center gap-1.5 text-[17px] font-black text-[#5d57c9]"><img src={xpIcon} alt="" className="h-6 w-6" />+{ECONOMY_RULES.practiceRewardXp} XP</span>
+          </>
+        ) : (
+          <span className="text-[13px] font-extrabold text-[#7b7a8c]">Награда за этот урок уже получена</span>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   if (activeLesson === 'what-is-money') {
-    return <LessonOne onPracticeComplete={() => rewardPractice('what-is-money')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
+    return <><LessonOne onPracticeComplete={() => rewardPractice('what-is-money')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
   }
   if (activeLesson === 'needs-vs-wants') {
-    return <LessonTwo onPracticeComplete={() => rewardPractice('needs-vs-wants')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
+    return <><LessonTwo onPracticeComplete={() => rewardPractice('needs-vs-wants')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
+  }
+  if (activeLesson === 'piggy-bank') {
+    return <><LessonThree onPracticeComplete={() => rewardPractice('piggy-bank')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
+  }
+  if (activeLesson === 'impulse-buying') {
+    return <><LessonFour onPracticeComplete={() => rewardPractice('impulse-buying')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
   }
 
   return (
@@ -221,11 +260,22 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 themeLocked ? 'bg-white/50 grayscale' : 'bg-white/80'
               }`}
             >
-              <img
-                src={lesson.image}
-                alt=""
-                className={`h-[70px] w-[70px] shrink-0 rounded-[16px] object-cover ${themeLocked ? 'opacity-60' : ''}`}
-              />
+              <div className="relative h-[70px] w-[70px] shrink-0">
+                <img
+                  src={lesson.image}
+                  alt=""
+                  className={`h-full w-full rounded-[16px] object-cover ${themeLocked ? 'opacity-60' : ''}`}
+                />
+                {lessonCompleted && (
+                  <span
+                    aria-label="Урок пройден"
+                    className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-white shadow-md"
+                    style={{ background: GREEN }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                  </span>
+                )}
+              </div>
               <div className={`min-w-0 flex-1 pr-24 ${themeLocked ? 'opacity-60' : ''}`}>
                 <div className="line-clamp-2 text-[13px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                   {lesson.title}
@@ -264,9 +314,13 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 </span>
               ) : (
                 <button
-                  onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
+                  onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants' || lesson.id === 'piggy-bank' || lesson.id === 'impulse-buying') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
                   className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
-                  style={{
+                  style={lessonCompleted ? {
+                    background: GREEN,
+                    boxShadow:
+                      'inset 0 2px 0 rgba(170,240,185,0.6), inset 0 -2px 0 rgba(30,120,58,0.8), 0 4px 10px rgba(47,166,79,0.28)',
+                  } : {
                     background: VIOLET,
                     boxShadow:
                       'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',

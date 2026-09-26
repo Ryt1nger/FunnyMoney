@@ -5,6 +5,8 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { setMusicEnabled } from '../services/backgroundMusic';
 import { stopAssistantVoice } from '../services/assistantVoice';
+import { stopSoundEffects } from '../services/soundEffects';
+import { stopFeedCrunchSound } from '../services/feedSound';
 import { storage } from '../services/storage';
 import ParentDashboard from './ParentDashboard';
 
@@ -368,7 +370,13 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
             label="Звуки игры"
             description="Отклик на покупки и задания"
             checked={soundsEnabled}
-            onChange={setSounds}
+            onChange={(next) => {
+              setSounds(next);
+              if (!next) {
+                stopSoundEffects();
+                stopFeedCrunchSound();
+              }
+            }}
           />
           <SettingsRow
             icon={<IconChatBubble className="h-5 w-5" />}

@@ -248,6 +248,12 @@ export default function Kitchen({
                 }}
               />
             </div>
+            <div
+              className="mt-1 text-[9.5px] font-medium leading-none text-white"
+              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
+            >
+              {xp} / {xpToNext} XP
+            </div>
           </div>
 
           <IconChevronRight className="ml-1 h-3.5 w-3.5 shrink-0 self-center text-white drop-shadow" style={{ opacity: 0.85 }} />
@@ -334,7 +340,7 @@ export default function Kitchen({
           места. Поэтому высота подноса и количество карточек еды не меняют ни
           размер, ни положение питомца. Зона вокруг него остаётся достаточно
           широкой, чтобы ребёнку не требовалась ювелирная точность. */}
-      <div ref={bearZoneRef} className="absolute inset-x-0 top-[27vh] z-0 h-[40vh]">
+      <div ref={bearZoneRef} className="absolute inset-x-0 top-[33vh] z-0 h-[40vh]">
         <div className="absolute left-1/2 top-[-12%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
             <IconHeart className="h-4 w-4" style={{ color: '#ef4060' }} />
@@ -351,7 +357,7 @@ export default function Kitchen({
           alt=""
           aria-hidden="true"
           draggable={false}
-          className="pointer-events-none absolute left-1/2 h-[44vh] w-auto select-none object-contain"
+          className="pointer-events-none absolute left-1/2 h-[36vh] w-auto select-none object-contain"
           style={{
             bottom: '2%',
             transformOrigin: 'bottom center',
@@ -362,11 +368,11 @@ export default function Kitchen({
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-[1%] left-1/2 h-[12px] w-[112px] rounded-[50%]"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[14px] w-[100px] rounded-[50%]"
           style={{
             transform: 'translateX(-2%)',
-            background: 'radial-gradient(ellipse at 50% 50%, rgba(20,10,2,0.36) 0%, rgba(20,10,2,0.16) 52%, rgba(20,10,2,0) 76%)',
-            filter: 'blur(3px)',
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(20,10,2,0.45) 0%, rgba(20,10,2,0.20) 52%, rgba(20,10,2,0) 76%)',
+            filter: 'blur(2px)',
           }}
         />
 
@@ -379,7 +385,7 @@ export default function Kitchen({
           src={kitchenBearClosed}
           alt={petName}
           draggable={false}
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[44vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[36vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
         {[{ pose: 2, src: kitchenBearOpen }, { pose: 3, src: kitchenBearOpenWide }].map(({ pose, src }) => {
           const isVisible = pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
@@ -389,7 +395,7 @@ export default function Kitchen({
               src={src}
               alt=""
               draggable={false}
-              className="pointer-events-none absolute bottom-0 left-1/2 h-[44vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
+              className="pointer-events-none absolute bottom-0 left-1/2 h-[36vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transitionDuration: `${BEAR_STEP_MS}ms`,

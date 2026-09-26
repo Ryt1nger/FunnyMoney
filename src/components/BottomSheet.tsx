@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, ty
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** true — свайп вниз не закрывает шторку (например, во время урока) */
+  swipeDisabled?: boolean;
   children: ReactNode;
 }
 
@@ -39,7 +41,7 @@ function findScrollableAncestor(el: Element | null, root: HTMLElement | null): H
  * контента, который ещё не докручен до верха (иначе обычная прокрутка списка
  * вниз... то есть вверх по контенту работала бы через раз как закрытие).
  */
-export default function BottomSheet({ open, onClose, children }: Props) {
+export default function BottomSheet({ open, onClose, swipeDisabled = false, children }: Props) {
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,12 @@ export default function BottomSheet({ open, onClose, children }: Props) {
   }, [open]);
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    // Во время урока жест закрытия отключён целиком. Перетаскивание карточек
+    // внутри урока этим не затрагивается: оно живёт на самих карточках.
+    if (swipeDisabled) {
+      dragRef.current = null;
+      return;
+    }
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,

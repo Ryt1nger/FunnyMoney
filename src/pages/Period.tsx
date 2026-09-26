@@ -2,19 +2,32 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { usePetStore } from '../features/pet/petStore';
+import { usePeriodEventStore } from '../features/periodEvents/eventStore';
+import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
+import EventProgress from '../features/periodEvents/components/EventProgress';
 import { ECONOMY_RULES, validateBudgetPlan, type BudgetPlan } from '../core/economy';
 import { PERIODS, type PeriodContent } from '../data/periodsData';
-import { IconArrowLeft, IconPlus, IconLock, IconCheck, IconStar, IconHome, IconHeart, IconPiggy, IconCoinStack, IconChevronRight } from '../components/icons';
+import { IconArrowLeft, IconPlus, IconLock, IconCheck, IconStar, IconHome, IconChevronRight } from '../components/icons';
 import coinIcon from '../assets/icons/coin.png';
+import heartIcon from '../assets/icons/metrics/heart-3d.png';
+import piggyIcon from '../assets/piggy-bank/piggy.png';
+import walletIcon from '../assets/piggy-bank/wallet.png';
 
 interface Props {
   bottomInset?: number;
   onClose: () => void;
   onOpenPiggy?: (amount: number) => void;
+  /** Открыть модалку доступного сейчас события периода — сама модалка теперь
+   *  смонтирована глобально в Home.tsx (может всплывать поверх любого экрана,
+   *  не только раздела "Периоды"), здесь только просим её показать. */
+  onOpenEvent?: () => void;
+  /** Открыть окно «Заработать монеты» (плюс рядом с балансом). */
+  onOpenEarnModal?: () => void;
 }
 
 // Цвета взяты из референса дизайна (см. присланные скриншоты «Периоды»).
 const BLUE = '#111b72';
+const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 const GRADIENT_BLUE = 'linear-gradient(135deg, #6c7bf5 0%, #3f4fd8 100%)';
 
 function CoinValue({ value }: { value: number | null }) {
@@ -32,9 +45,9 @@ function CoinValue({ value }: { value: number | null }) {
 function DistributionGrid({ plan, income }: { plan: { mandatory: number; optional: number; savings: number } | null; income: number }) {
   const items = [
     { label: 'Обязательное', value: plan?.mandatory ?? null, bg: '#e8f0ff', icon: <IconHome className="h-6 w-6 text-[#3b6fe0]" /> },
-    { label: 'Желания', value: plan?.optional ?? null, bg: '#ffe9ef', icon: <IconHeart className="h-6 w-6 text-[#ef4b6b]" /> },
-    { label: 'Накопления', value: plan?.savings ?? null, bg: '#f1e9ff', icon: <IconPiggy className="h-6 w-6 text-[#8b5cf6]" /> },
-    { label: 'В кошельке', value: income, bg: '#e6f9ee', icon: <IconCoinStack className="h-6 w-6 text-[#22a35a]" /> },
+    { label: 'Желания', value: plan?.optional ?? null, bg: '#ffe9ef', icon: <img src={heartIcon} alt="" className="h-6 w-6 object-contain" /> },
+    { label: 'Накопления', value: plan?.savings ?? null, bg: '#f1e9ff', icon: <img src={piggyIcon} alt="" className="h-7 w-7 object-contain" /> },
+    { label: 'В кошельке', value: income, bg: '#e6f9ee', icon: <img src={walletIcon} alt="" className="h-6 w-6 object-contain" /> },
   ];
   return (
     <div className="mt-3 grid grid-cols-4 gap-1.5">
@@ -82,12 +95,26 @@ function DistributionInputRow({
   );
 }
 
-function EventRow({ event, state }: { event: PeriodContent['events'][number]; state: 'done' | 'pending' | 'locked' }) {
+function EventRow({
+  event,
+  state,
+  onClick,
+}: {
+  event: PeriodContent['events'][number];
+  state: 'done' | 'active' | 'locked';
+  onClick?: () => void;
+}) {
+  const active = state === 'active';
   return (
-    <div className="flex items-center gap-2.5 rounded-[16px] bg-[#f7f5ff] p-2">
+    <div
+      onClick={active ? onClick : undefined}
+      className={`flex items-center gap-2.5 rounded-[16px] p-2 transition ${
+        active ? 'cursor-pointer bg-[#eef0ff] ring-2 ring-[#7c6cf5]/40 active:scale-[0.98]' : 'bg-[#f7f5ff]'
+      }`}
+    >
       <img src={event.image} alt="" className={`h-11 w-11 shrink-0 rounded-[12px] object-cover ${state === 'locked' ? 'grayscale opacity-60' : ''}`} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[11.5px] font-extrabold" style={{ color: BLUE }}>{event.title}</div>
+        <div className="truncate text-[11.5px] font-extrabold" style={{ color: state === 'locked' ? '#a7a4b8' : BLUE }}>{event.title}</div>
         {event.subtitle && <div className="truncate text-[9.5px] font-semibold text-[#8a8fbf]">{event.subtitle}</div>}
       </div>
       {state === 'done' && (
@@ -96,14 +123,20 @@ function EventRow({ event, state }: { event: PeriodContent['events'][number]; st
       {state === 'locked' && (
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eceef7] text-[#9a9fc4]"><IconLock className="h-3 w-3" /></span>
       )}
-      {state === 'pending' && <IconChevronRight className="h-4 w-4 shrink-0 text-[#b7bce0]" />}
+      {active && <IconChevronRight className="h-4 w-4 shrink-0 text-[#5d6cfc]" />}
     </div>
   );
 }
 
-export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props) {
+export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEvent, onOpenEarnModal }: Props) {
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const coins = useEconomyStore((s) => s.coins);
   const period = usePeriodStore();
+  const completedEventIds = usePeriodEventStore((state) => state.completedEventIds);
   // Текущий доступный период определяется реальным игровым прогрессом
   // (usePeriodStore().id); 1 и 2 периоды впереди него — заблокированы, как
   // и задумано в референсе. Сами события периода (карточки ниже) — пока
@@ -116,7 +149,6 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
   const [mandatoryInput, setMandatoryInput] = useState('');
   const [optionalInput, setOptionalInput] = useState('');
   const [savingsInput, setSavingsInput] = useState('');
-  const [completionError, setCompletionError] = useState('');
   const content = PERIODS[tab - 1];
   const isCurrent = tab === currentId;
   const isPast = tab < currentId;
@@ -131,6 +163,21 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
       : 'locked';
   const isLocked = status === 'locked';
   const pastSummary = period.history?.find((item) => item.id === tab);
+  // Подписка нужна только чтобы компонент перерисовался, когда где-то в игре
+  // проходят урок — getAvailableEvent() читает lessonProgressStore напрямую
+  // через getState() и сам по себе не реактивен.
+  useLessonProgressStore((s) => s.completedLessonIds.length);
+
+  useEffect(() => {
+    usePeriodEventStore.getState().syncPeriod(currentId as 1 | 2 | 3);
+  }, [currentId]);
+
+  // Доступное сейчас событие — только для текущего активного периода и
+  // только той вкладки, которая сейчас открыта (tab === currentId, иначе на
+  // прошлой/будущей вкладке событие открывать нельзя).
+  const availableEvent = isCurrent && status === 'active'
+    ? usePeriodEventStore.getState().getAvailableEvent()
+    : null;
 
   // Выходим из режима ввода при уходе с вкладки планирования или после
   // того, как план уже подтверждён реальным стором — чтобы не показывать
@@ -146,7 +193,11 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
 
   const plan = isCurrent ? period.plan : isPast ? pastSummary?.plan ?? null : null;
   const income = isLocked ? 0 : isCurrent ? period.walletBalance : pastSummary?.income ?? 0;
-  const doneCount = status === 'completed' ? content.events.length : status === 'active' ? 1 : 0;
+  const doneCount = status === 'completed'
+    ? content.events.length
+    : status === 'active'
+      ? content.events.filter((event) => completedEventIds.includes(event.id)).length
+      : 0;
   const showPlanButtons = isCurrent && status === 'planning';
   const budgetTooSmall = showPlanButtons && income < 3;
 
@@ -187,35 +238,8 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
     }
   }
 
-  function handleComplete() {
-    if (status !== 'active') return;
-    if (!period.completePeriod()) {
-      setCompletionError('Сначала пройди два урока темы «Выбор».');
-      return;
-    }
-    if (!period.rewardFlags.periodRewardGranted) {
-      useEconomyStore.getState().applyCoinsDelta(content.rewardCoins, `Награда за период ${period.id}`, {
-        periodId: period.id,
-        category: 'reward',
-      });
-      usePetStore.getState().addXp(content.rewardXp);
-      usePeriodStore.getState().markPeriodRewardGranted();
-    }
-    setCompletionError('');
-  }
-
-  function handleAdvance() {
-    if (status !== 'completed') return;
-    if (period.id < 3) {
-      period.advancePeriod(coins, useEconomyStore.getState().savingsBalance ?? 0);
-      setTab((period.id + 1) as 1 | 2 | 3);
-      return;
-    }
-    onClose();
-  }
-
   const distributionCard = (
-    <div className="rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
+    <div data-tour="period-distribution" className="rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[13px] font-black" style={{ color: BLUE }}>
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#eef0ff] text-[#5d6cfc]">◐</span>
@@ -246,14 +270,14 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
             onChange={setMandatoryInput}
           />
           <DistributionInputRow
-            icon={<IconHeart className="h-5 w-5 text-[#ef4b6b]" />}
+            icon={<img src={heartIcon} alt="" className="h-5 w-5 object-contain" />}
             label="Желания"
             bg="#ffe9ef"
             value={optionalInput}
             onChange={setOptionalInput}
           />
           <DistributionInputRow
-            icon={<IconPiggy className="h-5 w-5 text-[#8b5cf6]" />}
+            icon={<img src={piggyIcon} alt="" className="h-6 w-6 object-contain" />}
             label="Накопления"
             bg="#f1e9ff"
             value={savingsInput}
@@ -290,7 +314,7 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
               onClick={() => onOpenPiggy(plan.savings)}
               className="mt-2.5 flex h-10 w-full items-center justify-center gap-1.5 rounded-[14px] bg-[#f1e9ff] text-[11.5px] font-extrabold text-[#6a4bc7]"
             >
-              <IconPiggy className="h-4 w-4" />
+              <img src={piggyIcon} alt="" className="h-4 w-4 object-contain" />
               Пополнить копилку по плану
             </button>
           )}
@@ -316,15 +340,8 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
     </div>
   );
 
-  function ctaLabel() {
-    if (status === 'locked') return 'Пока недоступно';
-    if (status === 'active') return 'Завершить период';
-    if (status === 'completed' && period.id < 3) return 'Следующий период';
-    return 'Продолжить игру';
-  }
-
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-[#f8f4ec]">
+    <div className="relative flex h-full flex-col overflow-hidden bg-[#2a3494]">
       {/* Шапка с иллюстрацией периода — та же схема, что на Магазине/Дне/
           Статистике: фиксированная высота 170px, shrink-0 (не скроллится
           вместе с контентом), кнопка "назад" и баланс монет наложены прямо
@@ -334,7 +351,10 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
           с пробелами вокруг "+" — иначе на телефоне с "чёлкой"/островком
           calc() невалиден, браузer отбрасывает paddingTop целиком, и кнопки
           прилипают к самому верху экрана. */}
-      <div className="relative h-[170px] shrink-0 overflow-hidden">
+      <div
+        className="relative h-[170px] shrink-0 overflow-hidden transition-opacity duration-500"
+        style={{ opacity: entered ? 1 : 0 }}
+      >
         <img src={content.hero} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div
           className="absolute inset-0"
@@ -365,9 +385,14 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
           >
             <img src={coinIcon} alt="" className="h-6 w-6" />
             <span className="text-[15px] font-bold leading-none text-white">{coins}</span>
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#5d6cfc] text-white shadow-md">
+            <button
+              onClick={onOpenEarnModal}
+              aria-label="Заработать монеты"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-white shadow-md transition active:scale-95"
+              style={{ background: VIOLET }}
+            >
               <IconPlus className="h-4 w-4" />
-            </span>
+            </button>
           </div>
         </div>
 
@@ -383,8 +408,12 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
           иллюстрации (-mt-5), как на Магазине/Дне/Статистике — иначе граница
           между фото и контентом была прямым прямоугольным обрезом. */}
       <div
-        className="relative z-10 -mt-5 flex-1 overflow-y-auto rounded-t-[26px] bg-[#f8f4ec] px-3 pt-4"
-        style={{ paddingBottom: bottomInset + (editingPlan ? 220 : 18) }}
+        className="relative z-10 -mt-5 flex-1 overflow-y-auto rounded-t-[26px] bg-[#f8f4ec] px-3 pt-4 transition-transform duration-[420ms]"
+        style={{
+          paddingBottom: bottomInset + (editingPlan ? 220 : 18),
+          transform: entered ? 'translateY(0)' : 'translateY(100%)',
+          transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
+        }}
       >
         {/* В режиме ручного ввода карточка "Распределение" поднимается на
             самый верх светлой секции (как ввод суммы в Копилке), а всё
@@ -425,7 +454,7 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
 
           {/* Карточка периода: картинка, заголовок/описание, прогресс по
               событиям и награды за прохождение. */}
-          <div className="mt-3 rounded-[22px] bg-white p-3 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
+          <div data-tour="period-card" className="mt-3 rounded-[22px] bg-white p-3 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
             <div className="flex gap-3">
               <img src={content.card} alt="" className="h-[92px] w-[92px] shrink-0 rounded-[16px] object-cover" />
               <div className="min-w-0">
@@ -436,15 +465,7 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
             </div>
 
             <div className="mt-3 flex items-end justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-[11px] font-extrabold" style={{ color: BLUE }}>
-                  <IconStar className="h-4 w-4 text-[#7c6cf5]" />
-                  {doneCount} из {content.events.length} событий
-                </div>
-                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#eeeaf7]">
-                  <div className="h-full rounded-full bg-[#7c6cf5]" style={{ width: `${Math.round((doneCount / content.events.length) * 100)}%` }} />
-                </div>
-              </div>
+              <EventProgress total={content.events.length} done={doneCount} />
               <div className="flex shrink-0 gap-1.5">
                 <div className="flex items-center gap-1 rounded-[12px] bg-[#fff6df] px-2 py-1.5">
                   <img src={coinIcon} alt="" className="h-4 w-4" />
@@ -473,7 +494,7 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
           {/* События периода: список меняется по статусу — locked показывает
               анонс ("Что тебя ждёт"), planning/active — что появится в игре,
               completed — что уже сделано. */}
-          <div className="mt-2.5 rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
+          <div data-tour="period-events" className="mt-2.5 rounded-[22px] bg-white p-3.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
             <div className="mb-2 flex items-center gap-2 text-[13px] font-black" style={{ color: BLUE }}>
               {status === 'completed' ? (
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e7f8ee] text-[#22a35a]"><IconCheck className="h-3.5 w-3.5" /></span>
@@ -485,25 +506,30 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
               {status === 'completed' ? 'Что уже сделано' : status === 'locked' ? 'Что тебя ждёт' : 'События периода'}
             </div>
             <div className="space-y-1.5">
-              {status !== 'locked' && status !== 'completed' && doneCount === 0 && (
-                <p className="rounded-[14px] bg-[#f7f5ff] px-3 py-3 text-center text-[10.5px] font-bold text-[#8a8fbf]">
-                  Пройденных событий пока нет — они появятся здесь по ходу периода.
-                </p>
-              )}
-              {content.events
-                .map((event, i) => ({
-                  event,
-                  // locked — превью всего списка ("Что тебя ждёт"), completed —
-                  // всё пройдено. В остальных статусах в списке остаются только
-                  // уже пройденные события (i < doneCount), непройденные не
-                  // показываем — их порядок и появление определяет сама игра.
-                  state: (status === 'locked' ? 'locked' : 'done') as 'done' | 'pending' | 'locked',
-                  visible: status === 'locked' || status === 'completed' || i < doneCount,
-                }))
-                .filter(({ visible }) => visible)
-                .map(({ event, state }) => (
-                  <EventRow key={event.id} event={event} state={state} />
-                ))}
+              {content.events.map((event) => {
+                // locked (вкладка) — превью всего списка на будущий период,
+                // completed — прошлый период, всё пройдено. В активном периоде
+                // статус каждого события — реальный completedEventIds, плюс
+                // ровно одно "доступное" (availableEvent) можно открыть тапом;
+                // остальные будущие события показываются приглушённо-заблокированными.
+                const state: 'done' | 'active' | 'locked' = status === 'locked'
+                  ? 'locked'
+                  : status === 'completed'
+                    ? 'done'
+                    : completedEventIds.includes(event.id)
+                      ? 'done'
+                      : availableEvent?.id === event.id
+                        ? 'active'
+                        : 'locked';
+                return (
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    state={state}
+                    onClick={state === 'active' ? onOpenEvent : undefined}
+                  />
+                );
+              })}
             </div>
             {status === 'locked' && (
               <div className="mt-2.5 flex items-center gap-2 rounded-[14px] bg-[#eceef7] px-3 py-2 text-[10.5px] font-bold text-[#8a8fbf]">
@@ -513,23 +539,12 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy }: Props)
             )}
           </div>
 
-          {/* Кнопку внизу больше не показываем на статусе "planning" — там её
-              заменяет связка Распределить/Подтвердить в карточке выше. */}
-          {status !== 'planning' && (
-            <>
-            {completionError && status === 'active' && (
-              <p className="mt-3 rounded-[14px] bg-[#fff4df] px-3 py-2 text-center text-[10.5px] font-bold text-[#a1740f]">{completionError}</p>
-            )}
-            <button
-              disabled={status === 'locked'}
-              onClick={status === 'active' ? handleComplete : status === 'completed' ? handleAdvance : onClose}
-              className="mt-3 flex h-12 w-full items-center justify-center gap-1.5 rounded-[16px] text-[13px] font-extrabold text-white disabled:bg-[#d9d4c6] disabled:text-[#a29c8c]"
-              style={{ background: status === 'locked' ? undefined : GRADIENT_BLUE }}
-            >
-            {ctaLabel()}
-            {status !== 'locked' && <IconChevronRight className="h-4 w-4" />}
-            </button>
-            </>
+          {status === 'active' && (
+            <p className="mt-3 rounded-[14px] bg-[#eef0ff] px-3 py-2.5 text-center text-[10.5px] font-bold text-[#5d63a8]">
+              {doneCount >= content.events.length
+                ? 'Все события периода выполнены! Период завершится автоматически, когда будут выполнены остальные обязательные действия.'
+                : `Осталось событий: ${content.events.length - doneCount}. Период завершится автоматически, когда будут выполнены все обязательные действия.`}
+            </p>
           )}
         </div>
       </div>

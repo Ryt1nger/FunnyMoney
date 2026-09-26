@@ -6,6 +6,7 @@ import {
   developmentStageFromPeriods,
   validateBudgetPlan,
 } from '../src/core/economy.ts';
+import { PERIOD_EVENTS, getPeriodEvents } from '../src/features/periodEvents/eventData.ts';
 
 assert.equal(validateBudgetPlan(200, { mandatory: 120, optional: 30, savings: 50 }).valid, true);
 assert.equal(validateBudgetPlan(200, { mandatory: 120, optional: 30, savings: 60 }).error, 'over_budget');
@@ -41,4 +42,20 @@ assert.equal(developmentStageFromPeriods(0), 1);
 assert.equal(developmentStageFromPeriods(2), 2);
 assert.equal(developmentStageFromPeriods(4), 3);
 
-console.log('Economy core checks passed');
+// Каталог сюжетных событий: три события на каждый период, уникальные id и
+// непрерывная цепочка открытия — это защита от рассинхронизации визуала и
+// событийного стора.
+assert.equal(PERIOD_EVENTS.length, 9);
+assert.deepEqual([1, 2, 3].map((id) => getPeriodEvents(id).length), [3, 3, 3]);
+assert.equal(new Set(PERIOD_EVENTS.map((event) => event.id)).size, 9);
+for (const periodId of [1, 2, 3]) {
+  const events = getPeriodEvents(periodId);
+  assert.equal(events[0].previousEventId, undefined);
+  assert.equal(events[1].previousEventId, events[0].id);
+  assert.equal(events[2].previousEventId, events[1].id);
+  assert.ok(events[0].lessonId, `period ${periodId} first event needs first lesson`);
+  assert.equal(events[1].lessonId, undefined, `period ${periodId} second event is before second lesson`);
+  assert.ok(events[2].lessonId, `period ${periodId} final event needs second lesson`);
+}
+
+console.log('Economy and period-event checks passed');

@@ -6,6 +6,21 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 // лениво — многие браузеры блокируют его до первого жеста пользователя.
 let ctx: AudioContext | null = null;
 
+/** Немедленно останавливает уже запланированные эффекты.
+ * Одной проверки soundsEnabled недостаточно: WebAudio уже поставил
+ * осцилляторы в очередь и они продолжили бы звучать после выключения.
+ */
+export function stopSoundEffects() {
+  const current = ctx;
+  ctx = null;
+  if (!current) return;
+  try {
+    void current.close();
+  } catch {
+    // ignore — выключение звука не должно ломать экран настроек
+  }
+}
+
 function getContext(): AudioContext | null {
   try {
     if (!ctx) {

@@ -38,6 +38,9 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { useDevNavStore } from '../features/dev/devNavStore';
 import { usePeriodStore } from '../features/economy/periodStore';
+import { usePeriodEventStore } from '../features/periodEvents/eventStore';
+import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
+import EventModal from '../features/periodEvents/components/EventModal';
 import { purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
 import { storage } from '../services/storage';
@@ -52,8 +55,8 @@ import {
 } from '../components/icons';
 import piggyIcon from '../assets/piggy-bank/piggy.png';
 
-// Карточка "Событие дня" — не постоянный баннер, а напоминание: показываем её,
-// только если ребёнок давно (несколько часов) не заходил на урок в течение дня.
+// После стартового обучения даём ребёнку немного освоиться и только потом
+// предлагаем первый обязательный урок.
 const EVENT_COPY = {
   title: 'Мишка заскучал\nбез урока!',
   description: 'Давно не был на уроке!',
@@ -61,6 +64,7 @@ const EVENT_COPY = {
 
 // Русское склонение "день/дня/дней" для карточки серии.
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
+const FIRST_LESSON_REMINDER_DELAY_MS = 90 * 1000;
 
 // Переход между главной и кухней в обе стороны — короткий экран загрузки
 // с прогресс-баром (см. PageLoading — полоса заполняется ровно за этот срок).
@@ -83,6 +87,9 @@ const SCREEN_LOADING_FADE_MS = 420;
 const SWIPE_UP_THRESHOLD = 70;
 
 function shouldShowLessonReminder() {
+  if (useLessonProgressStore.getState().isCompleted('what-is-money')) return false;
+  const tutorialFinishedAt = storage.get<number>('tutorial_finished_at');
+  if (tutorialFinishedAt) return Date.now() - tutorialFinishedAt >= FIRST_LESSON_REMINDER_DELAY_MS;
   const raw = storage.get<string>('last_lesson_visit_at');
   if (!raw) return true; // ещё ни разу не заходил — точно пора напомнить
   const lastVisit = Number(raw);
@@ -119,10 +126,12 @@ export default function Home() {
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
   const purchaseConfirmationEnabled = useSettingsStore((s) => s.purchaseConfirmationEnabled);
+  const tutorialActive = useTutorialStore((s) => s.active);
 
   const petName = pet?.name ?? 'Мишка';
   const health = pet?.health ?? 0;
   const happiness = pet?.happiness ?? 0;
+  const petNeedsAttention = health <= 65 || happiness <= 35;
   // Богатство — метрика-проценты 0..100, производная от wealthScore экономики.
   const wealth = Math.max(0, Math.min(100, wealthScore));
 
@@ -130,6 +139,7 @@ export default function Home() {
   const [sheet, setSheet] = useState<SheetId | null>(null);
   const [piggyPrefillAmount, setPiggyPrefillAmount] = useState<number | null>(null);
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
+  const [, setEventClock] = useState(0);
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
   // уроки, либо на задания дня.
   const [earnModalOpen, setEarnModalOpen] = useState(false);
@@ -180,6 +190,8 @@ export default function Home() {
   const baseSheet: SheetId | null = room === 'kitchen' ? 'kitchen' : null;
 
   function closeSheet() {
+    // страховка: шторка закрыта — урок точно не идёт, свайпы снова доступны
+    setIsOnLesson(false);
     // Кухню закрываем свайпом вниз/тапом по фону так же, как и кнопкой-домиком
     // внутри неё самой — с экраном загрузки (см. closeKitchen).
     if (sheet === 'kitchen') {
@@ -221,6 +233,10 @@ export default function Home() {
     setScreenLoading(direction === 'enter' ? 'lesson-enter' : 'lesson-exit');
     if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
     screenLoadingTimer.current = setTimeout(() => setScreenLoading(null), SCREEN_LOADING_MS);
+    // Отдельный (не путать с navHidden — тот же сигнал использует и
+    // родительский кабинет) точный флаг "сейчас идёт урок": по нему гасим
+    // автопоказ модалки сюжетного события, чтобы она не перебивала урок.
+    setIsOnLesson(direction === 'enter');
   }
 
   useEffect(() => {
@@ -235,6 +251,18 @@ export default function Home() {
     useTutorialStore.getState().startIfNeeded();
   }, []);
 
+  // Игровые часы: задержки событий, плавное снижение показателей питомца и
+  // отложенное напоминание о первом уроке проверяются независимо от того,
+  // на каком экране сейчас находится ребёнок.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      usePetStore.getState().tickNeeds();
+      setShowLessonReminder(shouldShowLessonReminder());
+      setEventClock((value) => value + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Мост для дев-панели (App.tsx, вне "телефона"): кнопки "Период 1/2/3" там
   // переключают usePeriodStore и просят здесь открыть раздел "Периоды" — сама
   // Home ничего не знает про дев-панель, только слушает этот запрос и сразу
@@ -246,6 +274,50 @@ export default function Home() {
       useDevNavStore.getState().clearRequest();
     }
   }, [devNavRequest]);
+
+  // Модалка сюжетного события периода — смонтирована здесь один раз, поэтому
+  // может всплывать поверх ЛЮБОГО экрана внутри Home (главная, магазин,
+  // копилка, статистика, список уроков…), а не только раздела "Периоды".
+  // Единственное исключение — активный урок (isOnLesson): его не перебиваем.
+  const [isOnLesson, setIsOnLesson] = useState(false);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [openEventId, setOpenEventId] = useState<string | null>(null);
+  // Событие, которое ребёнок явно закрыл крестиком (не решил) — не лезем с
+  // ним повторно на этом же экране, но при переходе на другой экран (или
+  // другую шторку) даём игре попробовать показать его снова.
+  const [dismissedEventId, setDismissedEventId] = useState<string | null>(null);
+  const periodStatusForEvents = usePeriodStore((s) => s.status);
+  // Подписки нужны только для перерисовки — getAvailableEvent() читает эти
+  // сторы напрямую через getState() и сам по себе не реактивен.
+  usePeriodEventStore((s) => s.completedEventIds.length);
+  useLessonProgressStore((s) => s.completedLessonIds.length);
+  const availableEvent = periodStatusForEvents === 'active' ? usePeriodEventStore.getState().getAvailableEvent() : null;
+
+  useEffect(() => {
+    if (!availableEvent || isOnLesson || tutorialActive) return;
+    if (availableEvent.id === dismissedEventId) return;
+    setOpenEventId(availableEvent.id);
+    setEventModalOpen(true);
+  }, [availableEvent?.id, isOnLesson, tutorialActive, dismissedEventId]);
+
+  // Переход на другой экран/шторку — новый шанс показать отложенное событие.
+  useEffect(() => {
+    setDismissedEventId(null);
+  }, [tab, sheet]);
+
+  function closeEventModal() {
+    setEventModalOpen(false);
+    if (openEventId && usePeriodEventStore.getState().getAvailableEvent()?.id === openEventId) {
+      setDismissedEventId(openEventId);
+    }
+  }
+
+  function openAvailableEventModal() {
+    const current = usePeriodEventStore.getState().getAvailableEvent();
+    if (!current) return;
+    setOpenEventId(current.id);
+    setEventModalOpen(true);
+  }
 
   function openLessonsFromReminder() {
     setTab('lessons');
@@ -532,6 +604,23 @@ export default function Home() {
           {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,
               не влияет на её высоту (см. комментарий выше). */}
           <div className="absolute inset-x-0 bottom-0 z-20 px-4">
+          {petNeedsAttention && !tutorialActive && (
+            <button
+              onClick={openKitchen}
+              className="mb-2 flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left shadow-lg"
+              style={{ background: '#fff4df', borderColor: '#f0d6a2' }}
+            >
+              <span>
+                <span className="block text-[13px] font-extrabold" style={{ color: '#8a5d1c' }}>
+                  {health <= 35 ? 'Мишка хочет есть' : 'Мишке нужна забота'}
+                </span>
+                <span className="mt-0.5 block text-[10px] font-semibold" style={{ color: '#a1740f' }}>
+                  Покорми питомца или подними ему настроение.
+                </span>
+              </span>
+              <span className="rounded-full bg-[#f0b94f] px-3 py-1.5 text-[11px] font-extrabold text-white">Позаботиться</span>
+            </button>
+          )}
           {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
               давно не заходил на урок в течение дня (см. shouldShowLessonReminder)
               и напоминания не выключены в настройках. */}
@@ -684,7 +773,7 @@ export default function Home() {
       </div>
 
       {/* Шторка разделов: выезжает снизу вверх, навигация остаётся видимой */}
-      <BottomSheet open={sheet !== null} onClose={closeSheet}>
+      <BottomSheet open={sheet !== null} onClose={closeSheet} swipeDisabled={isOnLesson}>
         {sheet === 'lessons' ? (
           <Lessons
             bottomInset={navHeight}
@@ -722,6 +811,8 @@ export default function Home() {
             bottomInset={navHeight}
             onClose={closeSheet}
             onOpenPiggy={(amount) => { setPiggyPrefillAmount(amount); setSheet('piggy'); }}
+            onOpenEvent={openAvailableEventModal}
+            onOpenEarnModal={() => setEarnModalOpen(true)}
           />
         ) : sheet === 'progress' ? (
           <ProgressPage
@@ -793,6 +884,10 @@ export default function Home() {
           </div>
         )}
       </BottomSheet>
+
+      {/* Модалка сюжетного события — глобальная, поверх любого экрана внутри
+          Home (см. эффект автопоказа выше), кроме активного урока. */}
+      <EventModal open={eventModalOpen} onClose={closeEventModal} />
 
       {/* Окошко "как заработать монеты" — по кнопке "+" в балансе */}
       <EarnCoinsModal

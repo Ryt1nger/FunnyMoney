@@ -84,6 +84,7 @@ export default function TutorialOverlay() {
     setReady(false);
     let raf = 0;
     let frames = 0;
+    let scrolled = false;
     const targets = step.targets ?? [];
 
     function tick() {
@@ -97,6 +98,19 @@ export default function TutorialOverlay() {
       const els = targets
         .map((id) => document.querySelector<HTMLElement>(`[data-tour="${id}"]`))
         .filter((el): el is HTMLElement => !!el);
+
+      // Если подсвечиваемый элемент выше видимой области (например, длинный
+      // список событий периода) — сначала докручиваем его в зону видимости
+      // (без учёта нижнего меню, оно уже вычтено из высоты скролл-контейнера
+      // через paddingBottom), и только потом меряем прямоугольник. Иначе
+      // подсветка обрезается краем экрана вместо того, чтобы показать
+      // элемент целиком.
+      if (!scrolled && els.length === targets.length) {
+        scrolled = true;
+        els.forEach((el) => el.scrollIntoView({ block: 'nearest', behavior: 'auto' }));
+        raf = requestAnimationFrame(tick);
+        return;
+      }
 
       if (root && els.length === targets.length) {
         const cRect = root.getBoundingClientRect();
@@ -155,6 +169,31 @@ export default function TutorialOverlay() {
     return () => document.removeEventListener('click', onDocClick, true);
   }, [active, step, next]);
 
+  // На шагах action: 'next' подсвеченный элемент нарочно остаётся кликабельным
+  // (pointer-events не блокируются, см. эффект ниже) — это нужно, например,
+  // чтобы на кухне можно было ПОПРОБОВАТЬ перетащить еду, пока идёт объяснение.
+  // Но если у самого элемента есть настоящий обработчик клика (например,
+  // кнопка "Начать" на карточке урока) — обычный тап по нему не должен вести
+  // взаправду, иначе ребёнок проваливается в реальный экран, а тур остаётся
+  // висеть поверх него в неподходящем месте и выйти становится нельзя.
+  // Поэтому на фазе capture гасим именно "click" (preventDefault +
+  // stopPropagation) по текущей цели — перетаскивание (pointerdown/move) это
+  // не затрагивает, так как использует другие события, а не click.
+  useEffect(() => {
+    if (!active || !step || step.action !== 'next' || !step.targets?.length) return;
+    const targets = new Set(step.targets);
+    function onDocClickCaptureBlock(e: MouseEvent) {
+      const el = (e.target as HTMLElement)?.closest?.('[data-tour]');
+      const tourId = el?.getAttribute('data-tour');
+      if (tourId && targets.has(tourId)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+    document.addEventListener('click', onDocClickCaptureBlock, true);
+    return () => document.removeEventListener('click', onDocClickCaptureBlock, true);
+  }, [active, step]);
+
   // Пока идёт обучение, ребёнок не должен случайно нажать на кнопку, не
   // относящуюся к текущему шагу, и уйти "непонятно куда". Геометрические
   // "стены" в SpotlightMask закрывают клики только по видимой площади
@@ -190,9 +229,17 @@ export default function TutorialOverlay() {
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[65]">
       {rect && containerSize.width > 0 ? (
-        <SpotlightMask rect={rect} containerSize={containerSize} pulse={step.action === 'tap'} />
+        <SpotlightMask
+          rect={rect}
+          containerSize={containerSize}
+          pulse={step.action === 'tap'}
+          freeInteraction={!!step.freeInteraction}
+        />
       ) : (
-        <div className="pointer-events-auto absolute inset-0" style={{ background: SCRIM }} />
+        <div
+          className={step.freeInteraction ? 'pointer-events-none absolute inset-0' : 'pointer-events-auto absolute inset-0'}
+          style={{ background: SCRIM }}
+        />
       )}
 
       <TutorialCard
@@ -221,10 +268,15 @@ function SpotlightMask({
   rect,
   containerSize,
   pulse,
+  freeInteraction,
 }: {
   rect: Rect;
   containerSize: { width: number; height: number };
   pulse: boolean;
+  /** Шаг требует перетащить подсвеченный предмет ЗА пределы подсветки
+   *  (кормление) — блокирующие "стены" тут не нужны, только визуальное
+   *  затемнение, иначе сам путь перетаскивания окажется недоступен. */
+  freeInteraction: boolean;
 }) {
   const HOLE_RADIUS = 20;
   const r = {
@@ -247,11 +299,17 @@ function SpotlightMask({
         style={{ background: SCRIM, clipPath: buildHoleClipPath(containerSize.width, containerSize.height, r, HOLE_RADIUS) }}
       />
       {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи, а внутри
-          дырки элементов нет вовсе, поэтому тап проходит к настоящей кнопке. */}
-      <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top) }} />
-      <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height }} />
-      <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
-      <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width }} />
+          дырки элементов нет вовсе, поэтому тап проходит к настоящей кнопке.
+          Пропускаем их для freeInteraction — там нужно тащить предмет именно
+          ЧЕРЕЗ затемнённую часть экрана (например, еду — до рта питомца). */}
+      {!freeInteraction && (
+        <>
+          <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top) }} />
+          <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height }} />
+          <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
+          <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width }} />
+        </>
+      )}
       {/* Светящееся кольцо вокруг подсветки — притягивает взгляд ребёнка. */}
       <div
         className={`pointer-events-none absolute rounded-[20px] ${pulse ? 'animate-pulse' : ''}`}
@@ -308,7 +366,13 @@ function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight,
 
   return (
     <div
-      className="pointer-events-auto absolute rounded-[26px] bg-[#fbefe1] p-4 text-center shadow-2xl transition-opacity duration-300"
+      // Пока карточка ещё не готова (идёт расчёт позиции — см. ready в
+      // TutorialOverlay), она невидима (opacity: 0), но до этой правки
+      // оставалась кликабельной: ребёнок видел "пустое место", а на самом
+      // деле там уже стояла настоящая (просто прозрачная) карточка с
+      // кнопками "Дальше"/"Пропустить" — тап туда мог случайно закрыть
+      // обучение целиком. Пока не ready, полностью выключаем клики.
+      className={`absolute rounded-[26px] bg-[#fbefe1] p-4 text-center shadow-2xl transition-opacity duration-300 ${ready ? 'pointer-events-auto' : 'pointer-events-none'}`}
       style={{ ...style, opacity: ready ? 1 : 0 }}
     >
       {scene && (
@@ -338,7 +402,7 @@ function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight,
         </button>
       ) : (
         <div className="mt-3 text-[12px] font-bold" style={{ color: '#8b83a8' }}>
-          Нажми на подсвеченное →
+          Нажми на подсвеченное ↓
         </div>
       )}
 

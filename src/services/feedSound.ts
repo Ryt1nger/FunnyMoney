@@ -10,6 +10,21 @@ const PLAY_MS = 1500;
 let audio: HTMLAudioElement | null = null;
 let stopTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Останавливает отдельный аудиофайл кормления при выключении звуков. */
+export function stopFeedCrunchSound() {
+  if (stopTimer) {
+    clearTimeout(stopTimer);
+    stopTimer = null;
+  }
+  if (!audio) return;
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+  } catch {
+    // ignore — выключение звука не должно ломать экран настроек
+  }
+}
+
 function getAudio(): HTMLAudioElement {
   if (!audio) {
     audio = new Audio(crunchSrc);
