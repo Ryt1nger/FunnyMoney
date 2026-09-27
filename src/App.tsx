@@ -14,6 +14,7 @@ import { useDevNavStore } from './features/dev/devNavStore';
 import { usePeriodEventStore } from './features/periodEvents/eventStore';
 import { PERIOD_EVENTS } from './features/periodEvents/eventData';
 import { useLessonProgressStore } from './features/progress/lessonProgressStore';
+import { ECONOMY_RULES } from './core/economy';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
 // тапа на любой кнопке приложения без ручной разводки по каждому месту.
@@ -21,7 +22,7 @@ initGlobalTapSound();
 
 // Новая игра начинается без искусственно выданного дохода. Монеты приходят
 // только из уроков, практики и других игровых действий.
-const STARTING_COINS = 0;
+const STARTING_COINS = ECONOMY_RULES.initialWalletCoins;
 
 // Экран загрузки на запуске (большое лого, без прогресс-бара) держится минимум
 // столько — даже если приложение (в нашем случае — мгновенно, синхронно) готово раньше.
@@ -156,12 +157,12 @@ function App() {
     goTo('home');
   }
 
-  function handleOnboardingComplete(age: number, petName: string) {
+  function handleOnboardingComplete(age: number, petName: string, characterId: string) {
     void storage.set('onboarded', '1');
     void storage.set('user_age', String(age));
     // Начальное состояние игры: питомец и экономика создаются один раз, здесь,
     // а не размазаны по экранам — единая точка входа в игровой прогресс.
-    usePetStore.getState().createPet('bear', petName);
+    usePetStore.getState().createPet('bear', petName, characterId);
     useEconomyStore.getState().initIfEmpty(STARTING_COINS);
     goTo('home');
   }

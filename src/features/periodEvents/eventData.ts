@@ -4,6 +4,8 @@
  * находится здесь: он может подключить эти данные по id.
  */
 
+import type { PetActionType, PetHelpAlternative } from '../../core/periodRules';
+
 export type EventExpenseType = 'mandatory' | 'optional' | 'goal';
 
 export interface EventEffects {
@@ -21,6 +23,12 @@ export interface PeriodEventOption {
   expenseType?: EventExpenseType;
   effects: EventEffects;
   feedback: string;
+  /** Конкретное действие после этого выбора. Пока подключается поэтапно:
+   * существующие события могут не иметь поля до утверждения их последствий. */
+  requiredPetAction?: PetActionType;
+  /** Альтернативы помощи при проблеме со здоровьем (например, лекарство
+   * или корм с меньшим эффектом). */
+  petHelpAlternatives?: PetHelpAlternative[];
 }
 
 export interface PeriodEventDefinition {

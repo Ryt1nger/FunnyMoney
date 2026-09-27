@@ -25,6 +25,7 @@ import { useEconomyStore } from '../features/economy/economyStore';
 import { usePetStore } from '../features/pet/petStore';
 import { useDayProgressStore, STREAK_MILESTONE_STEP } from '../features/progress/dayProgressStore';
 import { usePeriodStore } from '../features/economy/periodStore';
+import { wealthPercentFromCapital } from '../core/economy';
 
 // Разовая награда за серию дней — тестовое значение баланса, до появления
 // полноценной системы прогресса по серии (Game Core: progress).
@@ -87,7 +88,12 @@ export default function Day({ bottomInset = 0, coins, onClose, onOpenEarnModal }
   const completedTaskIds = useDayProgressStore((s) => s.completedTaskIds);
   const health = usePetStore((s) => s.pet?.health ?? 0);
   const happiness = usePetStore((s) => s.pet?.happiness ?? 0);
-  const wealth = useEconomyStore((s) => Math.max(0, Math.min(100, s.wealthScore)));
+  const currentPeriodId = usePeriodStore((s) => s.id);
+  const wealth = useEconomyStore((s) => wealthPercentFromCapital(
+    s.coins,
+    s.savingsBalance ?? s.totalSaved,
+    currentPeriodId,
+  ));
   const startedTaskIds = useDayProgressStore((s) => s.startedTaskIds);
   const startTask = useDayProgressStore((s) => s.startTask);
   const completeTask = useDayProgressStore((s) => s.completeTask);

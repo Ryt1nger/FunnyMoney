@@ -4,6 +4,8 @@ import { storage } from '../../services/storage';
 export interface SettingsState {
   /** фоновая музыка приложения */
   musicEnabled: boolean;
+  /** громкость фоновой музыки, 0–100 процентов */
+  musicVolume: number;
   /** короткие звуковые эффекты (покупки, выполнение заданий и т.п.) */
   soundsEnabled: boolean;
   /** голосовые подсказки помощника (озвучка текста) */
@@ -21,6 +23,7 @@ export interface SettingsState {
 
 interface SettingsStore extends SettingsState {
   setMusicEnabled: (value: boolean) => void;
+  setMusicVolume: (value: number) => void;
   setSoundsEnabled: (value: boolean) => void;
   setAssistantVoiceEnabled: (value: boolean) => void;
   setVibrationEnabled: (value: boolean) => void;
@@ -35,6 +38,7 @@ const STORAGE_KEY = 'settings';
 
 const defaultState: SettingsState = {
   musicEnabled: true,
+  musicVolume: 35,
   soundsEnabled: true,
   // по умолчанию выключено — так же, как в дизайн-референсе экрана настроек
   assistantVoiceEnabled: false,
@@ -49,6 +53,9 @@ function isValidSettingsState(value: unknown): value is SettingsState {
   const v = value as Record<string, unknown>;
   return (
     typeof v.musicEnabled === 'boolean' &&
+    typeof v.musicVolume === 'number' &&
+    v.musicVolume >= 0 &&
+    v.musicVolume <= 100 &&
     typeof v.soundsEnabled === 'boolean' &&
     typeof v.assistantVoiceEnabled === 'boolean' &&
     typeof v.vibrationEnabled === 'boolean' &&
@@ -77,6 +84,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const next = { ...get(), musicEnabled: value };
     persist(next);
     set({ musicEnabled: value });
+  },
+  setMusicVolume: (value) => {
+    const normalized = Math.max(0, Math.min(100, Math.round(value)));
+    const next = { ...get(), musicVolume: normalized };
+    persist(next);
+    set({ musicVolume: normalized });
   },
   setSoundsEnabled: (value) => {
     const next = { ...get(), soundsEnabled: value };

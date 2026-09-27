@@ -24,6 +24,7 @@ import ConfirmPurchaseModal, { type PurchaseEffect } from '../components/Confirm
 
 const CATEGORIES: { id: ShopCategoryId; label: string; icon: string }[] = [
   { id: 'food', label: 'Еда', icon: catFood },
+  { id: 'care', label: 'Забота', icon: catFood },
   { id: 'toys', label: 'Игрушки', icon: catToys },
   { id: 'clothes', label: 'Одежда', icon: catClothes },
   { id: 'interior', label: 'Интерьер', icon: catInterior },
@@ -41,6 +42,7 @@ const BTN_SHADOW =
 /** Короткое текстовое описание товара для модалки подтверждения — без цифр,
  * сами цифры (влияние на метрики) выносятся отдельно в buildPurchaseEffects. */
 function describeProduct(product: ShopProduct): string {
+  if (product.category === 'care') return 'Лекарство, которое можно дать питомцу при плохом самочувствии.';
   if (product.category === 'food') {
     const meta = toEconomyProductMeta(product);
     return meta.mealType === 'fullMeal' ? 'Сытный обед для питомца.' : 'Лёгкий перекус для питомца.';
@@ -78,6 +80,8 @@ interface Props {
   /** родительский контроль: если выключено — покупки проходят сразу, без окна
    * подтверждения. По умолчанию подтверждение действует для всего каталога. */
   confirmationEnabled?: boolean;
+  /** Открыть магазин сразу на нужной категории после предупреждения ухода. */
+  initialCategory?: ShopCategoryId;
   /** Открыт корзинкой с экрана кухни — показываем только «Еду» и кухонный
    *  интерьер (без игрушек/одежды/игровой комнаты). Из нижнего меню магазин
    *  как обычно полный (по умолчанию false). */
@@ -93,15 +97,17 @@ export default function Shop({
   onOpenEarnModal,
   confirmationEnabled = true,
   kitchenOnly = false,
+  initialCategory = 'food',
 }: Props) {
   const categories = kitchenOnly ? CATEGORIES.filter((c) => c.id === 'food' || c.id === 'interior') : CATEGORIES;
-  const [category, setCategory] = useState<ShopCategoryId>('food');
+  const [category, setCategory] = useState<ShopCategoryId>(initialCategory);
   // Подраздел вкладки «Интерьер» — игровая (обычные комнаты) или кухня (столовая).
   // В режиме kitchenOnly выбора нет — всегда кухня.
   const [interiorSection, setInteriorSection] = useState<RoomSection>(kitchenOnly ? 'kitchen' : 'playroom');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const foodQty = useInventoryStore((s) => s.foodQty);
+  const medicineQty = useInventoryStore((s) => s.medicineQty);
   const savings = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
   const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   const products = category === 'interior' ? [] : productsByCategory(category);
@@ -331,8 +337,9 @@ export default function Shop({
           <div data-tour="shop-products" className="mt-2.5 grid grid-cols-3 gap-2.5">
             {products.map((p) => {
               const isFood = p.category === 'food';
+              const isCare = p.category === 'care';
               const owned = !isFood && ownedProductIds.includes(p.id);
-              const qty = foodQty[p.id] ?? 0;
+              const qty = isFood ? foodQty[p.id] ?? 0 : isCare ? medicineQty[p.id] ?? 0 : 0;
               const meta = toEconomyProductMeta(p);
               const canAfford = coins >= p.price;
               const badge = meta.expenseType === 'mandatory' ? 'Обязательное' : 'Желание';
@@ -349,7 +356,7 @@ export default function Shop({
                   <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
                     <img src={p.image} alt="" className="max-h-[66px] w-auto object-contain" />
                     <span className="absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold text-white" style={{ background: meta.expenseType === 'mandatory' ? '#f36b76' : '#9b73e8' }}>{badge}</span>
-                    {isFood && qty > 0 && (
+                    {(isFood || isCare) && qty > 0 && (
                       <span
                         className="absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-extrabold text-white"
                         style={{ background: 'rgba(70,52,66,0.72)' }}

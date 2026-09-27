@@ -1,4 +1,4 @@
-import { useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useEffect, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 
 // Сдвиг пальца в пикселях, начиная с которого жест считается перетаскиванием,
 // а не простым тапом. Меньше — и обычный тап по карточке (выбор/клик)
@@ -37,6 +37,22 @@ export interface DragPoint {
  */
 export function usePointerDrag(rootRef: RefObject<HTMLElement | null>) {
   const [drag, setDrag] = useState<DragPoint | null>(null);
+
+  // На десктопе браузер по умолчанию пытается запустить собственный HTML5
+  // drag изображения. Тогда вместо карточки захватывается только картинка и
+  // Pointer Events перестают получать движение мыши. Перехватываем этот
+  // нативный drag внутри упражнения — карточка всегда остаётся единым
+  // интерактивным элементом, независимо от точки захвата.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const preventNativeImageDrag = (event: DragEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('img')) event.preventDefault();
+    };
+    root.addEventListener('dragstart', preventNativeImageDrag, true);
+    return () => root.removeEventListener('dragstart', preventNativeImageDrag, true);
+  }, [rootRef]);
 
   function toLocal(clientX: number, clientY: number) {
     const rect = rootRef.current?.getBoundingClientRect();

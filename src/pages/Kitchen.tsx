@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import bearAvatar from '../assets/pet/bear-avatar.png';
-import kitchenBearClosed from '../assets/pet/kitchen-bear-closed.png';
+import { usePetStore } from '../features/pet/petStore';
+import { getCharacterById } from '../data/petCharacters';
 import kitchenBearOpen from '../assets/pet/kitchen-bear-open.png';
 import kitchenBearOpenWide from '../assets/pet/kitchen-bear-open-wide.png';
 import levelFlower from '../assets/ui/level-flower.png';
@@ -77,6 +77,7 @@ export default function Kitchen({
   onOpenShop,
   onClose,
 }: Props) {
+  const character = getCharacterById(usePetStore((s) => s.pet?.characterId));
   const foodQty = useInventoryStore((s) => s.foodQty);
   const foodItems = shopProducts
     .filter((p) => p.category === 'food' && (foodQty[p.id] ?? 0) > 0)
@@ -217,7 +218,7 @@ export default function Kitchen({
         >
           <div className="relative shrink-0">
             <img
-              src={bearAvatar}
+              src={character.avatarImage}
               alt={petName}
               className="h-[44px] w-[44px] rounded-full border-2 border-white object-cover shadow-lg"
             />
@@ -353,11 +354,11 @@ export default function Kitchen({
             кухне направлен влево, поэтому силуэт уходит только вправо. Она
             находится под базовым кадром и скрывается под подносом внизу. */}
         <img
-          src={kitchenBearClosed}
+          src={character.mainImage}
           alt=""
           aria-hidden="true"
           draggable={false}
-          className="pointer-events-none absolute left-1/2 h-[36vh] w-auto select-none object-contain"
+          className="pointer-events-none absolute left-1/2 h-[42vh] w-auto select-none object-contain"
           style={{
             bottom: '2%',
             transformOrigin: 'bottom center',
@@ -382,10 +383,10 @@ export default function Kitchen({
             кроссфейдится только мягко замаскированная область рта — иначе
             небольшие различия глаз в исходных кадрах выглядят как моргание. */}
         <img
-          src={kitchenBearClosed}
+          src={character.mainImage}
           alt={petName}
           draggable={false}
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[36vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[42vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
         {[{ pose: 2, src: kitchenBearOpen }, { pose: 3, src: kitchenBearOpenWide }].map(({ pose, src }) => {
           const isVisible = pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
@@ -395,7 +396,7 @@ export default function Kitchen({
               src={src}
               alt=""
               draggable={false}
-              className="pointer-events-none absolute bottom-0 left-1/2 h-[36vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
+              className="pointer-events-none absolute bottom-0 left-1/2 h-[42vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transitionDuration: `${BEAR_STEP_MS}ms`,

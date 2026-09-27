@@ -76,8 +76,9 @@ import imgTeddyBear from '../assets/items/interior/teddy-bear.png';
 import imgBowlBlueFood from '../assets/items/interior/bowl-blue-food.png';
 import imgRopeToyBlue from '../assets/items/interior/rope-toy-blue.png';
 import imgPompomBlue from '../assets/items/interior/pompom-blue.png';
+import imgMedicine from '../assets/lesson-items/medicine.png';
 
-export type ShopCategoryId = 'popular' | 'food' | 'toys' | 'clothes' | 'interior';
+export type ShopCategoryId = 'popular' | 'food' | 'care' | 'toys' | 'clothes' | 'interior';
 
 export interface ShopProduct {
   id: string;
@@ -93,6 +94,15 @@ export interface ShopProduct {
 }
 
 export const shopProducts: ShopProduct[] = [
+  {
+    id: 'medicine-pet',
+    name: 'Лекарство для питомца',
+    price: 30,
+    image: imgMedicine,
+    category: 'care',
+    popular: true,
+    effects: { health: 20 },
+  },
   {
     id: 'bowl-blue-kibble',
     name: 'Корм для питомца',

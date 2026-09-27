@@ -3,12 +3,70 @@ import { IconArrowLeft, IconSettingsGear, IconMusicNote, IconBell, IconChatBubbl
 import Toggle from '../components/Toggle';
 import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
+import { usePetStore } from '../features/pet/petStore';
 import { setMusicEnabled } from '../services/backgroundMusic';
 import { stopAssistantVoice } from '../services/assistantVoice';
-import { stopSoundEffects } from '../services/soundEffects';
-import { stopFeedCrunchSound } from '../services/feedSound';
 import { storage } from '../services/storage';
 import ParentDashboard from './ParentDashboard';
+import bearHeadIcon from '../assets/onboarding/bear-head.png';
+
+const RENAME_MAX_LENGTH = 16;
+
+/** Модалка переименования питомца — тот же приём, что и родительская проверка:
+ * простая карточка по центру экрана поверх затемнения, без отдельного роута. */
+function RenamePetModal({
+  currentName,
+  onSave,
+  onCancel,
+}: {
+  currentName: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(currentName);
+  const trimmed = value.trim();
+  const canSave = trimmed.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-6">
+      <div className="w-full max-w-[300px] rounded-[22px] bg-[#fbefe1] p-4 shadow-2xl">
+        <div className="flex items-center gap-2.5">
+          <img src={bearHeadIcon} alt="" className="h-9 w-9 shrink-0 object-contain" />
+          <div className="text-[15px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
+            Как назовём мишку?
+          </div>
+        </div>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          maxLength={RENAME_MAX_LENGTH}
+          placeholder="Имя мишки"
+          onKeyDown={(e) => e.key === 'Enter' && canSave && onSave(trimmed)}
+          className="mt-3 w-full rounded-2xl px-3.5 py-2.5 text-[15px] font-bold outline-none"
+          style={{ background: '#f1eef9', color: '#2c2a5e' }}
+        />
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-full py-2.5 text-[13px] font-bold transition active:scale-[0.98]"
+            style={{ background: '#f0e6d3', color: '#6f6355' }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={() => canSave && onSave(trimmed)}
+            disabled={!canSave}
+            className="flex-1 rounded-full py-2.5 text-[13px] font-bold text-white transition active:scale-[0.98] disabled:opacity-50"
+            style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)' }}
+          >
+            Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   bottomInset?: number;
@@ -244,6 +302,10 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
   const setReminders = useSettingsStore((s) => s.setRemindersEnabled);
   const setBrightHints = useSettingsStore((s) => s.setBrightHintsEnabled);
 
+  const petName = usePetStore((s) => s.pet?.name ?? '');
+  const renamePet = usePetStore((s) => s.renamePet);
+  const [renaming, setRenaming] = useState(false);
+
   const [parentalView, setParentalView] = useState<ParentalView>('closed');
 
   // Пока открыт родительский кабинет/зона — прячем нижнее меню (Home), оно
@@ -353,6 +415,23 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
           transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+        <SectionLabel>Питомец</SectionLabel>
+        <button
+          onClick={() => setRenaming(true)}
+          className="flex w-full items-center gap-3 rounded-[18px] bg-white/85 px-3.5 py-3 text-left transition active:scale-[0.98]"
+        >
+          <img src={bearHeadIcon} alt="" className="h-9 w-9 shrink-0 object-contain" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
+              Имя мишки
+            </div>
+            <div className="mt-0.5 truncate text-[10.5px] leading-snug" style={{ color: '#9a8f80' }}>
+              {petName || 'Нажми, чтобы задать имя'}
+            </div>
+          </div>
+          <IconChevronRight className="h-5 w-5 shrink-0" style={{ color: '#c9bda6' }} />
+        </button>
+
         <SectionLabel>Звук и отклик</SectionLabel>
         <div className="flex flex-col gap-2">
           <SettingsRow
@@ -370,13 +449,7 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
             label="Звуки игры"
             description="Отклик на покупки и задания"
             checked={soundsEnabled}
-            onChange={(next) => {
-              setSounds(next);
-              if (!next) {
-                stopSoundEffects();
-                stopFeedCrunchSound();
-              }
-            }}
+            onChange={setSounds}
           />
           <SettingsRow
             icon={<IconChatBubble className="h-5 w-5" />}
@@ -470,6 +543,16 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
 
   return (
     <div className="relative h-full w-full overflow-hidden">
+      {renaming && (
+        <RenamePetModal
+          currentName={petName}
+          onCancel={() => setRenaming(false)}
+          onSave={(name) => {
+            renamePet(name);
+            setRenaming(false);
+          }}
+        />
+      )}
       {viewSlots.map((slot) => (
         <div
           key={slot.id}

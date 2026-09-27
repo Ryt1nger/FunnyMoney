@@ -27,6 +27,7 @@ import teddyCarIcon from '../assets/lesson2/items/23_teddy_bear_car.png';
 import basketIcon from '../assets/lesson2/basket.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 import { usePointerDrag } from '../hooks/usePointerDrag';
+import DragCardPreview from '../components/DragCardPreview';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void; onPracticeComplete?: () => void }
@@ -114,7 +115,7 @@ const sceneHints: Record<number, string> = {
 // уникальны между упражнениями, конфликтов нет. Монетки подарка (упражнение
 // 4) не карточки, а одинаковые id вида gift-coin-N — для них ghost рисуется
 // отдельно (см. рендер ниже), картинка всегда coinsIcon.
-const dragItemLookup: { id: string; image: string }[] = [...incomeExpenseItems, ...budgetItems, ...familyPersonalItems, ...stepItems];
+const dragItemLookup: { id: string; image: string; label: string; amount?: number }[] = [...incomeExpenseItems, ...budgetItems, ...familyPersonalItems, ...stepItems];
 
 // Тип usePointerDrag() — та же тройка start/move/end/cancel, что и у
 // кормления на кухне (Kitchen.tsx), но с центральным "куда бросили" через
@@ -802,12 +803,12 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
         const dragged = dragItemLookup.find((entry) => entry.id === dragging.id);
         if (!dragged) return null;
         return (
-          <img
-            src={dragged.image}
-            alt=""
-            draggable={false}
-            className="pointer-events-none absolute z-[999] h-[64px] w-[64px] object-contain drop-shadow-2xl"
-            style={{ left: dragging.x - 32, top: dragging.y - 64, transform: 'scale(1.1)' }}
+          <DragCardPreview
+            image={dragged.image}
+            label={dragged.label}
+            detail={dragged.amount !== undefined ? `${dragged.amount} монет` : undefined}
+            x={dragging.x}
+            y={dragging.y}
           />
         );
       })()}

@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import type { PetSpecies, PetState } from '../../types';
 import { storage } from '../../services/storage';
 import { progressLevels, MAX_LEVEL } from '../../data/progressLevels';
+import { DEFAULT_CHARACTER_ID } from '../../data/petCharacters';
+import { ECONOMY_RULES } from '../../core/economy';
 
 interface PetStore {
   pet: PetState | null;
-  createPet: (species: PetSpecies, name: string) => void;
+  createPet: (species: PetSpecies, name: string, characterId?: string) => void;
   applyDelta: (delta: { health?: number; happiness?: number }) => void;
   registerInteraction: () => void;
   tickNeeds: (now?: number) => void;
@@ -58,6 +60,9 @@ function normalizePet(pet: PetState): PetState {
     level: levelForXp(xp),
     careVersion: typeof pet.careVersion === 'number' ? pet.careVersion : 0,
     lastCareAt: typeof pet.lastCareAt === 'number' ? pet.lastCareAt : Date.now(),
+    // Старые сохранения (до появления выбора внешности) не содержат characterId —
+    // подставляем дефолтного мишку, ничего не ломая.
+    characterId: typeof pet.characterId === 'string' ? pet.characterId : DEFAULT_CHARACTER_ID,
   };
 }
 
@@ -69,15 +74,16 @@ function loadInitial(): PetState | null {
 export const usePetStore = create<PetStore>((set, get) => ({
   pet: loadInitial(),
 
-  createPet: (species, name) => {
+  createPet: (species, name, characterId) => {
     const pet: PetState = {
       id: crypto.randomUUID(),
       species,
+      characterId: characterId ?? DEFAULT_CHARACTER_ID,
       name,
       level: 1,
       xp: 0,
-      health: 100,
-      happiness: 50,
+      health: ECONOMY_RULES.initialPetHealth,
+      happiness: ECONOMY_RULES.initialPetHappiness,
       mood: 'neutral',
       customization: { accessories: [], roomItems: [] },
       careVersion: 0,

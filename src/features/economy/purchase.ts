@@ -16,12 +16,13 @@ const SHOP_TASK_XP = dayTasks.find((t) => t.id === 'shop')?.xp ?? 0;
  * интерьер — цель, оплачиваемая из накоплений в следующем слое UI. */
 export function toEconomyProductMeta(product: ShopProduct) {
   const isFood = product.category === 'food';
+  const isCare = product.category === 'care';
   const isInterior = product.category === 'interior';
   const isFullMeal = isFood && product.price >= 120;
   return {
     id: product.id,
     price: product.price,
-    expenseType: isInterior ? 'goal' as const : isFullMeal ? 'mandatory' as const : 'optional' as const,
+    expenseType: isInterior ? 'goal' as const : isFood && isFullMeal ? 'mandatory' as const : isCare ? 'mandatory' as const : 'optional' as const,
     mealType: isFullMeal ? 'fullMeal' as const : isFood ? 'snack' as const : 'none' as const,
     satietyEffect: product.effects?.health ?? 0,
     moodEffect: product.effects?.happiness ?? 0,
@@ -51,10 +52,11 @@ function completeShopTaskOnce() {
 export function purchaseProduct(product: ShopProduct): PurchaseResult {
   const inventory = useInventoryStore.getState();
   const isFood = product.category === 'food';
+  const isCare = product.category === 'care';
   // Еда — расходник: её можно покупать снова и снова, запас копится (foodQty),
   // а не блокируется как «уже куплено» — иначе после первой пачки её нельзя
   // было бы пополнить. Остальные категории по-прежнему покупаются один раз.
-  if (!isFood && inventory.isProductOwned(product.id)) return 'already_owned';
+  if (!isFood && !isCare && inventory.isProductOwned(product.id)) return 'already_owned';
 
   const economy = useEconomyStore.getState();
   const meta = toEconomyProductMeta(product);
@@ -71,12 +73,12 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
     periodId: period.status === 'active' ? period.id : undefined,
     category: meta.expenseType === 'mandatory' ? 'mandatory' : 'optional',
   });
-  inventory.addOwnedProduct(product.id);
-
   if (isFood) {
     // Эффект еды (здоровье/счастье) применяется не при покупке, а при
     // кормлении на экране «Кухня» — см. features/economy/feed.ts.
     inventory.addFoodQty(product.id, 1);
+  } else if (isCare) {
+    inventory.addMedicineQty(product.id, 1);
   } else if (product.effects?.health || product.effects?.happiness) {
     usePetStore.getState().applyDelta({
       health: product.effects.health,
@@ -86,6 +88,7 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
   }
 
   // Задание дня «Купи что-нибудь в магазине» засчитывается любой реальной покупкой.
+  if (!isFood && !isCare) inventory.addOwnedProduct(product.id);
   completeShopTaskOnce();
 
   return 'ok';
@@ -140,5 +143,23 @@ export function feedPet(product: ShopProduct): boolean {
   }
   usePetStore.getState().registerInteraction();
 
+  return true;
+}
+
+/** Выдача лекарства питомцу после покупки в магазине. Покупка и применение
+ * намеренно разделены: ребёнок должен сначала найти лекарство в магазине,
+ * а затем выполнить действие ухода по подсказке события. */
+export function giveMedicine(product: ShopProduct): boolean {
+  if (product.category !== 'care') return false;
+  const inventory = useInventoryStore.getState();
+  if (!inventory.consumeMedicine(product.id)) return false;
+
+  if (product.effects?.health || product.effects?.happiness) {
+    usePetStore.getState().applyDelta({
+      health: product.effects.health,
+      happiness: product.effects.happiness,
+    });
+  }
+  usePetStore.getState().registerInteraction();
   return true;
 }

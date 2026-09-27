@@ -15,6 +15,8 @@ export interface InventoryState {
   /** запас еды по товару — еда покупается многократно и тратится при кормлении
    *  на экране «Кухня» (в отличие от игрушек/одежды/интерьера, купленных один раз). */
   foodQty: Record<string, number>;
+  /** запас лекарств — покупаются в магазине и выдаются питомцу отдельным действием. */
+  medicineQty: Record<string, number>;
   /** выбранные предметы гардероба, сохраняются отдельно от каталога */
   outfitIds: string[];
 }
@@ -28,6 +30,8 @@ interface InventoryStore extends InventoryState {
   addFoodQty: (productId: string, amount: number) => void;
   /** Тратит одну единицу еды при кормлении. Возвращает false, если её уже не осталось. */
   consumeFood: (productId: string) => boolean;
+  addMedicineQty: (productId: string, amount: number) => void;
+  consumeMedicine: (productId: string) => boolean;
   setOutfit: (outfitIds: string[]) => void;
   /** Перечитывает состояние из storage — реальная проверка на межстраничном экране загрузки. */
   hydrate: () => void;
@@ -53,6 +57,7 @@ const defaultState: InventoryState = {
   activeKitchenRoomId: '',
   ownedProductIds: [],
   foodQty: {},
+  medicineQty: {},
   outfitIds: [],
 };
 
@@ -70,6 +75,7 @@ function loadInitial(): InventoryState {
     activeKitchenRoomId: saved.activeKitchenRoomId ?? '',
     ownedProductIds: saved.ownedProductIds ?? [],
     foodQty: saved.foodQty ?? {},
+    medicineQty: saved.medicineQty ?? {},
     outfitIds: saved.outfitIds ?? [],
   };
 }
@@ -133,6 +139,26 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
     if (qty <= 0) return false;
     const nextQty = { ...state.foodQty, [productId]: qty - 1 };
     const next: InventoryState = { ...state, foodQty: nextQty };
+    persist(next);
+    set(next);
+    return true;
+  },
+
+  addMedicineQty: (productId, amount) => {
+    const state = get();
+    const next: InventoryState = {
+      ...state,
+      medicineQty: { ...state.medicineQty, [productId]: (state.medicineQty[productId] ?? 0) + amount },
+    };
+    persist(next);
+    set(next);
+  },
+
+  consumeMedicine: (productId) => {
+    const state = get();
+    const qty = state.medicineQty[productId] ?? 0;
+    if (qty <= 0) return false;
+    const next: InventoryState = { ...state, medicineQty: { ...state.medicineQty, [productId]: qty - 1 } };
     persist(next);
     set(next);
     return true;

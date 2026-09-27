@@ -13,6 +13,8 @@ export interface PetCustomization {
 export interface PetState {
   id: string;
   species: PetSpecies;
+  /** Выбранный на онбординге визуальный вариант мишки (id из data/petCharacters). */
+  characterId?: string;
   name: string;
   level: number;
   /** Суммарный накопленный опыт — реальный счётчик за задания дня, см. petStore.addXp. */

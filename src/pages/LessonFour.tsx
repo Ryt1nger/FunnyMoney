@@ -436,7 +436,7 @@ export default function LessonFour({ onBack, onPracticeComplete }: Props) {
       </div>
 
       {checkState === 'correct' && (
-        <div key={checkPulse} className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+        <div key={`ok-${checkPulse}`} className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#4caf50] text-5xl text-white shadow-[0_8px_24px_rgba(76,175,80,.5)] [animation:lessonCheckIn_400ms_cubic-bezier(.34,1.56,.64,1)]">✓</div>
         </div>
       )}

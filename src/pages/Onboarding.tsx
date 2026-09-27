@@ -4,7 +4,9 @@ import splashLogo from '../assets/onboarding/splash-logo.png';
 import cakeIcon from '../assets/onboarding/cake.png';
 import bearHeadIcon from '../assets/onboarding/bear-head.png';
 import pawsIcon from '../assets/onboarding/paws-trim.png';
-import { IconChevronLeft, IconChevronRight, IconArrowRight, IconDice } from '../components/icons';
+import { IconChevronLeft, IconChevronRight, IconArrowRight, IconDice, IconStar, IconCoinStack } from '../components/icons';
+import { PET_CHARACTERS } from '../data/petCharacters';
+import cloudIcon from '../assets/onboarding/cloud.png';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
@@ -14,7 +16,7 @@ const AGES = Array.from({ length: AGE_MAX - AGE_MIN + 1 }, (_, i) => i + AGE_MIN
 const RANDOM_NAMES = ['Мани', 'Бублик', 'Тедди', 'Кекс', 'Барни', 'Гриша', 'Пончик', 'Кузя'];
 
 interface Props {
-  onComplete: (age: number, petName: string) => void;
+  onComplete: (age: number, petName: string, characterId: string) => void;
 }
 
 /** Ширина одного числа в барабане (px) — используется и в разметке, и в расчётах скролла. */
@@ -150,13 +152,207 @@ function AgeDrum({
 }
 
 /**
- * Экран первого запуска: знакомство — выбор возраста и имени питомца.
+ * Экран выбора визуала персонажа — теперь на весь экран (не карточка внизу):
+ * логотип сверху, дальше по центру большая картинка мишки на весь остаток
+ * экрана, стрелки по бокам листают мишек ПО КРУГУ (бесконечно, через % —
+ * после последнего снова идёт первый и наоборот).
+ */
+function CharacterScreen({
+  petName,
+  index,
+  onChangeIndex,
+  onConfirm,
+}: {
+  petName: string;
+  index: number;
+  onChangeIndex: (i: number) => void;
+  onConfirm: () => void;
+}) {
+  const total = PET_CHARACTERS.length;
+  const character = PET_CHARACTERS[index];
+
+  // Плавное появление экрана при переходе с шага "возраст" — тот же приём,
+  // что и в остальных разделах (opacity + лёгкий сдвиг снизу через rAF).
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  function shift(delta: number) {
+    onChangeIndex((index + delta + total) % total);
+  }
+
+  return (
+    <div
+      className="relative flex h-full w-full flex-col overflow-hidden bg-[#fbefe1] transition-[opacity,transform] duration-[420ms]"
+      style={{
+        opacity: entered ? 1 : 0,
+        transform: entered ? 'translateY(0)' : 'translateY(14px)',
+        transitionTimingFunction: 'cubic-bezier(0.22,1,0.36,1)',
+      }}
+    >
+      {/* Декор на пустом кремовом фоне вокруг заголовка и мишки — звёздочки и
+          монетка, каждая с собственной лёгкой анимацией парения, чтобы экран
+          не выглядел пустым. pointer-events-none и абсолютное позиционирование —
+          раскладку остальных элементов не трогают. */}
+      <style>{`
+        @keyframes onboardFloatA { 0%,100% { transform: translateY(0) rotate(-8deg); } 50% { transform: translateY(-8px) rotate(4deg); } }
+        @keyframes onboardFloatB { 0%,100% { transform: translateY(0) rotate(10deg); } 50% { transform: translateY(-10px) rotate(-6deg); } }
+        @keyframes onboardFloatC { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(8deg); } }
+        @keyframes onboardCloudDriftA { from { transform: translateX(-10%); } to { transform: translateX(10%); } }
+        @keyframes onboardCloudDriftB { from { transform: translateX(8%); } to { transform: translateX(-12%); } }
+      `}</style>
+      {/* Облака — едва заметные (низкая непрозрачность), медленно плывут туда-обратно
+          по горизонтали. pointer-events-none, абсолютное позиционирование — на
+          раскладку остального экрана не влияют. */}
+      <img
+        src={cloudIcon}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute left-[-8%] top-[8%] w-[46%] max-w-[220px] select-none opacity-[0.35]"
+        style={{ animation: 'onboardCloudDriftA 26s ease-in-out infinite alternate' }}
+      />
+      <img
+        src={cloudIcon}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute right-[-14%] top-[19%] w-[34%] max-w-[170px] select-none opacity-[0.25]"
+        style={{ animation: 'onboardCloudDriftB 32s ease-in-out infinite alternate' }}
+      />
+      <IconStar
+        aria-hidden
+        className="pointer-events-none absolute right-[9%] top-[16%] h-6 w-6 text-[#f4c945] opacity-70"
+        style={{ animation: 'onboardFloatA 3.2s ease-in-out infinite' }}
+      />
+      <IconStar
+        aria-hidden
+        className="pointer-events-none absolute left-[8%] top-[24%] h-4 w-4 text-[#8b88f4] opacity-60"
+        style={{ animation: 'onboardFloatB 2.6s ease-in-out infinite' }}
+      />
+      <IconCoinStack
+        aria-hidden
+        className="pointer-events-none absolute right-[13%] top-[27%] h-6 w-6 text-[#f4c945] opacity-60"
+        style={{ animation: 'onboardFloatC 3.6s ease-in-out infinite' }}
+      />
+      <IconStar
+        aria-hidden
+        className="pointer-events-none absolute left-[11%] top-[13%] h-3.5 w-3.5 text-[#ef8fb0] opacity-60"
+        style={{ animation: 'onboardFloatC 3s ease-in-out infinite' }}
+      />
+      {/* Только логотип сверху — остальной фон героя убран, экран выбора отдан
+          целиком под превью мишки. Фон светлый — как у нижней панели остальных
+          экранов онбординга, а не тёмный "геройский". */}
+      <div className="relative flex shrink-0 items-center justify-center px-5 pb-2 pt-6">
+        <img
+          src={splashLogo}
+          alt="Funny Money"
+          className="pointer-events-none w-[36%] select-none drop-shadow-md"
+        />
+      </div>
+
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
+        <div className="px-6 text-center" style={{ transform: 'translateY(-28px)' }}>
+          <h1
+            className="text-[21px] leading-[1.15]"
+            style={{ fontFamily: "'Baloo 2', system-ui, sans-serif", fontWeight: 700, color: '#2c2a5e' }}
+          >
+            Каким будет мишка?
+          </h1>
+          <p className="mt-1.5 text-[12.5px] leading-snug" style={{ color: '#8b899e' }}>
+            Полистай стрелками — какой из них {petName || 'твой мишка'}?
+          </p>
+        </div>
+
+        {/* Мишка и стрелки-переключатели — в отдельной белой секции (карточке),
+            как остальные блоки онбординга, а не прямо на кремовом фоне страницы. */}
+        <div className="relative flex w-full h-[420px] shrink-0 items-center rounded-[28px] bg-white/90 px-2 shadow-sm">
+          <button
+            onClick={() => shift(-1)}
+            aria-label="Предыдущий"
+            className="absolute left-2 z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[#6f6c8a] transition active:scale-90"
+            style={{ background: 'rgba(111,108,138,0.1)' }}
+          >
+            <IconChevronLeft className="h-6 w-6" />
+          </button>
+
+          <img
+            key={character.id}
+            src={character.image}
+            alt=""
+            className="mx-auto h-full max-h-[320px] w-auto max-w-[68%] select-none object-contain drop-shadow-xl"
+            draggable={false}
+          />
+
+          <button
+            onClick={() => shift(1)}
+            aria-label="Следующий"
+            className="absolute right-2 z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[#6f6c8a] transition active:scale-90"
+            style={{ background: 'rgba(111,108,138,0.1)' }}
+          >
+            <IconChevronRight className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 px-8">
+          {PET_CHARACTERS.map((c, i) => (
+            <span
+              key={c.id}
+              className="h-1.5 rounded-full transition-all"
+              style={{
+                width: i === index ? 14 : 6,
+                background: i === index ? '#6262e4' : 'rgba(98,98,228,0.25)',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="relative flex shrink-0 items-center justify-center pb-5 pt-4">
+        <img
+          src={pawsIcon}
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute left-4 top-1/2 h-16 w-16 -translate-y-1/2 -scale-x-100 select-none opacity-25"
+        />
+        <button
+          onClick={onConfirm}
+          className="flex items-center justify-center gap-2 rounded-full px-9 py-3.5 text-[15px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.99]"
+          style={{
+            background: VIOLET,
+            boxShadow:
+              'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
+          }}
+        >
+          Начать
+          <IconArrowRight className="h-4 w-4" />
+        </button>
+        <img
+          src={pawsIcon}
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute right-4 top-1/2 h-16 w-16 -translate-y-1/2 select-none opacity-25"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Экран первого запуска: знакомство — выбор возраста, имени и внешности питомца.
  * Герой-картинка (медвежонок за столом) уже содержит логотип и книжки,
  * поверх неё — только заголовок и подзаголовок.
+ *
+ * Шаг 'character' рендерится отдельным полноэкранным компонентом
+ * (CharacterScreen) — у него совсем другая композиция (без фонового героя,
+ * с большим превью на весь экран), поэтому его проще не смешивать с общей
+ * разметкой шага 'intro'.
  */
 export default function Onboarding({ onComplete }: Props) {
+  const [step, setStep] = useState<'intro' | 'character'>('intro');
   const [ageIndex, setAgeIndex] = useState(AGES.indexOf(7));
   const [name, setName] = useState('Мани');
+  const [characterIndex, setCharacterIndex] = useState(0);
   const ageDrumControl = useRef<{ step: (delta: number) => void; jumpTo: (i: number) => void } | null>(null);
 
   const age = AGES[ageIndex];
@@ -172,7 +368,18 @@ export default function Onboarding({ onComplete }: Props) {
     });
   }
 
-  const canContinue = name.trim().length > 0;
+  const canContinueIntro = name.trim().length > 0;
+
+  if (step === 'character') {
+    return (
+      <CharacterScreen
+        petName={name.trim()}
+        index={characterIndex}
+        onChangeIndex={setCharacterIndex}
+        onConfirm={() => onComplete(age, name.trim(), PET_CHARACTERS[characterIndex].id)}
+      />
+    );
+  }
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#2d2b45]">
@@ -325,8 +532,8 @@ export default function Onboarding({ onComplete }: Props) {
             className="pointer-events-none absolute left-4 top-1/2 h-16 w-16 -translate-y-1/2 -scale-x-100 select-none opacity-25"
           />
           <button
-            onClick={() => canContinue && onComplete(age, name.trim())}
-            disabled={!canContinue}
+            onClick={() => canContinueIntro && setStep('character')}
+            disabled={!canContinueIntro}
             className="flex items-center justify-center gap-2 rounded-full px-9 py-3.5 text-[15px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.99] disabled:opacity-60"
             style={{
               background: VIOLET,

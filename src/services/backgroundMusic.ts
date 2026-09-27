@@ -1,10 +1,11 @@
 import bgMusicSrc from '../assets/audio/bg-music.mp3';
+import { useSettingsStore } from '../features/settings/settingsStore';
 
 // Негромкая, зацикленная фоновая музыка на всё приложение — единственный
 // экземпляр <audio> на уровне модуля (а не в компоненте), чтобы React
 // StrictMode (двойной вызов эффектов в dev-режиме) или переход между
 // экранами не плодили несколько одновременно играющих дорожек.
-const VOLUME = 0.35;
+const DEFAULT_VOLUME = 35;
 
 let audio: HTMLAudioElement | null = null;
 let waitingForGesture = false;
@@ -13,14 +14,23 @@ let waitingForGesture = false;
 // браузером (см. waitForUserGestureThenPlay), и это разные состояния.
 let wantsToPlay = false;
 
+function volumeFromSettings(): number {
+  return Math.max(0, Math.min(100, useSettingsStore.getState().musicVolume ?? DEFAULT_VOLUME)) / 100;
+}
+
 function getAudio(): HTMLAudioElement {
   if (!audio) {
     audio = new Audio(bgMusicSrc);
     audio.loop = true;
-    audio.volume = VOLUME;
+    audio.volume = volumeFromSettings();
     audio.preload = 'auto';
   }
   return audio;
+}
+
+/** Меняет громкость уже созданного аудио без перезапуска музыки. */
+export function setMusicVolume(value: number) {
+  if (audio) audio.volume = Math.max(0, Math.min(100, value)) / 100;
 }
 
 // Мобильные браузеры/WebView (и десктоп-Chrome) блокируют автовоспроизведение

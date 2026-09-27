@@ -9,6 +9,7 @@ import LessonOne from './LessonOne';
 import LessonTwo from './LessonTwo';
 import LessonThree from './LessonThree';
 import LessonFour from './LessonFour';
+import LessonFive from './LessonFive';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { usePetStore } from '../features/pet/petStore';
@@ -110,6 +111,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   }
   if (activeLesson === 'impulse-buying') {
     return <><LessonFour onPracticeComplete={() => rewardPractice('impulse-buying')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
+  }
+  if (activeLesson === 'financial-goal') {
+    return <><LessonFive onPracticeComplete={() => rewardPractice('financial-goal')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
   }
 
   return (
@@ -314,7 +318,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 </span>
               ) : (
                 <button
-                  onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants' || lesson.id === 'piggy-bank' || lesson.id === 'impulse-buying') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
+                  onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants' || lesson.id === 'piggy-bank' || lesson.id === 'impulse-buying' || lesson.id === 'financial-goal') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
                   className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
                   style={lessonCompleted ? {
                     background: GREEN,

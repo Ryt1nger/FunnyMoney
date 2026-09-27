@@ -3,7 +3,7 @@ import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { tutorialSteps, type TutorialStep } from '../data/tutorialSteps';
 import { usePetStore } from '../features/pet/petStore';
 import { hapticTap } from '../services/haptics';
-import bearAvatar from '../assets/pet/bear-avatar.png';
+import { getCharacterById } from '../data/petCharacters';
 
 interface Rect {
   left: number;
@@ -16,6 +16,59 @@ interface Rect {
 const PAD = 8;
 // Тёмный полупрозрачный фон вокруг подсветки — единая константа для всех кусков.
 const SCRIM = 'rgba(20,16,32,0.72)';
+
+// Ближайший СКРОЛЛЯЩИЙСЯ предок элемента (overflow-y: auto/scroll и реально
+// есть что скроллить) — нужен, чтобы довернуть скролл вручную, а не полагаться
+// на el.scrollIntoView(), см. комментарий в scrollTargetsIntoView.
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement;
+  while (node) {
+    const style = window.getComputedStyle(node);
+    const scrollable = /(auto|scroll)/.test(style.overflowY);
+    if (scrollable && node.scrollHeight > node.clientHeight + 1) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+// Доводит скролл вручную до полного попадания целей в видимую область их
+// скролл-контейнера. В отличие от el.scrollIntoView(), которое считает один
+// раз и не переспрашивает, это можно безопасно вызывать каждый кадр — пока
+// экран/шторка ещё доезжают анимацией (transform ~420мс), каждый следующий
+// вызов лишь уточняет позицию по актуальным координатам, и как только всё
+// устаканивается, функция перестаёт что-либо менять (возвращает false).
+// Отступ снизу контейнера (paddingBottom) уже учитывает высоту нижнего меню
+// (см. bottomInset у экранов) — поэтому именно clientHeight контейнера, а не
+// видимая часть экрана "минус меню", даёт верную границу: докрутив до неё,
+// контент гарантированно не окажется под меню.
+function scrollTargetsIntoView(els: HTMLElement[]): boolean {
+  const first = els[0];
+  if (!first) return false;
+  const container = findScrollParent(first);
+  if (!container) return false;
+  const cRect = container.getBoundingClientRect();
+  const top = Math.min(...els.map((el) => el.getBoundingClientRect().top));
+  const bottom = Math.max(...els.map((el) => el.getBoundingClientRect().bottom));
+  const EPS = 0.5;
+  if (bottom > cRect.bottom + EPS) {
+    const maxScrollTop = container.scrollHeight - container.clientHeight;
+    const next = Math.min(maxScrollTop, container.scrollTop + (bottom - cRect.bottom));
+    if (Math.abs(next - container.scrollTop) > EPS) {
+      container.scrollTop = next;
+      return true;
+    }
+    return false;
+  }
+  if (top < cRect.top - EPS) {
+    const next = Math.max(0, container.scrollTop - (cRect.top - top));
+    if (Math.abs(next - container.scrollTop) > EPS) {
+      container.scrollTop = next;
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
 
 function unionRects(rects: Rect[]): Rect | null {
   if (!rects.length) return null;
@@ -66,6 +119,7 @@ export default function TutorialOverlay() {
   const next = useTutorialStore((s) => s.next);
   const finish = useTutorialStore((s) => s.finish);
   const petName = usePetStore((s) => s.pet?.name ?? 'Мишка');
+  const character = getCharacterById(usePetStore((s) => s.pet?.characterId));
 
   const step: TutorialStep | undefined = tutorialSteps[stepIndex];
 
@@ -73,6 +127,36 @@ export default function TutorialOverlay() {
   const [rect, setRect] = useState<Rect | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [ready, setReady] = useState(false);
+
+  // Плавный CSS-переход геометрии подсветки нужен ТОЛЬКО для настоящего
+  // "прыжка" со старого элемента на новый (см. фикс дёрганности) — а НЕ для
+  // повторных перезамеров ОДНОЙ и той же цели, пока сам экран ещё доигрывает
+  // свою анимацию появления (~420мс). Если анимировать КАЖДОЕ такое
+  // перезамерение, подсветка гоняется за реальным элементом с задержкой на
+  // длительность перехода и в итоге заметно "отстаёт" от уже остановившегося
+  // экрана. Поэтому transitionArmedRef взводится ровно один раз в начале
+  // шага и гасится сразу после первого успешного измерения — все следующие
+  // перезамеры того же шага двигают подсветку МГНОВЕННО, синхронно с кадрами
+  // реальной анимации, и поэтому не отстают от неё.
+  const transitionArmedRef = useRef(true);
+  const [rectAnimate, setRectAnimate] = useState(true);
+
+  // Подсветка не должна пропадать/перескакивать рывком между шагами: пока
+  // rect ищется заново (или не найден вовсе), держим последнюю известную
+  // позицию/размер в отдельном состоянии и просто плавно уводим прозрачность
+  // (см. SpotlightMask ниже) — тот же DOM-узел остаётся смонтированным, поэтому
+  // CSS-transition по left/top/width/height и opacity реально анимируется,
+  // а не дёргается мгновенной сменой одного блока на другой.
+  const [displayRect, setDisplayRect] = useState<Rect | null>(null);
+  const [displayContainerSize, setDisplayContainerSize] = useState({ width: 0, height: 0 });
+  const [displayAnimate, setDisplayAnimate] = useState(true);
+  useEffect(() => {
+    if (rect && containerSize.width > 0) {
+      setDisplayRect(rect);
+      setDisplayContainerSize(containerSize);
+      setDisplayAnimate(rectAnimate);
+    }
+  }, [rect, containerSize, rectAnimate]);
 
   // Пересчитывает подсветку под текущий шаг. Целевой элемент может ещё не
   // существовать (шторка только открывается) или продолжать двигаться
@@ -82,9 +166,18 @@ export default function TutorialOverlay() {
   useLayoutEffect(() => {
     if (!active || !step) return;
     setReady(false);
+    // Сразу гасим ПРЕЖНЮЮ подсветку, а не оставляем её висеть на старом месте,
+    // пока ищем цель нового шага (это может занять время — переход между
+    // экранами, анимация шторки). Иначе получалось только хуже: старая
+    // подсветка стояла на неверном месте почти всё время поиска и лишь потом
+    // резко уезжала на новую — то есть "смена фокуса" ощущалась как двойная
+    // задержка (ожидание + сам переезд). Теперь вместо этого она сразу гаснет
+    // (кроссфейд в сплошное затемнение), а новая подсветка плавно проявляется,
+    // как только найдётся — без промежуточного "зависания" на старой цели.
+    setRect(null);
+    transitionArmedRef.current = true;
     let raf = 0;
     let frames = 0;
-    let scrolled = false;
     const targets = step.targets ?? [];
 
     function tick() {
@@ -99,17 +192,27 @@ export default function TutorialOverlay() {
         .map((id) => document.querySelector<HTMLElement>(`[data-tour="${id}"]`))
         .filter((el): el is HTMLElement => !!el);
 
-      // Если подсвечиваемый элемент выше видимой области (например, длинный
-      // список событий периода) — сначала докручиваем его в зону видимости
-      // (без учёта нижнего меню, оно уже вычтено из высоты скролл-контейнера
-      // через paddingBottom), и только потом меряем прямоугольник. Иначе
-      // подсветка обрезается краем экрана вместо того, чтобы показать
-      // элемент целиком.
-      if (!scrolled && els.length === targets.length) {
-        scrolled = true;
-        els.forEach((el) => el.scrollIntoView({ block: 'nearest', behavior: 'auto' }));
-        raf = requestAnimationFrame(tick);
-        return;
+      // Если подсвечиваемый элемент выше/ниже видимой области (например,
+      // длинный список событий периода) — сначала докручиваем его в зону
+      // видимости и только потом меряем прямоугольник. Нижнее меню уже учтено
+      // отступом (paddingBottom) внутри самого скролл-контейнера, поэтому
+      // докрутка "до края контейнера" сама по себе никогда не заезжает под
+      // меню — специально исключать меню из расчёта не нужно.
+      //
+      // Раньше здесь был один вызов el.scrollIntoView() и флаг "уже
+      // скроллили" — но экран/шторка ещё доезжают своей входной анимацией
+      // (transform ~420мс), и один расчёт "по текущим, ещё не финальным
+      // координатам" мог довернуть недостаточно (и второй попытки уже не
+      // было). Теперь скролл-функция вызывается КАЖДЫЙ кадр и сама
+      // возвращает false, как только докручивать больше некуда, — поэтому
+      // одинаково надёжно работает и для мгновенно готового экрана, и для
+      // ещё анимирующегося.
+      if (els.length === targets.length) {
+        const stillScrolling = scrollTargetsIntoView(els);
+        if (stillScrolling && frames < 50) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
       }
 
       if (root && els.length === targets.length) {
@@ -126,7 +229,15 @@ export default function TutorialOverlay() {
         // просто затемняем экран целиком, без кривого гигантского выреза.
         const tooBig = u && cRect.height > 0 && u.height > cRect.height * 0.65;
         if (u && u.width > 0 && u.height > 0 && !tooBig) {
+          // Плавный переход разрешаем только на САМОЕ первое измерение этого
+          // шага (настоящий прыжок со старого места) — все повторные
+          // перезамеры той же цели (пока экран доигрывает анимацию) идут
+          // мгновенно, иначе подсветка тормозит позади уже остановившегося
+          // реального содержимого.
+          const animate = transitionArmedRef.current;
+          transitionArmedRef.current = false;
           setRect(u);
+          setRectAnimate(animate);
           setContainerSize({ width: cRect.width, height: cRect.height });
           if (frames < 40) {
             // Ловим анимацию появления (шторка/переход) ещё немного кадров.
@@ -222,23 +333,41 @@ export default function TutorialOverlay() {
 
   if (!active || !step) return null;
 
-  const scene = step.scene ? bearAvatar : null;
+  const scene = step.scene ? character.avatarImage : null;
   const title = step.title.replace('{name}', petName);
   const text = step.text.replace('{name}', petName);
 
+  const hasRect = !!(rect && containerSize.width > 0);
+
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[65]">
-      {rect && containerSize.width > 0 ? (
+      {/* Сплошное затемнение без дырки — видимо, пока подсветка ещё не найдена
+          (или явно отсутствует для шага). Плавно уходит прозрачностью, когда
+          появляется реальная подсветка, вместо мгновенной подмены блока.
+          ВАЖНО: этот слой всегда смонтирован (ради кроссфейда), поэтому
+          pointer-events переключаем явно инлайн-стилем, а не только визуально
+          прозрачностью — иначе, даже полностью прозрачный, он перекрывает
+          собой "дырку" под настоящей кнопкой и глотает тап мимо неё. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: SCRIM,
+          opacity: hasRect ? 0 : 1,
+          transition: 'opacity 280ms ease',
+          pointerEvents: !step.freeInteraction && !hasRect ? 'auto' : 'none',
+        }}
+      />
+      {/* Сама подсветка держит ПОСЛЕДНЮЮ известную позицию (displayRect), даже
+          когда текущий rect на миг стал null между шагами — поэтому у неё
+          всегда есть от/до для плавного CSS-перехода геометрии, а не рывок. */}
+      {displayRect && displayContainerSize.width > 0 && (
         <SpotlightMask
-          rect={rect}
-          containerSize={containerSize}
+          rect={displayRect}
+          containerSize={displayContainerSize}
           pulse={step.action === 'tap'}
           freeInteraction={!!step.freeInteraction}
-        />
-      ) : (
-        <div
-          className={step.freeInteraction ? 'pointer-events-none absolute inset-0' : 'pointer-events-auto absolute inset-0'}
-          style={{ background: SCRIM }}
+          visible={hasRect}
+          animate={displayAnimate}
         />
       )}
 
@@ -264,11 +393,18 @@ export default function TutorialOverlay() {
   );
 }
 
+// Единая длительность и кривая для всех плавных переходов подсветки —
+// геометрии (позиция/размер при переезде между элементами) и прозрачности
+// (появление/исчезновение), чтобы всё двигалось как один согласованный жест.
+const SPOTLIGHT_TRANSITION = '360ms cubic-bezier(0.22, 1, 0.36, 1)';
+
 function SpotlightMask({
   rect,
   containerSize,
   pulse,
   freeInteraction,
+  visible,
+  animate,
 }: {
   rect: Rect;
   containerSize: { width: number; height: number };
@@ -277,6 +413,16 @@ function SpotlightMask({
    *  (кормление) — блокирующие "стены" тут не нужны, только визуальное
    *  затемнение, иначе сам путь перетаскивания окажется недоступен. */
   freeInteraction: boolean;
+  /** false, пока для текущего шага ещё не нашли реальную цель (rect держит
+   *  позицию ПРЕДЫДУЩЕГО шага) — тогда сама подсветка плавно гаснет, а не
+   *  дёргается на новое место раньше, чем можно её туда подвинуть. */
+  visible: boolean;
+  /** true — только для настоящего "прыжка" на новый элемент (плавно едем);
+   *  false — для повторных перезамеров ТОЙ ЖЕ цели, пока реальный экран ещё
+   *  доигрывает свою анимацию (тогда двигаем геометрию МГНОВЕННО, синхронно
+   *  с каждым кадром реального содержимого — иначе подсветка "тормозит"
+   *  позади уже остановившегося экрана, гоняясь за ним CSS-переходом). */
+  animate: boolean;
 }) {
   const HOLE_RADIUS = 20;
   const r = {
@@ -285,6 +431,8 @@ function SpotlightMask({
     width: rect.width + PAD * 2,
     height: rect.height + PAD * 2,
   };
+  const opacityTransition = `opacity ${SPOTLIGHT_TRANSITION}`;
+  const clipPathTransition = animate ? `clip-path ${SPOTLIGHT_TRANSITION}, ${opacityTransition}` : opacityTransition;
   return (
     <>
       {/* Затемнение со скруглённым вырезом — ТОЛЬКО визуал (pointer-events:
@@ -293,21 +441,60 @@ function SpotlightMask({
           прямоугольную область элемента, даже там, где она визуально не
           закрашена. Поэтому кликабельность выреза обеспечивает отдельный
           прозрачный слой ниже (четыре прямоугольника без цвета) — так тап по
-          дырке доходит до настоящей кнопки, а не глохнет в невидимом затемнении. */}
+          дырке доходит до настоящей кнопки, а не глохнет в невидимом затемнении.
+          clip-path анимируется CSS-переходом только для настоящего прыжка
+          (animate=true) — при перезамерах той же цели геометрия меняется
+          мгновенно (см. animate выше), иначе подсветка отстаёт от реального
+          экрана. Opacity — отдельным переходом, он нужен всегда (кроссфейд
+          появления/исчезновения). */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ background: SCRIM, clipPath: buildHoleClipPath(containerSize.width, containerSize.height, r, HOLE_RADIUS) }}
+        style={{
+          background: SCRIM,
+          clipPath: buildHoleClipPath(containerSize.width, containerSize.height, r, HOLE_RADIUS),
+          opacity: visible ? 1 : 0,
+          transition: clipPathTransition,
+        }}
       />
       {/* Прозрачные "стены" вокруг дырки — блокируют клики снаружи, а внутри
           дырки элементов нет вовсе, поэтому тап проходит к настоящей кнопке.
           Пропускаем их для freeInteraction — там нужно тащить предмет именно
-          ЧЕРЕЗ затемнённую часть экрана (например, еду — до рта питомца). */}
-      {!freeInteraction && (
+          ЧЕРЕЗ затемнённую часть экрана (например, еду — до рта питомца).
+          Пока подсветка не видна (visible=false), стены тоже не должны ничего
+          блокировать — иначе на долю секунды между шагами клик может упереться
+          в стену на месте ПРЕДЫДУЩЕЙ подсветки. */}
+      {!freeInteraction && visible && (
         <>
-          <div className="pointer-events-auto absolute inset-x-0 top-0" style={{ height: Math.max(0, r.top) }} />
-          <div className="pointer-events-auto absolute inset-x-0 bottom-0" style={{ top: r.top + r.height }} />
-          <div className="pointer-events-auto absolute left-0" style={{ top: r.top, height: r.height, width: Math.max(0, r.left) }} />
-          <div className="pointer-events-auto absolute right-0" style={{ top: r.top, height: r.height, left: r.left + r.width }} />
+          <div
+            className="pointer-events-auto absolute inset-x-0 top-0"
+            style={{ height: Math.max(0, r.top), transition: animate ? `height ${SPOTLIGHT_TRANSITION}` : 'none' }}
+          />
+          <div
+            className="pointer-events-auto absolute inset-x-0 bottom-0"
+            style={{ top: r.top + r.height, transition: animate ? `top ${SPOTLIGHT_TRANSITION}` : 'none' }}
+          />
+          <div
+            className="pointer-events-auto absolute left-0"
+            style={{
+              top: r.top,
+              height: r.height,
+              width: Math.max(0, r.left),
+              transition: animate
+                ? `top ${SPOTLIGHT_TRANSITION}, height ${SPOTLIGHT_TRANSITION}, width ${SPOTLIGHT_TRANSITION}`
+                : 'none',
+            }}
+          />
+          <div
+            className="pointer-events-auto absolute right-0"
+            style={{
+              top: r.top,
+              height: r.height,
+              left: r.left + r.width,
+              transition: animate
+                ? `top ${SPOTLIGHT_TRANSITION}, height ${SPOTLIGHT_TRANSITION}, left ${SPOTLIGHT_TRANSITION}`
+                : 'none',
+            }}
+          />
         </>
       )}
       {/* Светящееся кольцо вокруг подсветки — притягивает взгляд ребёнка. */}
@@ -318,7 +505,11 @@ function SpotlightMask({
           top: r.top,
           width: r.width,
           height: r.height,
+          opacity: visible ? 1 : 0,
           boxShadow: '0 0 0 4px rgba(255,255,255,0.95), 0 0 0 10px rgba(255,255,255,0.25), 0 8px 20px rgba(0,0,0,0.35)',
+          transition: animate
+            ? `left ${SPOTLIGHT_TRANSITION}, top ${SPOTLIGHT_TRANSITION}, width ${SPOTLIGHT_TRANSITION}, height ${SPOTLIGHT_TRANSITION}, ${opacityTransition}`
+            : opacityTransition,
         }}
       />
     </>
@@ -379,7 +570,7 @@ function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight,
         <img
           src={scene}
           alt=""
-          className="mx-auto -mt-11 mb-2 h-[76px] w-[76px] rounded-full border-4 border-white object-cover shadow-lg"
+          className="mx-auto -mt-11 mb-2 h-[76px] w-[76px] rounded-full border-4 border-white bg-[#fbefe1] object-cover shadow-lg"
         />
       )}
       <h3 className="text-[16px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>

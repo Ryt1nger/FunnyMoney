@@ -25,6 +25,7 @@ import shampooIcon from '../assets/lesson3/items/shampoo.png';
 import ballIcon from '../assets/lesson3/items/ball.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 import { usePointerDrag } from '../hooks/usePointerDrag';
+import DragCardPreview from '../components/DragCardPreview';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void; onPracticeComplete?: () => void }
@@ -471,7 +472,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
       </div>
 
       {checkState === 'correct' && (
-        <div key={checkPulse} className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+        <div key={`ok-${checkPulse}`} className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
           <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#4caf50] text-5xl text-white shadow-[0_8px_24px_rgba(76,175,80,.5)] [animation:lessonCheckIn_400ms_cubic-bezier(.34,1.56,.64,1)]">✓</div>
         </div>
       )}
@@ -494,12 +495,12 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
         const dragged = dragLookup.find((entry) => entry.id === dnd.drag?.id);
         if (!dragged || !dnd.drag) return null;
         return (
-          <img
-            src={dragged.image}
-            alt=""
-            draggable={false}
-            className="pointer-events-none absolute z-[999] h-[64px] w-[64px] object-contain drop-shadow-2xl"
-            style={{ left: dnd.drag.x - 32, top: dnd.drag.y - 64, transform: 'scale(1.1)' }}
+          <DragCardPreview
+            image={dragged.image}
+            label={dragged.label}
+            detail={`${dragged.price} монет`}
+            x={dnd.drag.x}
+            y={dnd.drag.y}
           />
         );
       })()}

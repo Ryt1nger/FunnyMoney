@@ -59,10 +59,10 @@ const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: 'accessories', label: 'Аксессуары', icon: scarf14 },
 ];
 
-export function BearAvatar({ selectedIds }: { selectedIds: string[] }) {
+export function BearAvatar({ selectedIds, bearImage }: { selectedIds: string[]; bearImage?: string }) {
   const selected = ITEMS.filter((item) => selectedIds.includes(item.id)).sort((a, b) => a.zIndex - b.zIndex);
   return <div className="relative aspect-[663/951] h-full max-h-full w-auto max-w-full">
-    <img src={bearMain} alt="Мишка" className="absolute inset-0 h-full w-full object-contain" />
+    <img src={bearImage ?? bearMain} alt="Мишка" className="absolute inset-0 h-full w-full object-contain" />
     {selected.map((item) => <img key={item.id} src={item.asset} alt="" className="pointer-events-none absolute object-contain" style={{ left: `${item.x}%`, top: `${item.y}%`, width: `${item.width}%`, height: `${item.height}%`, zIndex: item.zIndex }} />)}
   </div>;
 }

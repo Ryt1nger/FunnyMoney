@@ -4,7 +4,10 @@ import { useEconomyStore } from '../economy/economyStore';
 import { usePetStore } from '../pet/petStore';
 import { usePeriodStore } from '../economy/periodStore';
 import { useLessonProgressStore } from '../progress/lessonProgressStore';
+import { useInventoryStore } from '../inventory/inventoryStore';
+import { shopProducts } from '../../data/shopData';
 import { getPeriodEvent, getPeriodEvents, type EventEffects, type PeriodEventDefinition, type PeriodEventOption } from './eventData';
+import type { PetActionType } from '../../core/periodRules';
 
 const STORAGE_KEY = 'period_events';
 export const FIRST_EVENT_DELAY_MS = 2 * 60 * 1000;
@@ -16,6 +19,7 @@ export interface EventChoiceRecord {
   timestamp: number;
   effects: EventEffects;
   feedback: string;
+  requiredPetAction: PetActionType;
 }
 
 export interface PeriodEventState {
@@ -28,12 +32,14 @@ export interface PeriodEventState {
   nextEventAt?: number;
   /** Версия ухода, которую нужно выполнить перед следующим событием. */
   careVersionRequired?: number;
+  requiredPetAction?: PetActionType;
 }
 
 interface PeriodEventStore extends PeriodEventState {
   hydrate: () => void;
   syncPeriod: (periodId: 1 | 2 | 3) => void;
   getAvailableEvent: () => PeriodEventDefinition | null;
+  getPendingPetAction: () => PetActionType | null;
   isEventCompleted: (eventId: string) => boolean;
   resolveChoice: (eventId: string, optionId: string) => { ok: true; choice: EventChoiceRecord } | { ok: false; reason: 'unavailable' | 'insufficient_funds' | 'invalid_option' };
   resetCurrentPeriod: () => void;
@@ -42,6 +48,15 @@ interface PeriodEventStore extends PeriodEventState {
    *  именно это событие — без реального прохождения предыдущих. Награды/
    *  эффекты пропущенных событий не начисляются (это не resolveChoice). */
   debugJumpToEvent: (eventId: string) => void;
+}
+
+function actionForChoice(event: PeriodEventDefinition, option: PeriodEventOption): PetActionType {
+  if (option.requiredPetAction) return option.requiredPetAction;
+  if (option.effects.health !== undefined && option.effects.health < 0) {
+    return event.id.includes('feed') || event.id.includes('bowl') ? 'feed' : 'medicine';
+  }
+  // Даже хороший ответ не пропускает уход: питомцу становится скучно.
+  return 'buyToy';
 }
 
 function emptyState(periodId: 1 | 2 | 3): PeriodEventState {
@@ -164,6 +179,23 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
 
   isEventCompleted: (eventId) => get().completedEventIds.includes(eventId),
 
+  getPendingPetAction: () => {
+    const state = get();
+    if (state.careVersionRequired === undefined || !state.requiredPetAction) return null;
+    const pet = usePetStore.getState().pet;
+    if ((pet?.careVersion ?? 0) > state.careVersionRequired) return null;
+    // Если последствие требует лекарства, но ребёнок ещё не может его купить,
+    // разрешаем безопасную альтернативу: покормить питомца. Это всё равно
+    // меняет careVersion и не даёт перескочить через обязательное действие.
+    if (state.requiredPetAction === 'medicine') {
+      const medicine = shopProducts.find((product) => product.id === 'medicine-pet');
+      const medicineQty = useInventoryStore.getState().medicineQty['medicine-pet'] ?? 0;
+      const coins = useEconomyStore.getState().coins;
+      if (medicineQty <= 0 && (!medicine || coins < medicine.price)) return 'feed';
+    }
+    return state.requiredPetAction;
+  },
+
   resolveChoice: (eventId, optionId) => {
     const period = usePeriodStore.getState();
     const event = getPeriodEvent(eventId);
@@ -190,12 +222,14 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
     }
     if (!applyOptionEffects(event, option, introCoins)) return { ok: false, reason: 'insufficient_funds' };
 
+    const requiredPetAction = actionForChoice(event, option);
     const choice: EventChoiceRecord = {
       eventId,
       optionId,
       timestamp: Date.now(),
       effects: option.effects,
       feedback: option.feedback,
+      requiredPetAction,
     };
     const next: PeriodEventState = {
       ...get(),
@@ -207,6 +241,7 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
       history: [...get().history, choice],
       nextEventAt: Date.now() + BETWEEN_EVENTS_DELAY_MS,
       careVersionRequired: usePetStore.getState().pet?.careVersion ?? 0,
+      requiredPetAction,
     };
     persist(next);
     set(next);

@@ -12,6 +12,8 @@ import {
 } from '../../core/economy';
 import { storage } from '../../services/storage';
 import { useLessonProgressStore } from '../progress/lessonProgressStore';
+import { usePetStore } from '../pet/petStore';
+import { useEconomyStore } from './economyStore';
 
 const STORAGE_KEY = 'economy_period';
 
@@ -94,6 +96,7 @@ interface PeriodStore extends PeriodState {
   recordPractice: () => boolean;
   completePeriod: () => boolean;
   advancePeriod: (walletBalance: number, savingsBalance: number) => void;
+  repeatPeriodWithBonus: () => void;
   /** Только для дев-панели: принудительно переключить на период id, сохранив
    *  текущие балансы, но сбросив план/факт/флаги этого периода набело. */
   setPeriod: (id: 1 | 2 | 3) => void;
@@ -250,6 +253,9 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
       if (!lessons.isCompleted('what-is-money') || !lessons.isCompleted('needs-vs-wants')) return false;
     }
     const result = calculatePeriodResult(state);
+    // Итог периода влияет на состояние питомца ровно один раз: повторный
+    // запуск приложения уже видит status=completed и не применяет награду снова.
+    usePetStore.getState().applyDelta({ health: result.satietyDelta, happiness: result.moodDelta });
     const next = { ...state, status: 'completed' as const, result };
     persist(next);
     set(next);
@@ -263,6 +269,28 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
       ...createInitialPeriod(walletBalance, savingsBalance),
       id: state.id + 1,
       history: [...(state.history ?? []), summarizePeriod(state)],
+    };
+    persist(next);
+    set(next);
+  },
+
+  repeatPeriodWithBonus: () => {
+    const state = get();
+    if (state.status !== 'completed' || !state.result || state.result.score >= 70) return;
+    const bonus = ECONOMY_RULES.repeatPeriodBonusCoins;
+    // Бонус должен попасть в настоящий кошелёк, чтобы он был доступен
+    // ребёнку во всех экранах, а не только в состоянии периода.
+    useEconomyStore.getState().applyCoinsDelta(
+      bonus,
+      'Бонус за повтор периода',
+      { periodId: state.id, category: 'reward' },
+    );
+    const walletBalance = useEconomyStore.getState().coins;
+    const failedSummary = summarizePeriod(state);
+    const next = {
+      ...createInitialPeriod(walletBalance, state.savingsBalance),
+      id: state.id,
+      history: [...(state.history ?? []), failedSummary],
     };
     persist(next);
     set(next);

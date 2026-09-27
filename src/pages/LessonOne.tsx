@@ -25,6 +25,7 @@ import gamepadIcon from '../assets/lesson-items/gamepad.png';
 import giftIcon from '../assets/lesson-items/gift.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 import { usePointerDrag } from '../hooks/usePointerDrag';
+import DragCardPreview from '../components/DragCardPreview';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void; onPracticeComplete?: () => void }
@@ -98,7 +99,7 @@ const planCategories = [
 // картинку для плавающей копии карточки во время перетаскивания (см.
 // dragItemLookup ниже); id уникальны между упражнениями, так что конфликтов
 // нет, а показывается за раз всегда только карточка активной сцены.
-const dragItemLookup: { id: string; image: string }[] = [...practiceItems, ...budgetItems, ...walkItems, ...orderItems];
+const dragItemLookup: PracticeItem[] = [...practiceItems, ...budgetItems, ...walkItems, ...orderItems];
 
 // Подсказки/обратная связь при ошибке — тексты из сценария (уроки практика.pdf),
 // ключ — индекс сцены. Показываются и по кнопке "Подсказка", и после
@@ -182,11 +183,22 @@ export default function LessonOne({ onBack, onPracticeComplete }: Props) {
   const lessonCompletedRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     pauseBackgroundMusic();
     return () => startBackgroundMusic();
   }, []);
+
+  // Подсказка должна быть краткой обратной связью, а не постоянным
+  // предупреждением: закрываем её через 3 секунды после показа/обновления.
+  useEffect(() => {
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    if (hintText) hintTimerRef.current = setTimeout(() => setHintText(null), 3000);
+    return () => {
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    };
+  }, [hintText]);
 
   useEffect(() => {
     scenes.forEach((source) => {
@@ -572,12 +584,12 @@ export default function LessonOne({ onBack, onPracticeComplete }: Props) {
         const dragged = dragItemLookup.find((entry) => entry.id === dragging.id);
         if (dragged) {
           return (
-            <img
-              src={dragged.image}
-              alt=""
-              draggable={false}
-              className="pointer-events-none absolute z-[999] h-[64px] w-[64px] object-contain drop-shadow-2xl"
-              style={{ left: dragging.x - 32, top: dragging.y - 64, transform: 'scale(1.1)' }}
+            <DragCardPreview
+              image={dragged.image}
+              label={dragged.label}
+              detail={dragged.price !== undefined ? `${dragged.price} монет` : undefined}
+              x={dragging.x}
+              y={dragging.y}
             />
           );
         }

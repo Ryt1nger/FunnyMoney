@@ -21,7 +21,7 @@ const STORAGE_KEY = 'economy';
 
 const defaultState: EconomyState = {
   coins: 0,
-  wealthScore: 0,
+  wealthScore: ECONOMY_RULES.initialWealthScore,
   totalEarned: 0,
   totalSpent: 0,
   totalSaved: 0,

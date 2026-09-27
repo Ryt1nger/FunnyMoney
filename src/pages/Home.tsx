@@ -2,10 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as Reac
 // обрезанный по силуэту вариант — только для отбрасываемой тени,
 // иначе прозрачное поле PNG превращается после отражения в зазор
 import bearSilhouette from '../assets/pet/bear-main-trim.png';
-import bearAvatar from '../assets/pet/bear-avatar.png';
 import bgRoom from '../assets/backgrounds/room-day.jpg';
 import RoomPreview from './RoomPreview';
-import { rooms, roomsBySection, type RoomProduct } from '../data/shopData';
+import { rooms, roomsBySection, shopProducts, type RoomProduct } from '../data/shopData';
 import boneToy from '../assets/items/toys/bone-toy-card.png';
 import boneBlob from '../assets/ui/bone-blob.png';
 import levelFlower from '../assets/ui/level-flower.png';
@@ -21,6 +20,7 @@ import Lessons from './Lessons';
 import Inventory from './Inventory';
 import Wardrobe from './Wardrobe';
 import { BearAvatar } from './Wardrobe';
+import { getCharacterById } from '../data/petCharacters';
 import Kitchen from './Kitchen';
 import PageLoading from './PageLoading';
 import Shop from './Shop';
@@ -38,10 +38,13 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { useDevNavStore } from '../features/dev/devNavStore';
 import { usePeriodStore } from '../features/economy/periodStore';
+import { wealthPercentFromCapital, type PeriodResult } from '../core/economy';
 import { usePeriodEventStore } from '../features/periodEvents/eventStore';
+import { getPeriodEvents } from '../features/periodEvents/eventData';
+import type { PetActionType } from '../core/periodRules';
 import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
 import EventModal from '../features/periodEvents/components/EventModal';
-import { purchaseRoom } from '../features/economy/purchase';
+import { giveMedicine, purchaseRoom } from '../features/economy/purchase';
 import { hapticTap } from '../services/haptics';
 import { storage } from '../services/storage';
 import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
@@ -52,8 +55,13 @@ import {
   IconSettingsGear,
   IconCutlery,
   IconChevronRight,
+  IconBook,
+  IconCalendar,
+  IconBowl,
+  IconGamepad,
 } from '../components/icons';
 import piggyIcon from '../assets/piggy-bank/piggy.png';
+import medicineIcon from '../assets/lesson-items/medicine.png';
 
 // После стартового обучения даём ребёнку немного освоиться и только потом
 // предлагаем первый обязательный урок.
@@ -61,6 +69,8 @@ const EVENT_COPY = {
   title: 'Мишка заскучал\nбез урока!',
   description: 'Давно не был на уроке!',
 };
+
+const PERIOD_GUIDE_DELAY_MS = 60 * 1000;
 
 // Русское склонение "день/дня/дней" для карточки серии.
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
@@ -112,9 +122,9 @@ export default function Home() {
   const xp = pet?.xp ?? 0;
   const xpToNext = progressLevels[Math.min(level, MAX_LEVEL) - 1].xpThreshold;
   const coins = useEconomyStore((s) => s.coins);
-  const wealthScore = useEconomyStore((s) => s.wealthScore);
   const savingsGoal = useEconomyStore((s) => s.savingsGoal);
   const totalSaved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
+  const currentPeriodId = usePeriodStore((s) => s.id);
   const savingsProgressPercent = savingsGoal
     ? Math.min(100, Math.round((totalSaved / Math.max(1, savingsGoal.price)) * 100))
     : 0;
@@ -122,6 +132,7 @@ export default function Home() {
   const activeRoomId = useInventoryStore((s) => s.activeRoomId);
   const activeKitchenRoomId = useInventoryStore((s) => s.activeKitchenRoomId);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
+  const medicineQty = useInventoryStore((s) => s.medicineQty);
   const outfitIds = useInventoryStore((s) => s.outfitIds);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
@@ -129,17 +140,25 @@ export default function Home() {
   const tutorialActive = useTutorialStore((s) => s.active);
 
   const petName = pet?.name ?? 'Мишка';
+  const character = getCharacterById(pet?.characterId);
   const health = pet?.health ?? 0;
   const happiness = pet?.happiness ?? 0;
   const petNeedsAttention = health <= 65 || happiness <= 35;
-  // Богатство — метрика-проценты 0..100, производная от wealthScore экономики.
-  const wealth = Math.max(0, Math.min(100, wealthScore));
+  // Богатство — текущий капитал (кошелёк + копилка) относительно учебного
+  // максимума текущего периода, а не сумма небольших бонусов событий.
+  const wealth = useEconomyStore((s) => wealthPercentFromCapital(
+    s.coins,
+    s.savingsBalance ?? s.totalSaved,
+    currentPeriodId,
+  ));
 
   const [tab, setTab] = useState<TabId>('home');
   const [sheet, setSheet] = useState<SheetId | null>(null);
   const [piggyPrefillAmount, setPiggyPrefillAmount] = useState<number | null>(null);
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
-  const [, setEventClock] = useState(0);
+  const [lessonReminderSuppressed, setLessonReminderSuppressed] = useState(false);
+  const [periodGuideEscalated, setPeriodGuideEscalated] = useState(false);
+  const [eventClock, setEventClock] = useState(0);
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
   // уроки, либо на задания дня.
   const [earnModalOpen, setEarnModalOpen] = useState(false);
@@ -180,6 +199,7 @@ export default function Home() {
   // «Интерьер» (и только кухонный подраздел интерьера) — из нижнего меню он
   // как обычно открывается полным (см. onChange у BottomNav ниже).
   const [shopKitchenOnly, setShopKitchenOnly] = useState(false);
+  const [shopInitialCategory, setShopInitialCategory] = useState<'food' | 'care' | 'toys' | 'clothes' | 'interior'>('food');
   // Активная "комната" — главная или кухня. Меняется ТОЛЬКО явными иконками
   // (кухня на главной, домик на кухне) или свайпом вниз с кухни — и никогда
   // при открытии/закрытии обычных разделов (уроки/магазин/день/рейтинг/
@@ -281,17 +301,131 @@ export default function Home() {
   // Единственное исключение — активный урок (isOnLesson): его не перебиваем.
   const [isOnLesson, setIsOnLesson] = useState(false);
   const [eventModalOpen, setEventModalOpen] = useState(false);
+  const periodAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [periodResultModal, setPeriodResultModal] = useState<{ periodId: number; result: PeriodResult } | null>(null);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
   // Событие, которое ребёнок явно закрыл крестиком (не решил) — не лезем с
   // ним повторно на этом же экране, но при переходе на другой экран (или
   // другую шторку) даём игре попробовать показать его снова.
   const [dismissedEventId, setDismissedEventId] = useState<string | null>(null);
   const periodStatusForEvents = usePeriodStore((s) => s.status);
+  const periodPlan = usePeriodStore((s) => s.plan);
   // Подписки нужны только для перерисовки — getAvailableEvent() читает эти
   // сторы напрямую через getState() и сам по себе не реактивен.
   usePeriodEventStore((s) => s.completedEventIds.length);
   useLessonProgressStore((s) => s.completedLessonIds.length);
+  const firstLessonDone = useLessonProgressStore((s) => s.isCompleted('what-is-money'));
+  const secondLessonDone = useLessonProgressStore((s) => s.isCompleted('needs-vs-wants'));
   const availableEvent = periodStatusForEvents === 'active' ? usePeriodEventStore.getState().getAvailableEvent() : null;
+  const pendingPetAction = usePeriodEventStore((s) => s.getPendingPetAction());
+
+  const periodGuideReady = (() => {
+    if (tutorialActive || sheet !== null) return false;
+    const finishedAt = storage.get<number>('tutorial_finished_at');
+    return typeof finishedAt === 'number' && Date.now() - finishedAt >= PERIOD_GUIDE_DELAY_MS;
+  })();
+  const periodEventCount = usePeriodEventStore((s) => s.completedEventIds.length);
+  const periodGuide = periodGuideReady && !pendingPetAction
+    ? !firstLessonDone
+      ? { title: 'Сначала заработаем монетки', text: 'Перейди в первый урок и выполни его. После этого мы распределим деньги в периоде.', button: 'Открыть урок' as const, action: 'lesson' as const }
+      : periodStatusForEvents === 'planning' && !periodPlan
+        ? { title: 'Начнём первый период', text: 'Теперь перейди в раздел «Периоды» и распредели монетки: на нужное, желания и копилку.', button: 'Открыть период' as const, action: 'period' as const }
+        : periodStatusForEvents === 'active' && !secondLessonDone && periodEventCount >= 2
+          ? { title: 'Время второго урока', text: 'Питомец ждёт продолжения. Пройди следующий урок, чтобы открыть новую часть периода.', button: 'Открыть урок' as const, action: 'lesson' as const }
+          : null
+    : null;
+
+  // Если нижнее напоминание долго остаётся без реакции, переводим его в
+  // центральную подсказку первого периода: нижняя карточка исчезает, фон
+  // мягко размывается, а ребёнок получает один понятный следующий шаг.
+  useEffect(() => {
+    if (!showLessonReminder || lessonReminderSuppressed || !remindersEnabled || tutorialActive || sheet !== null || firstLessonDone) return;
+    const timer = window.setTimeout(() => {
+      setLessonReminderSuppressed(true);
+      setPeriodGuideEscalated(true);
+    }, 20 * 1000);
+    return () => window.clearTimeout(timer);
+  }, [showLessonReminder, lessonReminderSuppressed, remindersEnabled, tutorialActive, sheet, firstLessonDone]);
+
+  function openPeriodGuide(action: 'lesson' | 'period') {
+    if (action === 'lesson') {
+      setTab('lessons');
+      setSheet('lessons');
+    } else {
+      setTab('day');
+      setSheet('day');
+    }
+  }
+
+  // Полный цикл периода: после последнего события ждём обязательное действие
+  // питомца и короткую паузу финального экрана, затем закрываем период.
+  // Переход к следующему периоду выполняется автоматически — отдельная кнопка
+  // «перейти дальше» ребёнку не нужна.
+  useEffect(() => {
+    const period = usePeriodStore.getState();
+    if (period.status !== 'active') return;
+    const events = getPeriodEvents(period.id as 1 | 2 | 3);
+    const eventState = usePeriodEventStore.getState();
+    const allEventsDone = events.length > 0 && events.every((event) => eventState.completedEventIds.includes(event.id));
+    if (!allEventsDone || eventState.getPendingPetAction()) return;
+    if (eventState.nextEventAt && Date.now() < eventState.nextEventAt) return;
+    if (period.completePeriod()) {
+      const completed = usePeriodStore.getState();
+      if (completed.result) setPeriodResultModal({ periodId: completed.id, result: completed.result });
+      if (periodAdvanceTimer.current) clearTimeout(periodAdvanceTimer.current);
+      periodAdvanceTimer.current = setTimeout(() => {
+        const current = usePeriodStore.getState();
+        if (current.status !== 'completed') return;
+        if (current.result && current.result.score < 70) {
+          current.repeatPeriodWithBonus();
+          usePeriodEventStore.getState().resetCurrentPeriod();
+          setPeriodResultModal(null);
+          return;
+        }
+        if (current.id >= 3) return;
+        const economy = useEconomyStore.getState();
+        current.advancePeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
+        setPeriodResultModal(null);
+      }, 5000);
+    }
+  }, [eventClock, periodStatusForEvents, pendingPetAction]);
+
+  useEffect(() => () => {
+    if (periodAdvanceTimer.current) clearTimeout(periodAdvanceTimer.current);
+  }, []);
+
+  const medicineProduct = shopProducts.find((product) => product.id === 'medicine-pet');
+  const hasMedicine = (medicineProduct ? medicineQty[medicineProduct.id] ?? 0 : 0) > 0;
+  const canAffordMedicine = !!medicineProduct && coins >= medicineProduct.price;
+  const petActionCopy: Record<PetActionType, { title: string; text: string; button: string }> = {
+    feed: { title: 'Питомцу нужен корм', text: 'Покорми питомца, чтобы продолжить период.', button: 'Покормить' },
+    buyToy: { title: 'Питомцу стало скучно', text: 'Купи игрушку — это обязательный шаг после выбора.', button: 'Купить игрушку' },
+    medicine: { title: 'Питомцу нужна помощь', text: hasMedicine ? 'Лекарство уже куплено — теперь дай его питомцу.' : canAffordMedicine ? 'Купи и дай лекарство, чтобы продолжить период.' : 'Монет на лекарство пока не хватает. Покорми питомца — это поможет продолжить.', button: hasMedicine ? 'Дать лекарство' : canAffordMedicine ? 'Купить лекарство' : 'Покормить' },
+  };
+
+  function openRequiredPetAction(action: PetActionType) {
+    if (action === 'feed') {
+      openKitchen();
+      return;
+    }
+    if (action === 'medicine' && hasMedicine && medicineProduct) {
+      giveMedicine(medicineProduct);
+      return;
+    }
+    if (action === 'medicine' && !hasMedicine && !canAffordMedicine) {
+      openKitchen();
+      return;
+    }
+    setShopKitchenOnly(false);
+    setShopInitialCategory(action === 'medicine' ? 'care' : 'toys');
+    setSheet('shop');
+  }
+
+  function petActionIcon(action: PetActionType) {
+    if (action === 'feed') return <IconBowl className="h-5 w-5" />;
+    if (action === 'medicine') return <img src={medicineIcon} alt="" className="h-7 w-7 object-contain" />;
+    return <IconGamepad className="h-5 w-5" />;
+  }
 
   useEffect(() => {
     if (!availableEvent || isOnLesson || tutorialActive) return;
@@ -320,6 +454,7 @@ export default function Home() {
   }
 
   function openLessonsFromReminder() {
+    setLessonReminderSuppressed(true);
     setTab('lessons');
     setSheet('lessons');
   }
@@ -410,7 +545,7 @@ export default function Home() {
           >
             <div className="relative shrink-0">
               <img
-                src={bearAvatar}
+                src={character.avatarImage}
                 alt={petName}
                 className="h-[52px] w-[52px] rounded-full border-2 border-white object-cover shadow-lg"
               />
@@ -501,6 +636,216 @@ export default function Home() {
             barGradient="linear-gradient(90deg, #63d98b 0%, #21a44f 100%)"
           />
         </div>
+
+        {pendingPetAction && sheet === null && !isOnLesson && !tutorialActive && (
+          <div
+            className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
+          >
+            <div
+              className="relative w-full max-w-[300px] rounded-[28px] p-5 pt-6 shadow-2xl"
+              style={{
+                background: '#fbefe1',
+                border: '1px solid rgba(255,255,255,0.6)',
+                boxShadow: '0 24px 48px rgba(20,10,30,0.35), 0 4px 14px rgba(20,10,30,0.18)',
+              }}
+            >
+              <div className="flex justify-center">
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-full"
+                  style={{
+                    background: 'linear-gradient(180deg, #fbeac4 0%, #f6dca6 100%)',
+                    boxShadow: '0 8px 18px rgba(150,105,40,0.32), inset 0 2px 3px rgba(255,255,255,0.6)',
+                  }}
+                >
+                  <span style={{ color: '#d99526' }}>{petActionIcon(pendingPetAction)}</span>
+                </div>
+              </div>
+
+              <h2 className="mt-3.5 text-center text-[18px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
+                {petActionCopy[pendingPetAction].title}
+              </h2>
+              <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
+                {petActionCopy[pendingPetAction].text}
+              </p>
+
+              <button
+                onClick={() => openRequiredPetAction(pendingPetAction)}
+                className="mt-4 w-full rounded-full py-3 text-[14px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
+                  boxShadow:
+                    'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
+                }}
+              >
+                {petActionCopy[pendingPetAction].button}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {periodGuide && !showLessonReminder && !periodGuideEscalated && (
+          <div
+            className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
+          >
+            <div
+              className="relative w-full max-w-[300px] rounded-[28px] p-5 pt-6 shadow-2xl"
+              style={{
+                background: '#fbefe1',
+                border: '1px solid rgba(255,255,255,0.6)',
+                boxShadow: '0 24px 48px rgba(20,10,30,0.35), 0 4px 14px rgba(20,10,30,0.18)',
+              }}
+            >
+              <div className="flex justify-center">
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-full"
+                  style={{
+                    background: 'linear-gradient(180deg, #a9a6f8 0%, #7574f0 100%)',
+                    boxShadow: '0 8px 18px rgba(92,90,216,0.38), inset 0 2px 3px rgba(255,255,255,0.6)',
+                  }}
+                >
+                  {periodGuide.action === 'lesson' ? (
+                    <IconBook className="h-8 w-8 text-white" />
+                  ) : (
+                    <IconCalendar className="h-8 w-8 text-white" />
+                  )}
+                </div>
+              </div>
+
+              <h2 className="mt-3.5 text-center text-[18px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
+                {periodGuide.title}
+              </h2>
+              <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
+                {periodGuide.text}
+              </p>
+
+              <button
+                onClick={() => openPeriodGuide(periodGuide.action)}
+                className="mt-4 w-full rounded-full py-3 text-[14px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
+                  boxShadow:
+                    'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
+                }}
+              >
+                {periodGuide.button}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Тот же вид, что и окошко "Как заработать монеты?" (EarnCoinsModal) —
+            круглая иконка сверху, заголовок и подпись по центру, одна кнопка
+            и крестик-закрытие в углу, вместо прежней "плашки со значком в ряд". */}
+        {periodGuide && periodGuideEscalated && (
+          <div
+            className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
+            onClick={() => setPeriodGuideEscalated(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-[300px] rounded-[28px] p-5 pt-6 shadow-2xl"
+              style={{
+                background: '#fbefe1',
+                border: '1px solid rgba(255,255,255,0.6)',
+                boxShadow: '0 24px 48px rgba(20,10,30,0.35), 0 4px 14px rgba(20,10,30,0.18)',
+              }}
+            >
+              <button
+                onClick={() => setPeriodGuideEscalated(false)}
+                aria-label="Закрыть"
+                className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-[#a19cb0] transition active:scale-90"
+                style={{ background: 'rgba(120,110,150,0.10)' }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M5 5l14 14M19 5L5 19" />
+                </svg>
+              </button>
+
+              <div className="flex justify-center">
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-full"
+                  style={{
+                    background: 'linear-gradient(180deg, #a9a6f8 0%, #7574f0 100%)',
+                    boxShadow: '0 8px 18px rgba(92,90,216,0.38), inset 0 2px 3px rgba(255,255,255,0.6)',
+                  }}
+                >
+                  {periodGuide.action === 'lesson' ? (
+                    <IconBook className="h-8 w-8 text-white" />
+                  ) : (
+                    <IconCalendar className="h-8 w-8 text-white" />
+                  )}
+                </div>
+              </div>
+
+              <h2 className="mt-3.5 text-center text-[18px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
+                {periodGuide.title}
+              </h2>
+              <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
+                {periodGuide.text}
+              </p>
+
+              <button
+                onClick={() => { setPeriodGuideEscalated(false); openPeriodGuide(periodGuide.action); }}
+                className="mt-4 w-full rounded-full py-3 text-[14px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
+                  boxShadow:
+                    'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
+                }}
+              >
+                {periodGuide.button}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {periodResultModal && (
+          <div className="pointer-events-auto absolute inset-0 z-[63] flex items-center justify-center bg-[rgba(31,25,45,0.28)] p-5 backdrop-blur-[6px]">
+            <div className="relative w-full max-w-[560px] rounded-[28px] border border-[#e8d6bb] bg-[#fbefe1] px-4 pb-4 pt-7 text-center shadow-2xl">
+              <span className="absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-[13px] font-extrabold text-white shadow-lg" style={{ background: 'linear-gradient(135deg, #6d5ce7 0%, #5b4de0 55%, #7a4fd8 100%)' }}>
+                <IconStar className="h-4 w-4" style={{ color: '#fcd34d' }} />
+                Итог периода {periodResultModal.periodId}
+              </span>
+              <div className="text-[18px] font-black" style={{ color: '#2c2a5e' }}>
+                {periodResultModal.result.score >= 70 ? 'Отлично, период завершён!' : 'Попробуем период ещё раз'}
+              </div>
+              <p className="mt-1.5 text-[11px] font-semibold leading-snug" style={{ color: '#7b7a8c' }}>
+                {periodResultModal.result.score >= 70
+                  ? 'Твои решения повлияли на питомца и на наши деньги.'
+                  : 'Некоторые важные потребности не закрыты. В следующий раз у тебя будет небольшой бонус.'}
+              </p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-[16px] bg-[#ffe9ef] px-2 py-2">
+                  <div className="text-[10px] font-bold text-[#a85b72]">Здоровье</div>
+                  <div className="text-[16px] font-black text-[#ef4060]">{health}%</div>
+                  <div className="text-[9px] font-bold text-[#a85b72]">{periodResultModal.result.satietyDelta >= 0 ? '+' : ''}{periodResultModal.result.satietyDelta}</div>
+                </div>
+                <div className="rounded-[16px] bg-[#fff3d9] px-2 py-2">
+                  <div className="text-[10px] font-bold text-[#a1740f]">Счастье</div>
+                  <div className="text-[16px] font-black text-[#eaa622]">{happiness}%</div>
+                  <div className="text-[9px] font-bold text-[#a1740f]">+{periodResultModal.result.moodDelta}</div>
+                </div>
+                <div className="rounded-[16px] bg-[#e6f9ee] px-2 py-2">
+                  <div className="text-[10px] font-bold text-[#24754b]">Богатство</div>
+                  <div className="text-[16px] font-black text-[#21a44f]">{wealth}%</div>
+                  <div className="text-[9px] font-bold text-[#24754b]">План: {periodResultModal.result.planMatchPercent}%</div>
+                </div>
+              </div>
+              <div className="mt-3 rounded-[14px] bg-white/60 px-3 py-2 text-[11px] font-extrabold" style={{ color: '#5d57a8' }}>
+                Результат: {periodResultModal.result.score} из 100
+              </div>
+              {periodResultModal.periodId >= 3 && (
+                <button
+                  onClick={() => setPeriodResultModal(null)}
+                  className="mt-3 rounded-full px-5 py-2.5 text-[12px] font-extrabold text-white shadow-md"
+                  style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #6262e4 100%)' }}
+                >
+                  Понятно
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Кнопки под статистиками: слева стопкой настройки и (под ними) инвентарь,
             справа — вход в столовую (кормление питомца). Тот же визуальный стиль кнопки. */}
@@ -598,7 +943,7 @@ export default function Home() {
             }}
           />
           <div className="pointer-events-none absolute bottom-[34%] left-1/2 h-[70%] w-auto -translate-x-1/2 select-none drop-shadow-2xl">
-            <BearAvatar selectedIds={outfitIds} />
+            <BearAvatar selectedIds={outfitIds} bearImage={character.mainImage} />
           </div>
 
           {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,
@@ -624,7 +969,7 @@ export default function Home() {
           {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
               давно не заходил на урок в течение дня (см. shouldShowLessonReminder)
               и напоминания не выключены в настройках. */}
-          {showLessonReminder && remindersEnabled && (
+          {showLessonReminder && !lessonReminderSuppressed && remindersEnabled && (
             <div
               className="relative rounded-[26px] border px-3.5 pb-3.5 pt-[30px] shadow-xl"
               style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
@@ -792,6 +1137,7 @@ export default function Home() {
             coins={coins}
             ownedRoomIds={ownedRoomIds}
             kitchenOnly={shopKitchenOnly}
+            initialCategory={shopInitialCategory}
             onRoomSelect={(room) => setPreviewRoom(room)}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             confirmationEnabled={purchaseConfirmationEnabled}

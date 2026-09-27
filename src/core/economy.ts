@@ -7,6 +7,11 @@
  */
 
 export const ECONOMY_RULES = {
+  // Зафиксированные стартовые значения новой игры.
+  initialWalletCoins: 0,
+  initialPetHealth: 80,
+  initialPetHappiness: 50,
+  initialWealthScore: 0,
   // Используется только аварийным восстановлением повреждённого профиля,
   // не является доходом игрового периода.
   recoveryCoins: 200,
@@ -22,9 +27,31 @@ export const ECONOMY_RULES = {
   dailyRewardXp: 15,
   emergencyWorkCoins: 50,
   emergencySnackPrice: 30,
+  /** Стартовый запас при повторе неудачного периода. */
+  repeatPeriodBonusCoins: 50,
   oneTimeTheoryCoins: 200,
   oneTimeTheoryXp: 10,
 } as const;
+
+/** Максимальный капитал, относительно которого показываем метрику богатства.
+ * Это именно учебная шкала периода, а не технический предел баланса: ребёнок
+ * может накопить больше лимита, но показатель не должен становиться 3000%.
+ */
+export const PERIOD_MAX_CAPITAL: Record<1 | 2 | 3, number> = {
+  1: 200,
+  2: 300,
+  3: 400,
+};
+
+export function wealthPercentFromCapital(
+  walletBalance: number,
+  savingsBalance: number,
+  periodId: number,
+): number {
+  const capital = Math.max(0, walletBalance) + Math.max(0, savingsBalance);
+  const maximum = PERIOD_MAX_CAPITAL[periodId as 1 | 2 | 3] ?? PERIOD_MAX_CAPITAL[1];
+  return Math.max(0, Math.min(100, Math.round((capital / maximum) * 100)));
+}
 
 export type ExpenseType = 'mandatory' | 'optional' | 'goal';
 export type MealType = 'snack' | 'fullMeal' | 'none';
