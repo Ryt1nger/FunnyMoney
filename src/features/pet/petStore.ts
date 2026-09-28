@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PetSpecies, PetState } from '../../types';
+import type { CareAction, CareInteraction, PetSpecies, PetState } from '../../types';
 import { storage } from '../../services/storage';
 import { progressLevels, MAX_LEVEL } from '../../data/progressLevels';
 import { DEFAULT_CHARACTER_ID } from '../../data/petCharacters';
@@ -10,6 +10,10 @@ interface PetStore {
   createPet: (species: PetSpecies, name: string, characterId?: string) => void;
   applyDelta: (delta: { health?: number; happiness?: number }) => void;
   registerInteraction: () => void;
+  recordCareInteraction: (action: CareAction, source: CareInteraction['source']) => void;
+  findRecentCareInteraction: (action: CareAction, maxAgeMs?: number) => CareInteraction | null;
+  findRecentOtherCareInteraction: (action: CareAction, maxAgeMs?: number) => CareInteraction | null;
+  useCareInteractionForEvent: (action: CareAction, eventId: string) => boolean;
   tickNeeds: (now?: number) => void;
   /** Начисляет опыт (например, за задание дня) и пересчитывает уровень по порогам
    *  из progressLevels — единственное место, где xp/level реально меняются. */
@@ -63,6 +67,7 @@ function normalizePet(pet: PetState): PetState {
     // Старые сохранения (до появления выбора внешности) не содержат characterId —
     // подставляем дефолтного мишку, ничего не ломая.
     characterId: typeof pet.characterId === 'string' ? pet.characterId : DEFAULT_CHARACTER_ID,
+    careInteractions: Array.isArray(pet.careInteractions) ? pet.careInteractions : [],
   };
 }
 
@@ -115,6 +120,42 @@ export const usePetStore = create<PetStore>((set, get) => ({
     };
     storage.set(STORAGE_KEY, next);
     set({ pet: next });
+  },
+
+  recordCareInteraction: (action, source) => {
+    const current = get().pet;
+    if (!current) return;
+    const interaction: CareInteraction = { action, source, completedAt: Date.now() };
+    const next: PetState = { ...current, careInteractions: [...(current.careInteractions ?? []).slice(-19), interaction] };
+    storage.set(STORAGE_KEY, next);
+    set({ pet: next });
+  },
+
+  findRecentCareInteraction: (action, maxAgeMs = 15 * 60 * 1000) => {
+    const current = get().pet;
+    if (!current) return null;
+    const now = Date.now();
+    return [...(current.careInteractions ?? [])].reverse().find((item) => item.action === action && !item.usedForEventId && now - item.completedAt <= maxAgeMs) ?? null;
+  },
+
+  findRecentOtherCareInteraction: (action, maxAgeMs = 15 * 60 * 1000) => {
+    const current = get().pet;
+    if (!current) return null;
+    const now = Date.now();
+    return [...(current.careInteractions ?? [])].reverse().find((item) => item.action !== action && !item.usedForEventId && now - item.completedAt <= maxAgeMs) ?? null;
+  },
+
+  useCareInteractionForEvent: (action, eventId) => {
+    const current = get().pet;
+    const interaction = get().findRecentCareInteraction(action);
+    if (!current || !interaction) return false;
+    const next: PetState = {
+      ...current,
+      careInteractions: (current.careInteractions ?? []).map((item) => item === interaction ? { ...item, usedForEventId: eventId } : item),
+    };
+    storage.set(STORAGE_KEY, next);
+    set({ pet: next });
+    return true;
   },
 
   tickNeeds: (now = Date.now()) => {

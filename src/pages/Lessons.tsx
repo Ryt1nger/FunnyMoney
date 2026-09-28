@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import heroImg from '../assets/heroes/hero-lessons.jpg';
 import coinIcon from '../assets/icons/coin.png';
 import xpIcon from '../assets/icons/xp-star.png';
@@ -11,6 +11,7 @@ import LessonThree from './LessonThree';
 import LessonFour from './LessonFour';
 import LessonFive from './LessonFive';
 import LessonSix from './LessonSix';
+import LessonResultScreen from '../components/LessonResultScreen';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { usePetStore } from '../features/pet/petStore';
@@ -30,6 +31,23 @@ const LESSON_THEMES: { title: string; periodId: 1 | 2 | 3; lessonIds: string[] }
   { title: 'Накопления', periodId: 3, lessonIds: ['financial-goal', 'plan-and-fact'] },
 ];
 
+// Уроки, у которых уже свёрстана практика (компонент экрана) — id ↔ React-компонент.
+// Список карточек лежит отдельно в lessonsData.ts и может содержать больше
+// уроков, чем реально свёрстано; эта карта — единственное место, определяющее,
+// какие уроки можно открыть.
+const LESSON_COMPONENTS: Record<string, ComponentType<{
+  onBack: () => void;
+  onPracticeComplete?: () => void;
+  onFinish: (correctCount: number) => void;
+}>> = {
+  'what-is-money': LessonOne,
+  'needs-vs-wants': LessonTwo,
+  'piggy-bank': LessonThree,
+  'impulse-buying': LessonFour,
+  'financial-goal': LessonFive,
+  'plan-and-fact': LessonSix,
+};
+
 interface Props {
   /** высота нижней навигации: содержимое не должно прятаться под баром */
   bottomInset?: number;
@@ -47,6 +65,15 @@ interface Props {
 export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal, onFullScreenChange, onLessonTransition }: Props) {
   const [entered, setEntered] = useState(false);
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
+  // Итог текущего прохождения — показывается вместо самого урока, когда
+  // пройдена последняя сцена практики (см. finishLesson ниже).
+  const [lessonResult, setLessonResult] = useState<{ lessonId: string; correctCount: number; coins: number; xp: number } | null>(null);
+  // Сколько монет/XP реально начислено за ТЕКУЩЕЕ прохождение урока — копится
+  // по мере ответов (rewardPractice) и читается один раз в finishLesson.
+  const sessionRewardRef = useRef({ coins: 0, xp: 0 });
+  // Меняя key у компонента урока, заставляем его полностью перемонтироваться
+  // (сцена 0, фаза видео) — так работает кнопка "Повторить" на экране результатов.
+  const [retryKey, setRetryKey] = useState(0);
   // Тот же currentId, что в разделе "Периоды" (Period.tsx): период 1..3,
   // зажатый в диапазон, чтобы не выйти за последнюю тему курса.
   const currentPeriodId = usePeriodStore((s) => Math.min(3, Math.max(1, s.id)));
@@ -74,16 +101,72 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   function rewardPractice(lessonId: string): boolean {
     const progress = useLessonProgressStore.getState();
     progress.completeLesson(lessonId);
+    const scenesCount = list.find((item) => item.id === lessonId)?.practiceCount || 5;
+    // Полная награда урока (ECONOMY_RULES.practiceRewardCoins/Xp) делится поровну
+    // между сценами практики — так же, как уже считает счётчик "макс. наград"
+    // (maxPracticeRewardXp/practiceRewardXp = число сцен) и как подписаны карточки
+    // уроков ("+150", "+10 XP × 5").
+    const coinsPerScene = Math.round(ECONOMY_RULES.practiceRewardCoins / scenesCount);
     const paid = progress.claimPracticeReward(lessonId, ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp);
     if (paid) {
-      useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.practiceRewardCoins, 'Награда за практику', {
+      useEconomyStore.getState().applyCoinsDelta(coinsPerScene, 'Награда за практику', {
         periodId: usePeriodStore.getState().id,
         category: 'reward',
       });
       usePetStore.getState().addXp(ECONOMY_RULES.practiceRewardXp);
+      sessionRewardRef.current = {
+        coins: sessionRewardRef.current.coins + coinsPerScene,
+        xp: sessionRewardRef.current.xp + ECONOMY_RULES.practiceRewardXp,
+      };
     }
     setReward({ key: Date.now(), paid });
     return paid;
+  }
+
+  // Открыть урок "с нуля": сбрасывает накопленную за прошлый заход награду
+  // и итог, включает полноэкранный режим урока.
+  function startLesson(lessonId: string) {
+    sessionRewardRef.current = { coins: 0, xp: 0 };
+    setLessonResult(null);
+    onLessonTransition?.('enter');
+    setActiveLesson(lessonId);
+    onFullScreenChange?.(true);
+  }
+
+  // Последняя сцена практики решена верно — показываем экран результатов
+  // вместо того, чтобы сразу возвращаться к списку уроков.
+  function finishLesson(lessonId: string, correctCount: number) {
+    setLessonResult({ lessonId, correctCount, coins: sessionRewardRef.current.coins, xp: sessionRewardRef.current.xp });
+  }
+
+  // "Повторить" на экране результатов — начинаем тот же урок заново.
+  function retryLesson() {
+    sessionRewardRef.current = { coins: 0, xp: 0 };
+    setLessonResult(null);
+    setRetryKey((key) => key + 1);
+  }
+
+  // "К урокам" — закрыть урок и вернуться к списку (тот же путь, что раньше
+  // проходил через onBack у самого компонента урока).
+  function goToLessonsList() {
+    onLessonTransition?.('exit');
+    setActiveLesson(null);
+    setLessonResult(null);
+    onFullScreenChange?.(false);
+  }
+
+  // "Дальше" — следующий урок курса, если он уже сверстан и доступен (тема не
+  // заблокирована будущим периодом); иначе просто возвращаемся к списку.
+  function goToNextLesson(currentLessonId: string) {
+    const current = list.find((item) => item.id === currentLessonId);
+    const next = current ? list.find((item) => item.step === current.step + 1) : undefined;
+    const nextTheme = next ? LESSON_THEMES.find((theme) => theme.lessonIds.includes(next.id)) : undefined;
+    const nextLocked = nextTheme ? nextTheme.periodId > currentPeriodId : false;
+    if (next && !nextLocked && LESSON_COMPONENTS[next.id]) {
+      startLesson(next.id);
+    } else {
+      goToLessonsList();
+    }
   }
 
   const rewardToast = reward ? (
@@ -102,23 +185,44 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
     </div>
   ) : null;
 
-  if (activeLesson === 'what-is-money') {
-    return <><LessonOne onPracticeComplete={() => rewardPractice('what-is-money')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
-  }
-  if (activeLesson === 'needs-vs-wants') {
-    return <><LessonTwo onPracticeComplete={() => rewardPractice('needs-vs-wants')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
-  }
-  if (activeLesson === 'piggy-bank') {
-    return <><LessonThree onPracticeComplete={() => rewardPractice('piggy-bank')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
-  }
-  if (activeLesson === 'impulse-buying') {
-    return <><LessonFour onPracticeComplete={() => rewardPractice('impulse-buying')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
-  }
-  if (activeLesson === 'financial-goal') {
-    return <><LessonFive onPracticeComplete={() => rewardPractice('financial-goal')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
-  }
-  if (activeLesson === 'plan-and-fact') {
-    return <><LessonSix onPracticeComplete={() => rewardPractice('plan-and-fact')} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />{rewardToast}</>;
+  if (activeLesson) {
+    const activeCard = list.find((item) => item.id === activeLesson);
+    if (lessonResult && lessonResult.lessonId === activeLesson && activeCard) {
+      const nextCard = list.find((item) => item.step === activeCard.step + 1);
+      const nextTheme = nextCard ? LESSON_THEMES.find((theme) => theme.lessonIds.includes(nextCard.id)) : undefined;
+      const hasNextLesson = !!nextCard && !!LESSON_COMPONENTS[nextCard.id] && !(nextTheme && nextTheme.periodId > currentPeriodId);
+      return (
+        <LessonResultScreen
+          lessonStep={activeCard.step}
+          lessonTitle={activeCard.title}
+          skillName={activeCard.skill}
+          outcomeText={activeCard.outcome}
+          correctCount={lessonResult.correctCount}
+          totalCount={activeCard.practiceCount}
+          coinsEarned={lessonResult.coins}
+          xpEarned={lessonResult.xp}
+          walletCoins={coins}
+          hasNextLesson={hasNextLesson}
+          onNext={() => goToNextLesson(activeLesson)}
+          onRetry={retryLesson}
+          onBackToList={goToLessonsList}
+        />
+      );
+    }
+    const ActiveLessonComponent = LESSON_COMPONENTS[activeLesson];
+    if (ActiveLessonComponent) {
+      return (
+        <>
+          <ActiveLessonComponent
+            key={retryKey}
+            onPracticeComplete={() => rewardPractice(activeLesson)}
+            onFinish={(correctCount) => finishLesson(activeLesson, correctCount)}
+            onBack={goToLessonsList}
+          />
+          {rewardToast}
+        </>
+      );
+    }
   }
 
   return (
@@ -329,7 +433,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 <button
                   disabled={waitingForPreviousLesson}
                   aria-disabled={waitingForPreviousLesson}
-                  onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants' || lesson.id === 'piggy-bank' || lesson.id === 'impulse-buying' || lesson.id === 'financial-goal' || lesson.id === 'plan-and-fact') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
+                  onClick={() => { if (LESSON_COMPONENTS[lesson.id]) startLesson(lesson.id); }}
                   className={`absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition ${
                     waitingForPreviousLesson
                       ? 'cursor-not-allowed'

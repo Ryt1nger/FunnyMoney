@@ -77,6 +77,7 @@ interface Props {
   kitchenOnly?: boolean;
   /** стартовая категория при открытии магазина из сценария/события */
   initialCategory?: ShopCategoryId;
+  onProductPurchased?: (product: ShopProduct) => void;
 }
 
 export default function Shop({
@@ -89,6 +90,7 @@ export default function Shop({
   confirmationEnabled = true,
   kitchenOnly = false,
   initialCategory,
+  onProductPurchased,
 }: Props) {
   const categories = kitchenOnly ? CATEGORIES.filter((c) => c.id === 'food' || c.id === 'interior') : CATEGORIES;
   const [category, setCategory] = useState<ShopCategoryId>(initialCategory ?? 'food');
@@ -107,7 +109,8 @@ export default function Shop({
   const [shortfallProduct, setShortfallProduct] = useState<ShopProduct | null>(null);
 
   function handleBuy(product: ShopProduct, savingsContribution = 0) {
-    purchaseProduct(product, { savingsContribution }); // кнопка сама отражает итог по инвентарю/балансу
+    const result = purchaseProduct(product, { savingsContribution });
+    if (result === 'ok') onProductPurchased?.(product);
   }
 
   function requestBuy(product: ShopProduct) {

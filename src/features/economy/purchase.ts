@@ -151,7 +151,10 @@ export function purchaseProduct(product: ShopProduct, options: PurchaseOptions =
       health: product.effects.health,
       happiness: product.effects.happiness,
     });
-    usePetStore.getState().registerInteraction();
+  }
+
+  if (product.category === 'toys') {
+    usePetStore.getState().recordCareInteraction('buyToy', 'shop');
   }
 
   // Задание дня «Купи что-нибудь в магазине» засчитывается любой реальной покупкой.
@@ -213,6 +216,7 @@ export function feedPet(product: ShopProduct): boolean {
       happiness: product.effects.happiness,
     });
   }
+  usePetStore.getState().recordCareInteraction('feed', 'free_action');
   usePetStore.getState().registerInteraction();
 
   return true;
@@ -232,6 +236,7 @@ export function giveMedicine(product: ShopProduct): boolean {
       happiness: product.effects.happiness,
     });
   }
+  usePetStore.getState().recordCareInteraction('medicine', 'free_action');
   usePetStore.getState().registerInteraction();
   return true;
 }

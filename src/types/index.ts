@@ -3,6 +3,14 @@
 export type PetSpecies = 'bear' | 'cat' | 'dog' | 'rabbit';
 
 export type PetMood = 'happy' | 'sad' | 'hungry' | 'excited' | 'neutral' | 'worried';
+export type CareAction = 'feed' | 'buyToy' | 'medicine';
+
+export interface CareInteraction {
+  action: CareAction;
+  completedAt: number;
+  source: 'event' | 'free_action' | 'shop';
+  usedForEventId?: string;
+}
 
 export interface PetCustomization {
   outfit?: string;
@@ -27,6 +35,8 @@ export interface PetState {
   careVersion?: number;
   /** Время последнего кормления/ухода/покупки для питомца. */
   lastCareAt?: number;
+  /** Последние действия заботы: покупка и использование хранятся отдельно. */
+  careInteractions?: CareInteraction[];
 }
 
 // ===== Economy =====

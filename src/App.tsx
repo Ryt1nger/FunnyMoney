@@ -268,7 +268,6 @@ function App() {
                     // специально не вызываем.
                     useEconomyStore.getState().applyCoinsDelta(300, 'Дев: тест события', { category: 'reward' });
                     usePeriodStore.getState().setPeriod(event.periodId);
-                    usePeriodStore.getState().confirmPlan({ mandatory: 100, optional: 100, savings: 100 });
                     usePeriodEventStore.getState().debugJumpToEvent(event.id);
                     if (event.lessonId) useLessonProgressStore.getState().completeLesson(event.lessonId);
                     jumpToHome();

@@ -32,7 +32,7 @@ import DragCardPreview from '../components/DragCardPreview';
 import { shuffleArray } from '../utils/shuffle';
 
 type Phase = 'video' | 'practice';
-interface Props { onBack: () => void; onPracticeComplete?: () => void }
+interface Props { onBack: () => void; onPracticeComplete?: () => void; onFinish: (correctCount: number) => void }
 
 // Пять сцен практики — один и тот же интерфейсный каркас (шапка с прогрессом,
 // кнопка "книга", нижняя панель) поверх разных фоновых иллюстраций (те же 4
@@ -159,7 +159,7 @@ function ExitConfirm({ onStay, onExit }: { onStay: () => void; onExit: () => voi
 /** Первый урок: видео и чистые фоновые сцены практики.
  * Интерфейс заданий будет добавляться отдельным слоем поверх этого каркаса.
  */
-export default function LessonOne({ onBack, onPracticeComplete }: Props) {
+export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Props) {
   const [phase, setPhase] = useState<Phase>('video');
   const [playing, setPlaying] = useState(false);
   const [watched, setWatched] = useState(false);
@@ -380,8 +380,8 @@ export default function LessonOne({ onBack, onPracticeComplete }: Props) {
       advanceTimerRef.current = setTimeout(() => {
         if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onBack(); }, 1800);
-        } else { lessonCompletedRef.current = true; onBack(); }
+          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+        } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {
       setMistakeScenes((current) => current.includes(scene) ? current : [...current, scene]);

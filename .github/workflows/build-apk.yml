@@ -52,3 +52,6 @@ jobs:
         with:
           name: funnymoney-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          # Debug APK нужен только для скачивания после текущего запуска.
+          # Короткий срок хранения не позволяет старым сборкам занимать квоту.
+          retention-days: 1

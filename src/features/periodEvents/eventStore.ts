@@ -45,6 +45,8 @@ export interface PeriodEventState {
   /** Версия ухода, которую нужно выполнить перед следующим событием. */
   careVersionRequired?: number;
   requiredPetAction?: PetActionType;
+  /** Событие, для которого сейчас нужна забота о питомце. */
+  careEventId?: string;
 }
 
 interface PeriodEventStore extends PeriodEventState {
@@ -52,6 +54,7 @@ interface PeriodEventStore extends PeriodEventState {
   syncPeriod: (periodId: PeriodId) => void;
   getAvailableEvent: () => PeriodEventDefinition | null;
   getPendingPetAction: () => PetActionType | null;
+  completePendingCare: (action: PetActionType) => boolean;
   isEventCompleted: (eventId: string) => boolean;
   resolveChoice: (eventId: string, optionId: string) => { ok: true; choice: EventChoiceRecord } | { ok: false; reason: 'unavailable' | 'insufficient_funds' | 'invalid_option' };
   resetCurrentPeriod: () => void;
@@ -194,18 +197,32 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
   getPendingPetAction: () => {
     const state = get();
     if (state.careVersionRequired === undefined || !state.requiredPetAction) return null;
-    const pet = usePetStore.getState().pet;
-    if ((pet?.careVersion ?? 0) > state.careVersionRequired) return null;
     // Если последствие требует лекарства, но ребёнок ещё не может его купить,
     // разрешаем безопасную альтернативу: покормить питомца. Это всё равно
     // меняет careVersion и не даёт перескочить через обязательное действие.
     if (state.requiredPetAction === 'medicine') {
+      if (usePetStore.getState().findRecentCareInteraction('medicine')) return 'medicine';
       const medicine = shopProducts.find((product) => product.id === 'medicine-pet');
       const medicineQty = useInventoryStore.getState().medicineQty['medicine-pet'] ?? 0;
       const coins = useEconomyStore.getState().coins;
       if (medicineQty <= 0 && (!medicine || coins < medicine.price)) return 'feed';
     }
     return state.requiredPetAction;
+  },
+
+  completePendingCare: (action) => {
+    const state = get();
+    const eventId = state.careEventId ?? state.choices[state.choices.length - 1]?.eventId;
+    if (!state.requiredPetAction || !eventId) return false;
+    if (action !== state.requiredPetAction && !(state.requiredPetAction === 'medicine' && action === 'feed')) return false;
+    const pet = usePetStore.getState();
+    // Если действие было выполнено заранее, связываем именно эту запись с
+    // событием. Для нового действия достаточно завершить обязательную заботу.
+    if (!pet.useCareInteractionForEvent(action, eventId)) return false;
+    const next = { ...state, careVersionRequired: undefined, requiredPetAction: undefined, careEventId: undefined };
+    persist(next);
+    set(next);
+    return true;
   },
 
   resolveChoice: (eventId, optionId) => {
@@ -254,6 +271,7 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
       nextEventAt: Date.now() + (useSettingsStore.getState().demoMode ? DEMO_BETWEEN_EVENTS_DELAY_MS : BETWEEN_EVENTS_DELAY_MS),
       careVersionRequired: usePetStore.getState().pet?.careVersion ?? 0,
       requiredPetAction,
+      careEventId: eventId,
     };
     persist(next);
     set(next);

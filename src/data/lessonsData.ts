@@ -14,6 +14,10 @@ export interface LessonCard {
   image: string;
   category: 'needs' | 'income' | 'planning' | 'discounts' | 'savings' | 'plan-fact';
   practiceCount: number;
+  /** Короткое имя навыка — показывается на экране результатов урока. */
+  skill: string;
+  /** Итоговая фраза "чему ты научился" — зелёный баннер на экране результатов. */
+  outcome: string;
 }
 
 export const lessonCards: LessonCard[] = [
@@ -28,6 +32,8 @@ export const lessonCards: LessonCard[] = [
     image: lessonMoney,
     category: 'needs',
     practiceCount: 5,
+    skill: 'Нужное и желаемое',
+    outcome: 'Ты научился отличать нужные вещи от тех, что просто хочется!',
   },
   {
     id: 'needs-vs-wants',
@@ -40,6 +46,8 @@ export const lessonCards: LessonCard[] = [
     image: lessonNeeds,
     category: 'income',
     practiceCount: 5,
+    skill: 'Доходы и расходы',
+    outcome: 'Ты разобрался, откуда приходят и куда уходят деньги!',
   },
   {
     id: 'piggy-bank',
@@ -52,6 +60,8 @@ export const lessonCards: LessonCard[] = [
     image: lessonPiggy,
     category: 'planning',
     practiceCount: 5,
+    skill: 'Сравнение цен',
+    outcome: 'Ты научился сравнивать цены и выбирать более выгодные покупки!',
   },
   {
     id: 'impulse-buying',
@@ -64,6 +74,8 @@ export const lessonCards: LessonCard[] = [
     image: lessonImpulse,
     category: 'discounts',
     practiceCount: 5,
+    skill: 'Скидки и акции',
+    outcome: 'Ты научился отличать настоящую выгоду от ложной экономии!',
   },
   {
     id: 'financial-goal',
@@ -76,6 +88,8 @@ export const lessonCards: LessonCard[] = [
     image: lessonPiggy,
     category: 'savings',
     practiceCount: 5,
+    skill: 'Цель и накопления',
+    outcome: 'Ты научился ставить финансовую цель и копить на неё по плану!',
   },
   {
     id: 'plan-and-fact',
@@ -88,5 +102,7 @@ export const lessonCards: LessonCard[] = [
     image: lessonImpulse,
     category: 'plan-fact',
     practiceCount: 5,
+    skill: 'План и факт',
+    outcome: 'Ты научился сравнивать план и результат и делать выводы!',
   },
 ];

@@ -34,7 +34,7 @@ import DragCardPreview from '../components/DragCardPreview';
 import { shuffleArray } from '../utils/shuffle';
 
 type Phase = 'video' | 'practice';
-interface Props { onBack: () => void; onPracticeComplete?: () => void }
+interface Props { onBack: () => void; onPracticeComplete?: () => void; onFinish: (correctCount: number) => void }
 
 // Второй урок использует тот же интерфейсный каркас, что и первый (видео,
 // шапка с прогрессом, кнопка "книга", нижняя панель "Подсказка/Проверить").
@@ -200,7 +200,7 @@ function ExitConfirm({ onStay, onExit }: { onStay: () => void; onExit: () => voi
 /** Второй урок: видео и практика. Шаблон интерфейса общий с уроком 1 —
  * меняется только содержимое секции практики под конкретное упражнение.
  */
-export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
+export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Props) {
   const [phase, setPhase] = useState<Phase>('video');
   const [playing, setPlaying] = useState(false);
   const [watched, setWatched] = useState(false);
@@ -448,8 +448,8 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
       advanceTimerRef.current = setTimeout(() => {
         if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onBack(); }, 1800);
-        } else { lessonCompletedRef.current = true; onBack(); }
+          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+        } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {
       setMistakeScenes((current) => current.includes(scene) ? current : [...current, scene]);

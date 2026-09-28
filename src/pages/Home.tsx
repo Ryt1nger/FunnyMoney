@@ -46,7 +46,7 @@ import { PERIODS } from '../data/periodsData';
 import type { PetActionType } from '../core/periodRules';
 import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
 import EventModal from '../features/periodEvents/components/EventModal';
-import { giveMedicine, purchaseRoom } from '../features/economy/purchase';
+import { feedPet, giveMedicine, purchaseRoom } from '../features/economy/purchase';
 import { hapticSuccess, hapticTap } from '../services/haptics';
 import {
   playGameCoinSound,
@@ -351,6 +351,7 @@ export default function Home() {
   // Источник запуска игры: свободный заработок или обязательное
   // взаимодействие с питомцем после последствия события.
   const [roadRunnerPurpose, setRoadRunnerPurpose] = useState<'free' | 'pet'>('free');
+  const [roadRunnerCareAction, setRoadRunnerCareAction] = useState<PetActionType | undefined>(undefined);
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const periodAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [periodResultModal, setPeriodResultModal] = useState<{ periodId: number; result: PeriodResult } | null>(null);
@@ -471,14 +472,19 @@ export default function Home() {
     .reduce((minimum, product) => Math.min(minimum, product.price), Number.POSITIVE_INFINITY);
   const canAffordToy = coins >= cheapestToyPrice;
   const hasMedicine = (medicineProduct ? medicineQty[medicineProduct.id] ?? 0 : 0) > 0;
+  const hasFood = Object.values(useInventoryStore.getState().foodQty).some((quantity) => quantity > 0);
+  const hasToy = shopProducts.some((product) => product.category === 'toys' && ownedProductIds.includes(product.id));
   const canAffordMedicine = !!medicineProduct && coins >= medicineProduct.price;
+  const recentCareAction = pendingPetAction ? usePetStore.getState().findRecentCareInteraction(pendingPetAction) : null;
+  const unrelatedRecentCare = pendingPetAction ? usePetStore.getState().findRecentOtherCareInteraction(pendingPetAction) : null;
+  const requiredCareLabel = pendingPetAction === 'medicine' ? 'лекарство' : pendingPetAction === 'feed' ? 'корм' : 'игрушка';
   const petActionCopy: Record<PetActionType, { title: string; text: string; button: string }> = {
     feed: { title: 'Питомцу нужен корм', text: 'Покорми питомца, чтобы продолжить период.', button: 'Покормить' },
     buyToy: {
       title: 'Питомцу стало скучно',
       text: canAffordToy
         ? 'Купи игрушку, чтобы порадовать питомца и продолжить период.'
-        : 'Монет на игрушку сейчас не хватает. Можно купить игрушку позже или поиграть вместе в мини-игру.',
+        : 'Монет на игрушку сейчас не хватает. Можно купить игрушку позже, а затем поиграть с Мани.',
       button: 'Купить игрушку',
     },
     medicine: { title: 'Питомцу нужна помощь', text: hasMedicine ? 'Лекарство уже куплено — теперь дай его питомцу.' : canAffordMedicine ? 'Купи и дай лекарство, чтобы продолжить период.' : 'Монет на лекарство пока не хватает. Покорми питомца — это поможет продолжить.', button: hasMedicine ? 'Дать лекарство' : canAffordMedicine ? 'Купить лекарство' : 'Покормить' },
@@ -486,12 +492,13 @@ export default function Home() {
 
   function openRequiredPetAction(action: PetActionType) {
     startNoticeGap();
-    if (action === 'feed') {
-      openKitchen();
+    const hasRecentAction = !!usePetStore.getState().findRecentCareInteraction(action);
+    if ((action === 'feed' && (hasRecentAction || hasFood)) || (action === 'buyToy' && (hasRecentAction || hasToy)) || (action === 'medicine' && (hasRecentAction || hasMedicine))) {
+      openPetGame();
       return;
     }
-    if (action === 'medicine' && hasMedicine && medicineProduct) {
-      giveMedicine(medicineProduct);
+    if (action === 'feed') {
+      openKitchen();
       return;
     }
     if (action === 'medicine' && !hasMedicine && !canAffordMedicine) {
@@ -505,8 +512,9 @@ export default function Home() {
 
   // Вход в игру — экран загрузки с картинкой мишки на велосипеде; игра
   // монтируется сразу под ним, чтобы к моменту затухания всё уже было на месте.
-  function openRoadRunner(purpose: 'free' | 'pet') {
+  function openRoadRunner(purpose: 'free' | 'pet', careAction?: PetActionType) {
     setRoadRunnerPurpose(purpose);
+    setRoadRunnerCareAction(careAction);
     setScreenLoading('game-enter');
     // Игру монтируем, только когда загрузка полностью проявилась — иначе
     // экран игры резко «выскакивает» под ещё прозрачной загрузкой.
@@ -517,7 +525,7 @@ export default function Home() {
   }
 
   function openPetGame() {
-    openRoadRunner('pet');
+    openRoadRunner('pet', pendingPetAction ?? undefined);
   }
 
   // Монеты, собранные в «Гонке мишки», сразу попадают в кошелёк (один раз за заезд — это гарантирует сама игра)
@@ -536,8 +544,32 @@ export default function Home() {
     // даже короткий заезд даёт небольшой эффект и не оставляет ребёнка в
     // бесконечном обязательном действии.
     if (roadRunnerPurpose === 'pet') {
-      const happinessDelta = result.meters >= 180 ? 10 : result.meters >= 80 ? 7 : 4;
-      usePetStore.getState().applyDelta({ happiness: happinessDelta });
+      const action = usePeriodEventStore.getState().getPendingPetAction();
+      const petStore = usePetStore.getState();
+      const inventory = useInventoryStore.getState();
+      const quality = result.meters >= 180 ? 10 : result.meters >= 80 ? 7 : 4;
+
+      // Покупка и использование разделены: если предмет уже куплен, мини-игра
+      // завершает именно заботу, не списывая монеты повторно.
+      if (action === 'feed' && !petStore.findRecentCareInteraction('feed')) {
+        const foodId = Object.entries(inventory.foodQty).find(([, quantity]) => quantity > 0)?.[0];
+        const food = shopProducts.find((product) => product.id === foodId && product.category === 'food');
+        if (food) feedPet(food);
+        else petStore.recordCareInteraction('feed', 'event');
+      } else if (action === 'medicine' && !petStore.findRecentCareInteraction('medicine')) {
+        if (medicineProduct && (inventory.medicineQty[medicineProduct.id] ?? 0) > 0) giveMedicine(medicineProduct);
+        else petStore.recordCareInteraction('medicine', 'event');
+      } else if (action === 'buyToy' && !petStore.findRecentCareInteraction('buyToy')) {
+        petStore.recordCareInteraction('buyToy', 'event');
+      }
+
+      if (action) usePeriodEventStore.getState().completePendingCare(action);
+      const careEffect = action === 'feed'
+        ? { health: Math.round(quality * 0.7), happiness: Math.round(quality * 0.3) }
+        : action === 'medicine'
+          ? { health: quality }
+          : { happiness: quality };
+      petStore.applyDelta(careEffect);
       usePetStore.getState().registerInteraction();
       usePetStore.getState().addXp(ECONOMY_RULES.miniGameRewardXp);
       startNoticeGap();
@@ -552,6 +584,7 @@ export default function Home() {
     roadRunnerSwapTimer.current = setTimeout(() => {
       setRoadRunnerOpen(false);
       setRoadRunnerPurpose('free');
+      setRoadRunnerCareAction(undefined);
     }, GAME_EXIT_FADE_MS);
     if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
     screenLoadingTimer.current = setTimeout(() => setScreenLoading(null), GAME_EXIT_LOADING_MS);
@@ -862,8 +895,12 @@ export default function Home() {
               <h2 className="mt-3.5 text-center text-[18px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
                 {petActionCopy[pendingPetAction].title}
               </h2>
-              <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-                {petActionCopy[pendingPetAction].text}
+                <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
+                {recentCareAction
+                  ? 'Ты уже позаботился о Мани. Давай закрепим результат небольшой игрой!'
+                  : unrelatedRecentCare
+                    ? `Мани стало веселее, но ему всё ещё нужно ${requiredCareLabel}.`
+                    : petActionCopy[pendingPetAction].text}
               </p>
 
               {pendingPetAction === 'buyToy' && !canAffordToy ? (
@@ -1168,18 +1205,18 @@ export default function Home() {
             && sheet === null && (
             <button
               onClick={openKitchen}
-              className="mb-2 flex w-full items-center justify-between rounded-[26px] border px-4 py-4 text-left shadow-xl"
-              style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
+              className="mb-2 flex w-full items-center justify-between rounded-[22px] border px-4 py-3.5 text-left shadow-[0_6px_20px_rgba(31,37,105,0.14)]"
+              style={{ background: 'rgba(255,255,255,0.94)', borderColor: 'rgba(255,255,255,0.8)' }}
             >
               <span className="min-w-0 pr-3">
-                <span className="block text-[16px] font-extrabold leading-tight" style={{ color: '#8a5d1c' }}>
+                <span className="block text-[16px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
                   {health <= 35 ? 'Мишка хочет есть' : 'Мишке нужна забота'}
                 </span>
-                <span className="mt-1 block text-[13px] font-semibold leading-snug" style={{ color: '#a1740f' }}>
+                <span className="mt-1 block text-[12.5px] font-semibold leading-snug" style={{ color: '#7b7a8c' }}>
                   Покорми питомца или подними ему настроение.
                 </span>
               </span>
-              <span className="shrink-0 rounded-full bg-[#f0b94f] px-4 py-3 text-[14px] font-extrabold text-white shadow-md">Позаботиться</span>
+              <span className="shrink-0 rounded-full bg-gradient-to-b from-[#8b88f4] to-[#6262e4] px-4 py-2.5 text-[13px] font-extrabold text-white shadow-[0_4px_10px_rgba(92,90,216,0.26)]">Позаботиться</span>
             </button>
           )}
           {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
@@ -1366,6 +1403,15 @@ export default function Home() {
             onRoomSelect={(room) => setPreviewRoom(room)}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             confirmationEnabled={purchaseConfirmationEnabled}
+            onProductPurchased={(product) => {
+              if (!pendingPetAction) return;
+              const matches = pendingPetAction === 'feed' && product.category === 'food'
+                || pendingPetAction === 'medicine' && product.category === 'care'
+                || pendingPetAction === 'buyToy' && product.category === 'toys';
+              if (!matches) return;
+              closeSheet();
+              window.setTimeout(() => openPetGame(), 360);
+            }}
             onClose={closeSheet}
           />
         ) : sheet === 'stats' ? (
@@ -1467,6 +1513,7 @@ export default function Home() {
             onExit={closeRoadRunner}
             onFinish={completeRoadRunner}
             onEvent={onRoadRunnerEvent}
+            activity={roadRunnerPurpose === 'pet' ? roadRunnerCareAction : undefined}
           />
         </div>
       )}

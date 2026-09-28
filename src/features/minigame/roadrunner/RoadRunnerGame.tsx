@@ -17,6 +17,8 @@ export interface RoadRunnerGameProps {
   spriteUrls?: SpriteUrls;
   config?: RoadRunnerConfig;
   className?: string;
+  /** Контекст короткой активности после события питомца. */
+  activity?: 'feed' | 'buyToy' | 'medicine';
 }
 
 interface Hud {
@@ -37,6 +39,7 @@ export function RoadRunnerGame({
   spriteUrls,
   config = DEFAULT_CONFIG,
   className,
+  activity,
 }: RoadRunnerGameProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,6 +55,7 @@ export function RoadRunnerGame({
   const [result, setResult] = useState<GameResult | null>(null);
   // Подтверждение выхода посреди заезда (как в уроках): игра стоит на паузе, пока окно открыто
   const [confirmExit, setConfirmExit] = useState(false);
+  const activityTitle = activity === 'feed' ? 'Накорми Мани' : activity === 'medicine' ? 'Помоги Мани принять лекарство' : activity === 'buyToy' ? 'Поиграй с Мани' : 'Гонка мишки';
   const pausedRef = useRef(false);
   pausedRef.current = confirmExit;
 
@@ -275,8 +279,8 @@ export function RoadRunnerGame({
       {phase === 'ready' && (
         <div className="rr-overlay">
           <div className="rr-card">
-            <h2>Гонка мишки</h2>
-            <p>Свайпай влево и вправо или тапай по краям экрана. Объезжай препятствия и собирай монетки!</p>
+            <h2>{activityTitle}</h2>
+            <p>{activity ? 'Небольшая активность закрепит заботу о питомце. Свайпай влево и вправо, чтобы помочь Мани.' : 'Свайпай влево и вправо или тапай по краям экрана. Объезжай препятствия и собирай монетки!'}</p>
             <button className="rr-btn" disabled={!ready} onClick={start}>
               {ready ? 'Поехали!' : 'Загрузка…'}
             </button>
