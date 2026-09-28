@@ -11,7 +11,6 @@ import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import GlassMetric from '../components/GlassMetric';
 import {
   IconPlus,
-  IconChevronRight,
   IconHomeOutline,
   IconCart,
   IconHeart,
@@ -43,7 +42,6 @@ interface Props {
   wealth: number;
   activeKitchenRoomId: string;
   onOpenEarnModal?: () => void;
-  onOpenProgress: () => void;
   /** Иконка-корзинка под метриками — открывает магазин сразу на разделе «Еда». */
   onOpenShop: () => void;
   onClose: () => void;
@@ -73,7 +71,6 @@ export default function Kitchen({
   wealth,
   activeKitchenRoomId,
   onOpenEarnModal,
-  onOpenProgress,
   onOpenShop,
   onClose,
 }: Props) {
@@ -211,10 +208,9 @@ export default function Kitchen({
         className="safe-area-topbar relative z-20 flex items-start gap-2 px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
       >
-        <button
-          onClick={onOpenProgress}
-          className="flex min-w-0 flex-1 items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
-          aria-label="Открыть прогресс уровня"
+        <div
+          className="flex min-w-0 flex-1 items-center rounded-2xl py-0.5 pr-1"
+          aria-label="Возраст мишки"
         >
           <div className="relative shrink-0">
             <img
@@ -257,8 +253,7 @@ export default function Kitchen({
             </div>
           </div>
 
-          <IconChevronRight className="ml-1 h-3.5 w-3.5 shrink-0 self-center text-white drop-shadow" style={{ opacity: 0.85 }} />
-        </button>
+        </div>
 
         <div
           className="flex shrink-0 items-center gap-1.5 rounded-full border py-1.5 pl-2.5 pr-1.5 backdrop-blur-md"

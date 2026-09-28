@@ -1,48 +1,58 @@
 import bgMusicSrc from '../assets/audio/bg-music.mp3';
-import { useSettingsStore } from '../features/settings/settingsStore';
+import { cancelFade, fadeAudio, musicGain, onMusicVolumeChange, MUSIC_FADE_IN_MS, MUSIC_FADE_OUT_MS } from './musicFade';
 
 // Негромкая, зацикленная фоновая музыка на всё приложение — единственный
 // экземпляр <audio> на уровне модуля (а не в компоненте), чтобы React
 // StrictMode (двойной вызов эффектов в dev-режиме) или переход между
 // экранами не плодили несколько одновременно играющих дорожек.
-const DEFAULT_VOLUME = 35;
+//
+// Хранится не в обычной переменной модуля, а в глобальном объекте (window):
+// при hot-reload (Vite HMR во время разработки) этот файл может быть
+// пересобран заново — тогда обычная `let audio` в новом экземпляре модуля
+// "забывает" про старый, уже играющий <audio>, и он продолжает звучать
+// никем не управляемый, а поверх запускается второй. Глобальный объект
+// переживает пересборку модуля, поэтому вместо дубля переиспользуется тот
+// же самый элемент.
+const BASE_VOLUME = 0.35;
+const vol = () => Math.min(1, BASE_VOLUME * musicGain());
 
-let audio: HTMLAudioElement | null = null;
-let waitingForGesture = false;
-// Запомненное намерение "музыка должна играть" — отдельно от audio.paused,
-// потому что пауза может быть и по настройке, и из-за блокировки автоплея
-// браузером (см. waitForUserGestureThenPlay), и это разные состояния.
-let wantsToPlay = false;
-
-function volumeFromSettings(): number {
-  return Math.max(0, Math.min(100, useSettingsStore.getState().musicVolume ?? DEFAULT_VOLUME)) / 100;
+interface BgMusicGlobalState {
+  audio: HTMLAudioElement | null;
+  waitingForGesture: boolean;
+  wantsToPlay: boolean;
 }
+
+function getState(): BgMusicGlobalState {
+  const g = globalThis as unknown as { __fmBgMusic?: BgMusicGlobalState };
+  if (!g.__fmBgMusic) {
+    g.__fmBgMusic = { audio: null, waitingForGesture: false, wantsToPlay: false };
+  }
+  return g.__fmBgMusic;
+}
+
+const state = getState();
 
 function getAudio(): HTMLAudioElement {
-  if (!audio) {
-    audio = new Audio(bgMusicSrc);
-    audio.loop = true;
-    audio.volume = volumeFromSettings();
-    audio.preload = 'auto';
+  if (!state.audio) {
+    state.audio = new Audio(bgMusicSrc);
+    state.audio.loop = true;
+    state.audio.volume = 0;
+    state.audio.preload = 'auto';
   }
-  return audio;
-}
-
-/** Меняет громкость уже созданного аудио без перезапуска музыки. */
-export function setMusicVolume(value: number) {
-  if (audio) audio.volume = Math.max(0, Math.min(100, value)) / 100;
+  return state.audio;
 }
 
 // Мобильные браузеры/WebView (и десктоп-Chrome) блокируют автовоспроизведение
 // со звуком до первого жеста пользователя — если play() отклонён, тихо ждём
 // первый тап/клик/нажатие клавиши и пробуем ещё раз.
 function waitForUserGestureThenPlay(el: HTMLAudioElement) {
-  if (waitingForGesture) return;
-  waitingForGesture = true;
+  if (state.waitingForGesture) return;
+  state.waitingForGesture = true;
   const resume = () => {
-    waitingForGesture = false;
-    if (!wantsToPlay) return; // настройку успели выключить, пока ждали жест
-    el.play().catch(() => {
+    state.waitingForGesture = false;
+    if (!state.wantsToPlay) return; // настройку успели выключить, пока ждали жест
+    el.volume = 0;
+    el.play().then(() => fadeAudio(el, vol(), MUSIC_FADE_IN_MS)).catch(() => {
       // Не удалось и после жеста — сдаёмся молча, это не критично для игры.
     });
   };
@@ -52,16 +62,24 @@ function waitForUserGestureThenPlay(el: HTMLAudioElement) {
 
 /** Запускает фоновую музыку (или тихо готовится запустить её по первому жесту). */
 export function startBackgroundMusic() {
-  wantsToPlay = true;
+  state.wantsToPlay = true;
   const el = getAudio();
-  if (!el.paused) return;
-  el.play().catch(() => waitForUserGestureThenPlay(el));
+  if (!el.paused) {
+    fadeAudio(el, vol(), MUSIC_FADE_IN_MS); // могла гаснуть — разворачиваем обратно
+    return;
+  }
+  el.volume = 0;
+  el.play().then(() => fadeAudio(el, vol(), MUSIC_FADE_IN_MS)).catch(() => waitForUserGestureThenPlay(el));
 }
 
 /** Ставит фоновую музыку на паузу, не сбрасывая позицию воспроизведения. */
 export function pauseBackgroundMusic() {
-  wantsToPlay = false;
-  if (audio && !audio.paused) audio.pause();
+  state.wantsToPlay = false;
+  const el = state.audio;
+  if (!el || el.paused) return;
+  fadeAudio(el, 0, MUSIC_FADE_OUT_MS, () => {
+    if (!state.wantsToPlay) el.pause();
+  });
 }
 
 /** Настоящее включение/выключение музыки — вызывается напрямую из тумблера настроек. */
@@ -77,14 +95,32 @@ export function setMusicEnabled(enabled: boolean) {
 // экрана и при возврате. Пауза здесь временная — wantsToPlay не трогаем,
 // иначе выключение экрана выглядело бы как ручное "выключил музыку в настройках".
 function handleVisibilityChange() {
-  if (!audio) return;
+  if (!state.audio) return;
   if (document.hidden) {
-    if (!audio.paused) audio.pause();
-  } else if (wantsToPlay && audio.paused) {
-    audio.play().catch(() => waitForUserGestureThenPlay(audio!));
+    cancelFade(state.audio);
+    if (!state.audio.paused) state.audio.pause();
+  } else if (state.wantsToPlay && state.audio.paused) {
+    const el = state.audio;
+    el.volume = 0;
+    el.play().then(() => fadeAudio(el, vol(), MUSIC_FADE_IN_MS)).catch(() => waitForUserGestureThenPlay(el));
   }
 }
 
-if (typeof document !== 'undefined') {
+// Флаг слушателя тоже держим в глобальном состоянии — иначе при пересборке
+// модуля (HMR) на document навешивался бы ещё один обработчик поверх уже
+// висящего от предыдущей версии модуля.
+const g = globalThis as unknown as { __fmBgMusicListenerAttached?: boolean };
+if (typeof document !== 'undefined' && !g.__fmBgMusicListenerAttached) {
+  g.__fmBgMusicListenerAttached = true;
   document.addEventListener('visibilitychange', handleVisibilityChange);
+}
+
+// Ползунок громкости в настройках действует сразу, не дожидаясь следующего запуска трека.
+const gv = globalThis as unknown as { __fmBgVol?: boolean };
+if (!gv.__fmBgVol) {
+  gv.__fmBgVol = true;
+  onMusicVolumeChange(() => {
+    const el = state.audio;
+    if (el && !el.paused && state.wantsToPlay) el.volume = vol();
+  });
 }

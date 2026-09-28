@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import videoSrc from '../assets/lesson2/lesson-video.mp4';
+import LessonHintBubble from '../components/LessonHintBubble';
+import videoSrc from '../assets/lesson5/lesson-video.mp4';
 import scene1 from '../assets/lesson5/practice-1.jpg';
 import scene2 from '../assets/lesson5/practice-2.jpg';
 import scene3 from '../assets/lesson5/practice-3.jpg';
@@ -22,6 +23,9 @@ import bowIcon from '../assets/lesson5/items/bow.png';
 import snowglobeIcon from '../assets/lesson5/items/snowglobe.png';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
+import { pausePracticeMusic, startPracticeMusic } from '../services/practiceMusic';
+import { playCorrectAnswerSound, playWrongAnswerSound } from '../services/answerSound';
+import { shuffleArray } from '../utils/shuffle';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void; onPracticeComplete?: () => void }
@@ -73,7 +77,7 @@ const BIKE_SAVED = 290;
 const sceneHints = [
   'Выбери любую цель, на которую хочешь накопить: игрушку, бочонок мёда или велосипед.',
   `У тебя ${WALLET_TOTAL} монет, а каждая монета — ${COIN_VALUE}. В копилку нужно положить ${FIRST_DEPOSIT} монет (две монеты), остальные — на текущие расходы.`,
-  `Цель — ${PLAN_GOAL}, уже накоплено ${PLAN_SAVED}. Осталось ${PLAN_GOAL - PLAN_SAVED}: отметь все 4 недели по ${WEEK_AMOUNT} монет — так копилка дойдёт до цели.`,
+  `Цель — ${PLAN_GOAL}, уже накоплено ${PLAN_SAVED}. Осталось ${PLAN_GOAL - PLAN_SAVED}: отметь все 4 недели по ${WEEK_AMOUNT} монет — так копилка дойдёт до цели. А в конце периода накопления получают +20%.`,
   'Бантик и сувенир — это мелочи, они уведут монеты от цели. Разумный выбор — тот, что приближает к цели: копилка.',
   `Не хватает совсем немного! Положи последние ${SMALL_COINS} монет в копилку: перетащи монету на копилку или просто коснись её.`,
 ];
@@ -148,6 +152,8 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
   const [impulse, setImpulse] = useState<string | null>(null); // экран 4
   const [deposited, setDeposited] = useState(false); // экран 5
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -157,12 +163,24 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDragEndRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  const dnd = usePointerDrag(rootRef);
+  const dnd = usePointerDrag(rootRef, handleDrop);
+  const [goalsTray] = useState(() => shuffleArray(GOALS));
+  const [impulseOptionsTray] = useState(() => shuffleArray(IMPULSE_OPTIONS));
 
   useEffect(() => {
     pauseBackgroundMusic();
     return () => startBackgroundMusic();
   }, []);
+
+  // Тихая фоновая музыка играет только во время практики — в видео-части
+  // свой закадровый голос, а общий трек приложения и так на паузе (см. выше).
+  useEffect(() => {
+    if (phase === 'practice') {
+      startPracticeMusic();
+      return () => pausePracticeMusic();
+    }
+    return undefined;
+  }, [phase]);
 
   useEffect(() => {
     scenes.forEach((source) => { const image = new Image(); image.src = source; });
@@ -239,13 +257,19 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
       onPracticeComplete?.();
       setHintText(null);
       setCheckState('correct');
+      playCorrectAnswerSound();
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else { lessonCompletedRef.current = true; onBack(); }
+        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+          setReviewNotice(true);
+          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onBack(); }, 1800);
+        } else { lessonCompletedRef.current = true; onBack(); }
       }, 700);
     } else {
+      setMistakeScenes((current) => current.includes(scene) ? current : [...current, scene]);
       setCheckState('wrong');
+      playWrongAnswerSound();
       setCheckPulse((value) => value + 1);
       setHintText(sceneHints[scene] ?? 'Попробуй ещё раз.');
     }
@@ -340,10 +364,12 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
           <div className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-white/45" />
           <div className="absolute left-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-[#675ff3] transition-[width] duration-500" style={{ width: `${(scene / (scenes.length - 1)) * 100}%` }} />
           {scenes.map((_, index) => (
-            <span key={index} className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#675ff3]' : 'bg-[#817b98]'}`} />
+            <span key={index} className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${mistakeScenes.includes(index) ? 'bg-[#f6c84c] shadow-[0_0_0_2px_rgba(246,200,76,.4)]' : index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#675ff3]' : 'bg-[#817b98]'}`} />
           ))}
         </div>
       </div>
+
+      {reviewNotice && <div className="absolute left-1/2 top-[11%] z-30 -translate-x-1/2 rounded-full bg-[#fff7d6] px-4 py-2 text-center text-[12px] font-black text-[#9a6d08] shadow-[0_5px_16px_rgba(116,84,10,.2)] [animation:lessonFadeIn_220ms_ease-out]">Работа над ошибками — закрепляем навык</div>}
 
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
@@ -351,7 +377,7 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
         {scene === 0 && (
           // Экран 1 — «Выбери цель»
           <>
-            {GOALS.map((item) => (
+            {goalsTray.map((item) => (
               <button key={item.id} type="button" onClick={() => setGoal(item.id)} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[18px] px-3 shadow-sm transition active:scale-[.98] ${goal === item.id ? SELECTED_RING : ''}`} style={{ background: item.bg }}>
                 <img src={item.image} alt="" draggable={false} className="h-[82%] w-[34%] shrink-0 object-contain" />
                 <div className="flex flex-1 flex-col items-start leading-tight">
@@ -431,7 +457,7 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
           <>
             <CoinsPill value={SMALL_COINS} />
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              {IMPULSE_OPTIONS.map((option) => (
+              {impulseOptionsTray.map((option) => (
                 <button key={option.id} type="button" onClick={() => setImpulse(option.id)} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] px-3 shadow-sm transition active:scale-[.98] ${option.bg} ${impulse === option.id ? SELECTED_RING : ''}`}>
                   <img src={option.image} alt="" draggable={false} className="h-[82%] w-[22%] shrink-0 object-contain" />
                   <div className="flex min-w-0 flex-1 flex-col items-start leading-tight">
@@ -489,11 +515,7 @@ export default function LessonFive({ onBack, onPracticeComplete }: Props) {
         </div>
       )}
 
-      {hintText && (
-        <div className="absolute bottom-[22%] left-[6%] right-[6%] z-20 rounded-2xl bg-[#fff3cd] px-4 py-2 text-center text-[clamp(11px,3.2vw,13px)] font-bold text-[#7a5b13] shadow-[0_4px_12px_rgba(120,90,20,.2)] [animation:lessonItemIn_200ms_ease-out]">
-          💡 {hintText}
-        </div>
-      )}
+      <LessonHintBubble text={hintText} />
 
       <div className="absolute bottom-[3.5%] left-[4%] right-[4%] z-20 flex items-center gap-[6%]">
         <button type="button" aria-label="Подсказка" onClick={toggleHint} className="flex h-14 w-[45%] min-w-0 shrink-0 items-center justify-center gap-2 rounded-[30px] bg-white/95 px-3 text-[clamp(14px,4.2vw,16px)] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">

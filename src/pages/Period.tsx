@@ -143,8 +143,8 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEv
   // оформление: в геймплейном сторе ещё нет модели "событий периода",
   // поэтому статусы done/pending подставляются по прогрессу текущего
   // периода, а не хранятся по каждому событию отдельно.
-  const currentId = Math.min(3, Math.max(1, period.id));
-  const [tab, setTab] = useState<1 | 2 | 3>(currentId as 1 | 2 | 3);
+  const currentId = Math.min(5, Math.max(1, period.id)) as 1 | 2 | 3 | 4 | 5;
+  const [tab, setTab] = useState<1 | 2 | 3 | 4 | 5>(currentId);
   const [editingPlan, setEditingPlan] = useState(false);
   const [mandatoryInput, setMandatoryInput] = useState('');
   const [optionalInput, setOptionalInput] = useState('');
@@ -152,10 +152,8 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEv
   const content = PERIODS[tab - 1];
   const isCurrent = tab === currentId;
   const isPast = tab < currentId;
-  // "locked" здесь — только статус отображения (показываем анонс "Что тебя
-  // ждёт" и плашку про будущий период). По просьбе пользователя сама вкладка
-  // при этом остаётся кликабельной — переключаться между периодами можно
-  // свободно, замок — лишь визуальная подсказка, а не блокировка кнопки.
+  // Будущие периоды доступны только после продвижения игрового прогресса.
+  // Прошлые и текущий период можно просматривать, будущие остаются закрытыми.
   const status: 'locked' | 'planning' | 'active' | 'completed' = isPast
     ? 'completed'
     : isCurrent
@@ -169,7 +167,8 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEv
   useLessonProgressStore((s) => s.completedLessonIds.length);
 
   useEffect(() => {
-    usePeriodEventStore.getState().syncPeriod(currentId as 1 | 2 | 3);
+    usePeriodEventStore.getState().syncPeriod(currentId);
+    setTab(currentId);
   }, [currentId]);
 
   // Доступное сейчас событие — только для текущего активного периода и
@@ -428,15 +427,17 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEv
         >
           {/* Переключатель периодов — прогресс-бар в стиле уроков: пройденные
               и текущий period доступны, будущие показаны с замком. */}
-          <div className="flex gap-1.5">
+          <div className="-mx-3 flex touch-pan-x gap-1.5 overflow-x-auto px-3 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {PERIODS.map((p) => {
               const locked = p.id > currentId;
               const active = p.id === tab;
               return (
                 <button
                   key={p.id}
-                  onClick={() => setTab(p.id)}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 px-1.5 text-[11.5px] font-extrabold transition"
+                  onClick={() => { if (!locked) setTab(p.id); }}
+                  disabled={locked}
+                  aria-disabled={locked}
+                  className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full py-2 pl-1.5 pr-3 text-[11.5px] font-extrabold transition ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
                   style={{ background: active ? GRADIENT_BLUE : '#f1ede1', color: active ? '#fff' : '#8f8a7c' }}
                 >
                   <span
@@ -445,7 +446,7 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEv
                   >
                     {p.id}
                   </span>
-                  <span className="truncate">Период {p.id}</span>
+                  <span>Период {p.id}</span>
                   {locked && <IconLock className="h-3 w-3 shrink-0" />}
                 </button>
               );

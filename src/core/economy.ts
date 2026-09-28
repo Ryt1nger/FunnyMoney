@@ -15,9 +15,10 @@ export const ECONOMY_RULES = {
   // Используется только аварийным восстановлением повреждённого профиля,
   // не является доходом игрового периода.
   recoveryCoins: 200,
-  practiceRewardCoins: 20,
+  // За полноценное прохождение одного урока.
+  practiceRewardCoins: 150,
   practiceRewardXp: 10,
-  maxPracticeRewardCoins: 100,
+  maxPracticeRewardCoins: 150,
   maxPracticeRewardXp: 50,
   planRewardXp: 10,
   requiredSavingsDeposit: 100,
@@ -25,11 +26,12 @@ export const ECONOMY_RULES = {
   cashbackCoins: 20,
   dailyRewardCoins: 100,
   dailyRewardXp: 15,
+  miniGameRewardXp: 15,
   emergencyWorkCoins: 50,
   emergencySnackPrice: 30,
   /** Стартовый запас при повторе неудачного периода. */
   repeatPeriodBonusCoins: 50,
-  oneTimeTheoryCoins: 200,
+  oneTimeTheoryCoins: 100,
   oneTimeTheoryXp: 10,
 } as const;
 
@@ -37,10 +39,12 @@ export const ECONOMY_RULES = {
  * Это именно учебная шкала периода, а не технический предел баланса: ребёнок
  * может накопить больше лимита, но показатель не должен становиться 3000%.
  */
-export const PERIOD_MAX_CAPITAL: Record<1 | 2 | 3, number> = {
+export const PERIOD_MAX_CAPITAL: Record<1 | 2 | 3 | 4 | 5, number> = {
   1: 200,
   2: 300,
   3: 400,
+  4: 500,
+  5: 600,
 };
 
 export function wealthPercentFromCapital(
@@ -49,7 +53,7 @@ export function wealthPercentFromCapital(
   periodId: number,
 ): number {
   const capital = Math.max(0, walletBalance) + Math.max(0, savingsBalance);
-  const maximum = PERIOD_MAX_CAPITAL[periodId as 1 | 2 | 3] ?? PERIOD_MAX_CAPITAL[1];
+  const maximum = PERIOD_MAX_CAPITAL[periodId as 1 | 2 | 3 | 4 | 5] ?? PERIOD_MAX_CAPITAL[1];
   return Math.max(0, Math.min(100, Math.round((capital / maximum) * 100)));
 }
 
@@ -84,6 +88,16 @@ export interface PeriodActuals {
   mandatory: number;
   optional: number;
   savings: number;
+}
+
+/** Сколько ещё можно потратить из выбранной при распределении категории. */
+export function remainingCategoryBudget(
+  plan: BudgetPlan,
+  actual: PeriodActuals,
+  expenseType: ExpenseType,
+): number {
+  if (expenseType === 'goal') return 0;
+  return Math.max(0, plan[expenseType] - actual[expenseType]);
 }
 
 export interface PeriodRewardFlags {

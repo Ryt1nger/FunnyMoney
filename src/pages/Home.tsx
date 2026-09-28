@@ -22,6 +22,7 @@ import Wardrobe from './Wardrobe';
 import { BearAvatar } from './Wardrobe';
 import { getCharacterById } from '../data/petCharacters';
 import Kitchen from './Kitchen';
+import gamepadIcon from '../assets/icons/gamepad.png';
 import PageLoading from './PageLoading';
 import Shop from './Shop';
 import Stats from './Stats';
@@ -38,14 +39,29 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { useDevNavStore } from '../features/dev/devNavStore';
 import { usePeriodStore } from '../features/economy/periodStore';
-import { wealthPercentFromCapital, type PeriodResult } from '../core/economy';
+import { ECONOMY_RULES, wealthPercentFromCapital, type PeriodResult } from '../core/economy';
 import { usePeriodEventStore } from '../features/periodEvents/eventStore';
-import { getPeriodEvents } from '../features/periodEvents/eventData';
+import { getPeriodEvents, getPeriodLessonIds } from '../features/periodEvents/eventData';
+import { PERIODS } from '../data/periodsData';
 import type { PetActionType } from '../core/periodRules';
 import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
 import EventModal from '../features/periodEvents/components/EventModal';
 import { giveMedicine, purchaseRoom } from '../features/economy/purchase';
-import { hapticTap } from '../services/haptics';
+import { hapticSuccess, hapticTap } from '../services/haptics';
+import {
+  playGameCoinSound,
+  playGameHealSound,
+  playGameHitSound,
+  playGameLaneSound,
+  playGameOverSound,
+  playGamePowerupSound,
+  playGameShieldBlockSound,
+  playGameStartSound,
+  playRewardSound,
+} from '../services/soundEffects';
+import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
+import { pauseGameMusic, startGameMusic } from '../services/gameMusic';
+import { RoadRunnerGame, type GameEventType, type GameResult } from '../features/minigame/roadrunner';
 import { storage } from '../services/storage';
 import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
 import {
@@ -54,7 +70,6 @@ import {
   IconBackpackLight,
   IconSettingsGear,
   IconCutlery,
-  IconChevronRight,
   IconBook,
   IconCalendar,
   IconBowl,
@@ -71,6 +86,10 @@ const EVENT_COPY = {
 };
 
 const PERIOD_GUIDE_DELAY_MS = 60 * 1000;
+const NOTICE_GAP_MS = 1500;
+// Центральное окно — только редкая эскалация, если ребёнок действительно
+// долго не следует следующему шагу цикла. Основной режим — нижняя карточка.
+const GUIDE_ESCALATION_MS = 3 * 60 * 1000;
 
 // Русское склонение "день/дня/дней" для карточки серии.
 const LESSON_REMINDER_THRESHOLD_MS = 3 * 60 * 60 * 1000;
@@ -89,6 +108,13 @@ const SCREEN_LOADING_MS = 1500;
 // Плавное появление/исчезновение самого экрана загрузки (отдельно от
 // длительности его показа выше) — чтобы не выглядело резким "миганием".
 const SCREEN_LOADING_FADE_MS = 420;
+// Переходы в игру и из неё — мягче и чуть дольше: экран загрузки сначала
+// полностью проявляется, и только под ним меняется экран (см. openRoadRunner).
+const GAME_LOADING_FADE_MS = 700;
+const GAME_LOADING_MS = 2000;
+// Выход из игры — заметно быстрее входа.
+const GAME_EXIT_FADE_MS = 400;
+const GAME_EXIT_LOADING_MS = 1000;
 
 // Свайп вверх с главного экрана открывает раздел уроков — тот же простой
 // порог, что и на кухне (см. Kitchen.tsx), но срабатывает только когда
@@ -136,6 +162,7 @@ export default function Home() {
   const outfitIds = useInventoryStore((s) => s.outfitIds);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
+  const demoMode = useSettingsStore((s) => s.demoMode);
   const purchaseConfirmationEnabled = useSettingsStore((s) => s.purchaseConfirmationEnabled);
   const tutorialActive = useTutorialStore((s) => s.active);
 
@@ -144,6 +171,12 @@ export default function Home() {
   const health = pet?.health ?? 0;
   const happiness = pet?.happiness ?? 0;
   const petNeedsAttention = health <= 65 || happiness <= 35;
+  // Ниже 20% здоровья на главном экране показываем больного мишку (тот же
+  // персонаж/цвет худи, что выбрали на онбординге) вместо обычной позы —
+  // на этой картинке одежда уже нарисована, поэтому оверлей гардероба поверх
+  // неё не накладываем (иначе позиции вещей, откалиброванные под обычную
+  // стоячую позу, разъедутся на другой позе больного мишки).
+  const isSick = health < 20;
   // Богатство — текущий капитал (кошелёк + копилка) относительно учебного
   // максимума текущего периода, а не сумма небольших бонусов событий.
   const wealth = useEconomyStore((s) => wealthPercentFromCapital(
@@ -164,7 +197,7 @@ export default function Home() {
   const [earnModalOpen, setEarnModalOpen] = useState(false);
   // Экран загрузки между главной и кухней (в обе стороны) — см. SCREEN_LOADING_MS.
   // null — не показан; 'kitchen'/'home' — какой переход сейчас скрыт под ним.
-  const [screenLoading, setScreenLoading] = useState<'kitchen' | 'home' | 'lesson-enter' | 'lesson-exit' | null>(null);
+  const [screenLoading, setScreenLoading] = useState<'kitchen' | 'home' | 'lesson-enter' | 'lesson-exit' | 'game-enter' | 'game-exit' | null>(null);
   const screenLoadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Отдельно от screenLoading (который определяет, ЧТО сейчас скрыто под
   // загрузкой и когда переход считается завершённым) — состояние самого
@@ -173,9 +206,21 @@ export default function Home() {
   const [loadingMounted, setLoadingMounted] = useState(false);
   const [loadingShown, setLoadingShown] = useState(false);
   const loadingUnmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Какой фон у экрана загрузки — запоминаем, чтобы при плавном затухании он не менялся.
+  const [loadingGameBg, setLoadingGameBg] = useState(false);
+  const [loadingSlow, setLoadingSlow] = useState(false);
+  const [loadingExit, setLoadingExit] = useState(false);
+  const loadingFadeMs = useRef(SCREEN_LOADING_FADE_MS);
+  const roadRunnerSwapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (screenLoading !== null) {
+      const exit = screenLoading === 'game-exit';
+      const slow = screenLoading === 'game-enter' || exit;
+      loadingFadeMs.current = exit ? GAME_EXIT_FADE_MS : slow ? GAME_LOADING_FADE_MS : SCREEN_LOADING_FADE_MS;
+      setLoadingSlow(slow);
+      setLoadingExit(exit);
+      setLoadingGameBg(screenLoading === 'game-enter');
       if (loadingUnmountTimer.current) {
         clearTimeout(loadingUnmountTimer.current);
         loadingUnmountTimer.current = null;
@@ -190,7 +235,7 @@ export default function Home() {
     // разметке ниже), и только после завершения затухания убираем оверлей
     // из DOM целиком.
     setLoadingShown(false);
-    loadingUnmountTimer.current = setTimeout(() => setLoadingMounted(false), SCREEN_LOADING_FADE_MS);
+    loadingUnmountTimer.current = setTimeout(() => setLoadingMounted(false), loadingFadeMs.current);
     return () => {
       if (loadingUnmountTimer.current) clearTimeout(loadingUnmountTimer.current);
     };
@@ -262,6 +307,7 @@ export default function Home() {
   useEffect(() => {
     return () => {
       if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
+      if (roadRunnerSwapTimer.current) clearTimeout(roadRunnerSwapTimer.current);
     };
   }, []);
 
@@ -300,9 +346,16 @@ export default function Home() {
   // копилка, статистика, список уроков…), а не только раздела "Периоды".
   // Единственное исключение — активный урок (isOnLesson): его не перебиваем.
   const [isOnLesson, setIsOnLesson] = useState(false);
+  // Мини-игра «Гонка мишки» — открывается кнопкой-геймпадом под иконкой кухни
+  const [roadRunnerOpen, setRoadRunnerOpen] = useState(false);
+  // Источник запуска игры: свободный заработок или обязательное
+  // взаимодействие с питомцем после последствия события.
+  const [roadRunnerPurpose, setRoadRunnerPurpose] = useState<'free' | 'pet'>('free');
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const periodAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [periodResultModal, setPeriodResultModal] = useState<{ periodId: number; result: PeriodResult } | null>(null);
+  const noticeGapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [noticeGapActive, setNoticeGapActive] = useState(false);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
   // Событие, которое ребёнок явно закрыл крестиком (не решил) — не лезем с
   // ним повторно на этом же экране, но при переходе на другой экран (или
@@ -314,40 +367,55 @@ export default function Home() {
   // сторы напрямую через getState() и сам по себе не реактивен.
   usePeriodEventStore((s) => s.completedEventIds.length);
   useLessonProgressStore((s) => s.completedLessonIds.length);
-  const firstLessonDone = useLessonProgressStore((s) => s.isCompleted('what-is-money'));
-  const secondLessonDone = useLessonProgressStore((s) => s.isCompleted('needs-vs-wants'));
+  const periodLessonIds = getPeriodLessonIds(Math.min(5, Math.max(1, currentPeriodId)) as 1 | 2 | 3 | 4 | 5);
+  const firstLessonId = periodLessonIds[0];
+  const secondLessonId = periodLessonIds[1];
+  const firstLessonDone = useLessonProgressStore((s) => !firstLessonId || s.isCompleted(firstLessonId));
+  const secondLessonDone = useLessonProgressStore((s) => !secondLessonId || s.isCompleted(secondLessonId));
   const availableEvent = periodStatusForEvents === 'active' ? usePeriodEventStore.getState().getAvailableEvent() : null;
   const pendingPetAction = usePeriodEventStore((s) => s.getPendingPetAction());
+  function startNoticeGap(duration = demoMode ? 250 : NOTICE_GAP_MS) {
+    if (noticeGapTimer.current) clearTimeout(noticeGapTimer.current);
+    setNoticeGapActive(true);
+    noticeGapTimer.current = setTimeout(() => {
+      setNoticeGapActive(false);
+      setEventClock((value) => value + 1);
+    }, duration);
+  }
 
   const periodGuideReady = (() => {
     if (tutorialActive || sheet !== null) return false;
     const finishedAt = storage.get<number>('tutorial_finished_at');
-    return typeof finishedAt === 'number' && Date.now() - finishedAt >= PERIOD_GUIDE_DELAY_MS;
+    return typeof finishedAt === 'number'
+      && Date.now() - finishedAt >= (demoMode ? 3000 : PERIOD_GUIDE_DELAY_MS);
   })();
   const periodEventCount = usePeriodEventStore((s) => s.completedEventIds.length);
   const periodGuide = periodGuideReady && !pendingPetAction
     ? !firstLessonDone
-      ? { title: 'Сначала заработаем монетки', text: 'Перейди в первый урок и выполни его. После этого мы распределим деньги в периоде.', button: 'Открыть урок' as const, action: 'lesson' as const }
+      ? { title: 'Сначала заработаем монетки', text: 'Пройди первый урок — потом распределим деньги.', button: 'Открыть урок' as const, action: 'lesson' as const }
       : periodStatusForEvents === 'planning' && !periodPlan
-        ? { title: 'Начнём первый период', text: 'Теперь перейди в раздел «Периоды» и распредели монетки: на нужное, желания и копилку.', button: 'Открыть период' as const, action: 'period' as const }
-        : periodStatusForEvents === 'active' && !secondLessonDone && periodEventCount >= 2
-          ? { title: 'Время второго урока', text: 'Питомец ждёт продолжения. Пройди следующий урок, чтобы открыть новую часть периода.', button: 'Открыть урок' as const, action: 'lesson' as const }
+        ? { title: 'Начнём первый период', text: 'Распредели монетки: нужное, желания и копилка.', button: 'Открыть период' as const, action: 'period' as const }
+      : secondLessonId && periodStatusForEvents === 'active' && !secondLessonDone && periodEventCount >= 2
+          ? { title: 'Время второго урока', text: 'Пройди урок, чтобы открыть новую часть периода.', button: 'Открыть урок' as const, action: 'lesson' as const }
           : null
     : null;
+  const periodGuideActive = !!periodGuide;
+  const periodGuideAction = periodGuide?.action ?? null;
 
-  // Если нижнее напоминание долго остаётся без реакции, переводим его в
-  // центральную подсказку первого периода: нижняя карточка исчезает, фон
-  // мягко размывается, а ребёнок получает один понятный следующий шаг.
+  // Обычная подсказка периода сначала спокойно лежит под статистиками.
+  // Только если ребёнок долго её игнорирует, она становится одним центральным
+  // окном. Другие сообщения в это время не показываются.
   useEffect(() => {
-    if (!showLessonReminder || lessonReminderSuppressed || !remindersEnabled || tutorialActive || sheet !== null || firstLessonDone) return;
+    if (!periodGuideActive || periodGuideEscalated || tutorialActive || sheet !== null || eventModalOpen || periodResultModal || pendingPetAction) return;
     const timer = window.setTimeout(() => {
       setLessonReminderSuppressed(true);
       setPeriodGuideEscalated(true);
-    }, 20 * 1000);
+    }, demoMode ? 8000 : GUIDE_ESCALATION_MS);
     return () => window.clearTimeout(timer);
-  }, [showLessonReminder, lessonReminderSuppressed, remindersEnabled, tutorialActive, sheet, firstLessonDone]);
+  }, [periodGuideActive, periodGuideAction, periodGuideEscalated, tutorialActive, sheet, eventModalOpen, periodResultModal, pendingPetAction, demoMode]);
 
   function openPeriodGuide(action: 'lesson' | 'period') {
+    startNoticeGap();
     if (action === 'lesson') {
       setTab('lessons');
       setSheet('lessons');
@@ -364,7 +432,7 @@ export default function Home() {
   useEffect(() => {
     const period = usePeriodStore.getState();
     if (period.status !== 'active') return;
-    const events = getPeriodEvents(period.id as 1 | 2 | 3);
+    const events = getPeriodEvents(period.id as 1 | 2 | 3 | 4 | 5);
     const eventState = usePeriodEventStore.getState();
     const allEventsDone = events.length > 0 && events.every((event) => eventState.completedEventIds.includes(event.id));
     if (!allEventsDone || eventState.getPendingPetAction()) return;
@@ -382,28 +450,42 @@ export default function Home() {
           setPeriodResultModal(null);
           return;
         }
-        if (current.id >= 3) return;
+        if (current.id >= 5) return;
         const economy = useEconomyStore.getState();
         current.advancePeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
+        const nextPeriod = usePeriodStore.getState().id;
+        usePeriodEventStore.getState().syncPeriod(nextPeriod as 1 | 2 | 3 | 4 | 5);
         setPeriodResultModal(null);
-      }, 5000);
+      }, demoMode ? 1200 : 5000);
     }
   }, [eventClock, periodStatusForEvents, pendingPetAction]);
 
   useEffect(() => () => {
     if (periodAdvanceTimer.current) clearTimeout(periodAdvanceTimer.current);
+    if (noticeGapTimer.current) clearTimeout(noticeGapTimer.current);
   }, []);
 
   const medicineProduct = shopProducts.find((product) => product.id === 'medicine-pet');
+  const cheapestToyPrice = shopProducts
+    .filter((product) => product.category === 'toys')
+    .reduce((minimum, product) => Math.min(minimum, product.price), Number.POSITIVE_INFINITY);
+  const canAffordToy = coins >= cheapestToyPrice;
   const hasMedicine = (medicineProduct ? medicineQty[medicineProduct.id] ?? 0 : 0) > 0;
   const canAffordMedicine = !!medicineProduct && coins >= medicineProduct.price;
   const petActionCopy: Record<PetActionType, { title: string; text: string; button: string }> = {
     feed: { title: 'Питомцу нужен корм', text: 'Покорми питомца, чтобы продолжить период.', button: 'Покормить' },
-    buyToy: { title: 'Питомцу стало скучно', text: 'Купи игрушку — это обязательный шаг после выбора.', button: 'Купить игрушку' },
+    buyToy: {
+      title: 'Питомцу стало скучно',
+      text: canAffordToy
+        ? 'Купи игрушку, чтобы порадовать питомца и продолжить период.'
+        : 'Монет на игрушку сейчас не хватает. Можно купить игрушку позже или поиграть вместе в мини-игру.',
+      button: 'Купить игрушку',
+    },
     medicine: { title: 'Питомцу нужна помощь', text: hasMedicine ? 'Лекарство уже куплено — теперь дай его питомцу.' : canAffordMedicine ? 'Купи и дай лекарство, чтобы продолжить период.' : 'Монет на лекарство пока не хватает. Покорми питомца — это поможет продолжить.', button: hasMedicine ? 'Дать лекарство' : canAffordMedicine ? 'Купить лекарство' : 'Покормить' },
   };
 
   function openRequiredPetAction(action: PetActionType) {
+    startNoticeGap();
     if (action === 'feed') {
       openKitchen();
       return;
@@ -421,18 +503,139 @@ export default function Home() {
     setSheet('shop');
   }
 
+  // Вход в игру — экран загрузки с картинкой мишки на велосипеде; игра
+  // монтируется сразу под ним, чтобы к моменту затухания всё уже было на месте.
+  function openRoadRunner(purpose: 'free' | 'pet') {
+    setRoadRunnerPurpose(purpose);
+    setScreenLoading('game-enter');
+    // Игру монтируем, только когда загрузка полностью проявилась — иначе
+    // экран игры резко «выскакивает» под ещё прозрачной загрузкой.
+    if (roadRunnerSwapTimer.current) clearTimeout(roadRunnerSwapTimer.current);
+    roadRunnerSwapTimer.current = setTimeout(() => setRoadRunnerOpen(true), GAME_LOADING_FADE_MS);
+    if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
+    screenLoadingTimer.current = setTimeout(() => setScreenLoading(null), GAME_LOADING_MS);
+  }
+
+  function openPetGame() {
+    openRoadRunner('pet');
+  }
+
+  // Монеты, собранные в «Гонке мишки», сразу попадают в кошелёк (один раз за заезд — это гарантирует сама игра)
+  function completeRoadRunner(result: GameResult) {
+    if (result.coins > 0) {
+      useEconomyStore.getState().applyCoinsDelta(result.coins, 'Монеты из мини-игры «Гонка мишки»', {
+        periodId: currentPeriodId,
+        category: 'reward',
+      });
+      playRewardSound();
+      hapticSuccess();
+    }
+
+    // Запуск из карточки обязательного действия — это полноценная забота о
+    // питомце. Чем лучше заезд, тем заметнее положительное последствие, но
+    // даже короткий заезд даёт небольшой эффект и не оставляет ребёнка в
+    // бесконечном обязательном действии.
+    if (roadRunnerPurpose === 'pet') {
+      const happinessDelta = result.meters >= 180 ? 10 : result.meters >= 80 ? 7 : 4;
+      usePetStore.getState().applyDelta({ happiness: happinessDelta });
+      usePetStore.getState().registerInteraction();
+      usePetStore.getState().addXp(ECONOMY_RULES.miniGameRewardXp);
+      startNoticeGap();
+      setEventClock((value) => value + 1);
+    }
+  }
+
+  // Выход из игры — стандартный экран загрузки; игра убирается под ним.
+  function closeRoadRunner() {
+    setScreenLoading('game-exit');
+    if (roadRunnerSwapTimer.current) clearTimeout(roadRunnerSwapTimer.current);
+    roadRunnerSwapTimer.current = setTimeout(() => {
+      setRoadRunnerOpen(false);
+      setRoadRunnerPurpose('free');
+    }, GAME_EXIT_FADE_MS);
+    if (screenLoadingTimer.current) clearTimeout(screenLoadingTimer.current);
+    screenLoadingTimer.current = setTimeout(() => setScreenLoading(null), GAME_EXIT_LOADING_MS);
+  }
+
+  // Музыка игры: пока игра открыта — общая музыка приложения на паузе, играет
+  // тихий трек игры (плавно нарастает); при выходе — наоборот.
+  useEffect(() => {
+    if (!roadRunnerOpen) return undefined;
+    pauseBackgroundMusic();
+    startGameMusic();
+    return () => {
+      pauseGameMusic();
+      // не включаем общую музыку, если её выключили в настройках
+      if (useSettingsStore.getState().musicEnabled) startBackgroundMusic();
+    };
+  }, [roadRunnerOpen]);
+
+  function onRoadRunnerEvent(event: GameEventType) {
+    switch (event) {
+      case 'start':
+        playGameStartSound();
+        break;
+      case 'lane':
+        playGameLaneSound();
+        break;
+      case 'coin':
+        playGameCoinSound();
+        break;
+      case 'hit':
+        playGameHitSound();
+        hapticTap();
+        break;
+      case 'shield-block':
+        playGameShieldBlockSound();
+        hapticSuccess();
+        break;
+      case 'powerup':
+        playGamePowerupSound();
+        hapticSuccess();
+        break;
+      case 'heal':
+        playGameHealSound();
+        hapticSuccess();
+        break;
+      case 'gameover':
+        playGameOverSound();
+        break;
+    }
+  }
+
   function petActionIcon(action: PetActionType) {
     if (action === 'feed') return <IconBowl className="h-5 w-5" />;
     if (action === 'medicine') return <img src={medicineIcon} alt="" className="h-7 w-7 object-contain" />;
     return <IconGamepad className="h-5 w-5" />;
   }
 
+  const previousPendingPetAction = useRef<PetActionType | null>(pendingPetAction);
   useEffect(() => {
-    if (!availableEvent || isOnLesson || tutorialActive) return;
+    if (previousPendingPetAction.current && !pendingPetAction) startNoticeGap();
+    previousPendingPetAction.current = pendingPetAction;
+  }, [pendingPetAction]);
+
+  useEffect(() => {
+    // Сюжетное событие — самое последнее в очереди. Оно никогда не перебивает
+    // урок, переход между экранами, обучение, результат периода, обязательное
+    // действие питомца или понятную подсказку следующего шага.
+    if (
+      !availableEvent
+      || isOnLesson
+      || tutorialActive
+      || sheet !== null
+      || screenLoading !== null
+      || noticeGapActive
+      || !!pendingPetAction
+      || roadRunnerOpen
+      || !!periodGuide
+      || !!periodResultModal
+      || earnModalOpen
+    ) return;
     if (availableEvent.id === dismissedEventId) return;
     setOpenEventId(availableEvent.id);
     setEventModalOpen(true);
-  }, [availableEvent?.id, isOnLesson, tutorialActive, dismissedEventId]);
+  }, [availableEvent?.id, isOnLesson, roadRunnerOpen, tutorialActive, sheet, screenLoading, noticeGapActive, pendingPetAction, periodGuide, periodResultModal, earnModalOpen, dismissedEventId]);
 
   // Переход на другой экран/шторку — новый шанс показать отложенное событие.
   useEffect(() => {
@@ -441,6 +644,7 @@ export default function Home() {
 
   function closeEventModal() {
     setEventModalOpen(false);
+    startNoticeGap();
     if (openEventId && usePeriodEventStore.getState().getAvailableEvent()?.id === openEventId) {
       setDismissedEventId(openEventId);
     }
@@ -454,6 +658,7 @@ export default function Home() {
   }
 
   function openLessonsFromReminder() {
+    startNoticeGap();
     setLessonReminderSuppressed(true);
     setTab('lessons');
     setSheet('lessons');
@@ -533,15 +738,12 @@ export default function Home() {
           {/* Блок питомца — без плашки, прямо поверх фото (как в референсе).
               Пропорции от диаметра аватара D=52: цветок 0.56D, его центр на 1.217D,
               полоса XP начинается на 1.587D, её высота 0.187D. */}
-          {/* Аватарка + полоса опыта — кликабельны и ведут на экран "Прогресс"
-              (5 уровней развития). Маленькая стрелочка справа — подсказка
-              ребёнку, что сюда можно нажать (сам блок иначе выглядел бы как
-              обычная неинтерактивная шапка). */}
-          <button
+          {/* Аватарка + полоса опыта: уровень — это возраст мишки. Блок только
+              показывает его, на экран "Прогресс" отсюда больше не переходим. */}
+          <div
             data-tour="home-level"
-            onClick={() => setSheet('progress')}
-            className="flex items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
-            aria-label="Открыть прогресс уровня"
+            className="flex items-center rounded-2xl py-0.5 pr-1"
+            aria-label="Возраст мишки"
           >
             <div className="relative shrink-0">
               <img
@@ -584,11 +786,7 @@ export default function Home() {
               </div>
             </div>
 
-            <IconChevronRight
-              className="ml-1 h-4 w-4 shrink-0 self-center text-white drop-shadow"
-              style={{ opacity: 0.85 }}
-            />
-          </button>
+          </div>
 
           <div data-tour="home-coins" className="flex shrink-0 flex-col items-end gap-1.5">
             <div
@@ -637,7 +835,7 @@ export default function Home() {
           />
         </div>
 
-        {pendingPetAction && sheet === null && !isOnLesson && !tutorialActive && (
+        {pendingPetAction && !noticeGapActive && !periodResultModal && !roadRunnerOpen && sheet === null && !isOnLesson && !tutorialActive && (
           <div
             className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
           >
@@ -668,67 +866,34 @@ export default function Home() {
                 {petActionCopy[pendingPetAction].text}
               </p>
 
-              <button
-                onClick={() => openRequiredPetAction(pendingPetAction)}
-                className="mt-4 w-full rounded-full py-3 text-[14px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
-                style={{
-                  background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
-                  boxShadow:
-                    'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
-                }}
-              >
-                {petActionCopy[pendingPetAction].button}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {periodGuide && !showLessonReminder && !periodGuideEscalated && (
-          <div
-            className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
-          >
-            <div
-              className="relative w-full max-w-[300px] rounded-[28px] p-5 pt-6 shadow-2xl"
-              style={{
-                background: '#fbefe1',
-                border: '1px solid rgba(255,255,255,0.6)',
-                boxShadow: '0 24px 48px rgba(20,10,30,0.35), 0 4px 14px rgba(20,10,30,0.18)',
-              }}
-            >
-              <div className="flex justify-center">
-                <div
-                  className="flex h-16 w-16 items-center justify-center rounded-full"
+              {pendingPetAction === 'buyToy' && !canAffordToy ? (
+                <div className="mt-4 grid grid-cols-2 gap-2.5">
+                  <button
+                    onClick={() => openRequiredPetAction('buyToy')}
+                    className="rounded-full bg-gradient-to-b from-[#8b88f4] to-[#6262e4] px-2 py-3 text-[12px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                  >
+                    Купить игрушку
+                  </button>
+                  <button
+                    onClick={openPetGame}
+                    className="rounded-full bg-gradient-to-b from-[#62d67d] to-[#2fa64f] px-2 py-3 text-[12px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                  >
+                    Поиграть
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => openRequiredPetAction(pendingPetAction)}
+                  className="mt-4 w-full rounded-full py-3 text-[14px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
                   style={{
-                    background: 'linear-gradient(180deg, #a9a6f8 0%, #7574f0 100%)',
-                    boxShadow: '0 8px 18px rgba(92,90,216,0.38), inset 0 2px 3px rgba(255,255,255,0.6)',
+                    background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
+                    boxShadow:
+                      'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
                   }}
                 >
-                  {periodGuide.action === 'lesson' ? (
-                    <IconBook className="h-8 w-8 text-white" />
-                  ) : (
-                    <IconCalendar className="h-8 w-8 text-white" />
-                  )}
-                </div>
-              </div>
-
-              <h2 className="mt-3.5 text-center text-[18px] font-extrabold leading-tight" style={{ color: '#2c2a5e' }}>
-                {periodGuide.title}
-              </h2>
-              <p className="mt-1.5 px-1 text-center text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-                {periodGuide.text}
-              </p>
-
-              <button
-                onClick={() => openPeriodGuide(periodGuide.action)}
-                className="mt-4 w-full rounded-full py-3 text-[14px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
-                style={{
-                  background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)',
-                  boxShadow:
-                    'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
-                }}
-              >
-                {periodGuide.button}
-              </button>
+                  {petActionCopy[pendingPetAction].button}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -736,7 +901,7 @@ export default function Home() {
         {/* Тот же вид, что и окошко "Как заработать монеты?" (EarnCoinsModal) —
             круглая иконка сверху, заголовок и подпись по центру, одна кнопка
             и крестик-закрытие в углу, вместо прежней "плашки со значком в ряд". */}
-        {periodGuide && periodGuideEscalated && (
+        {periodGuide && !noticeGapActive && periodGuideEscalated && !periodResultModal && !pendingPetAction && !eventModalOpen && (
           <div
             className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
             onClick={() => setPeriodGuideEscalated(false)}
@@ -834,6 +999,12 @@ export default function Home() {
               <div className="mt-3 rounded-[14px] bg-white/60 px-3 py-2 text-[11px] font-extrabold" style={{ color: '#5d57a8' }}>
                 Результат: {periodResultModal.result.score} из 100
               </div>
+              {periodResultModal.result.score >= 70 && (
+                <div className="mt-2 flex items-center justify-center gap-1.5 rounded-[14px] bg-[#e6f9ee] px-3 py-2 text-[12px] font-black text-[#24754b]">
+                  <img src={coinIcon} alt="" className="h-5 w-5" />
+                  +{PERIODS.find((period) => period.id === periodResultModal.periodId)?.rewardCoins ?? 0} монет за успешное завершение
+                </div>
+              )}
               {periodResultModal.periodId >= 3 && (
                 <button
                   onClick={() => setPeriodResultModal(null)}
@@ -883,23 +1054,39 @@ export default function Home() {
               <IconBackpackLight className="h-6 w-6" />
             </button>
           </div>
-          <button
-            data-tour="home-kitchen"
-            // Кухня — отдельный экран кормления (не фон главного экрана,
-            // см. inventoryStore.activeKitchenRoomId). Открывается шторкой,
-            // как и остальные разделы; вкладка нижней навигации не меняется,
-            // так как своей вкладки у кухни нет.
-            onClick={openKitchen}
-            className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
-            style={{
-              background: 'rgba(26,20,40,0.30)',
-              borderColor: 'rgba(255,255,255,0.30)',
-              boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
-            }}
-            aria-label="Столовая"
-          >
-            <IconCutlery className="h-6 w-6" />
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              data-tour="home-kitchen"
+              // Кухня — отдельный экран кормления (не фон главного экрана,
+              // см. inventoryStore.activeKitchenRoomId). Открывается шторкой,
+              // как и остальные разделы; вкладка нижней навигации не меняется,
+              // так как своей вкладки у кухни нет.
+              onClick={openKitchen}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Столовая"
+            >
+              <IconCutlery className="h-6 w-6" />
+            </button>
+            {/* Мини-игра «Гонка мишки» — под иконкой кухни, тот же стиль кнопки */}
+            <button
+              data-tour="home-minigame"
+              onClick={() => openRoadRunner('free')}
+              className="flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition active:scale-95"
+              style={{
+                background: 'rgba(26,20,40,0.30)',
+                borderColor: 'rgba(255,255,255,0.30)',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+              }}
+              aria-label="Мини-игра"
+            >
+              <img src={gamepadIcon} alt="" className="h-6 w-6 object-contain" draggable={false} />
+            </button>
+          </div>
         </div>
 
         {/* Медведь — занимает всё свободное место между метриками и карточкой.
@@ -943,33 +1130,71 @@ export default function Home() {
             }}
           />
           <div className="pointer-events-none absolute bottom-[34%] left-1/2 h-[70%] w-auto -translate-x-1/2 select-none drop-shadow-2xl">
-            <BearAvatar selectedIds={outfitIds} bearImage={character.mainImage} />
+            <BearAvatar selectedIds={isSick ? [] : outfitIds} bearImage={isSick ? character.sickMainImage : character.mainImage} />
           </div>
 
           {/* Карточка события + плашки — оверлей поверх фото, прижат к низу зоны медведя,
               не влияет на её высоту (см. комментарий выше). */}
           <div className="absolute inset-x-0 bottom-0 z-20 px-4">
-          {petNeedsAttention && !tutorialActive && (
+          {periodGuide
+            && !noticeGapActive
+            && !periodGuideEscalated
+            && !periodResultModal
+            && !pendingPetAction
+            && !eventModalOpen && (
+            <button
+              onClick={() => openPeriodGuide(periodGuide.action)}
+              className="mb-2 flex w-full flex-col gap-3 rounded-[26px] border px-4 py-3.5 text-left shadow-xl"
+              style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[#eeeaff] text-[#5d57e0]">
+                  {periodGuide.action === 'lesson' ? <IconBook className="h-6 w-6" /> : <IconCalendar className="h-6 w-6" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[16px] font-extrabold leading-tight text-[#2c2a5e]">{periodGuide.title}</span>
+                  <span className="mt-1 block text-[12px] font-semibold leading-snug text-[#7b7a8c] line-clamp-2">{periodGuide.text}</span>
+                </span>
+              </span>
+              <span className="block w-full rounded-full py-2.5 text-center text-[13px] font-extrabold text-white shadow-md" style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #6262e4 100%)' }}>{periodGuide.button}</span>
+            </button>
+          )}
+          {petNeedsAttention
+            && !tutorialActive
+            && !periodResultModal
+            && !pendingPetAction
+            && !periodGuide
+            && !eventModalOpen
+            && sheet === null && (
             <button
               onClick={openKitchen}
-              className="mb-2 flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left shadow-lg"
-              style={{ background: '#fff4df', borderColor: '#f0d6a2' }}
+              className="mb-2 flex w-full items-center justify-between rounded-[26px] border px-4 py-4 text-left shadow-xl"
+              style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
             >
-              <span>
-                <span className="block text-[13px] font-extrabold" style={{ color: '#8a5d1c' }}>
+              <span className="min-w-0 pr-3">
+                <span className="block text-[16px] font-extrabold leading-tight" style={{ color: '#8a5d1c' }}>
                   {health <= 35 ? 'Мишка хочет есть' : 'Мишке нужна забота'}
                 </span>
-                <span className="mt-0.5 block text-[10px] font-semibold" style={{ color: '#a1740f' }}>
+                <span className="mt-1 block text-[13px] font-semibold leading-snug" style={{ color: '#a1740f' }}>
                   Покорми питомца или подними ему настроение.
                 </span>
               </span>
-              <span className="rounded-full bg-[#f0b94f] px-3 py-1.5 text-[11px] font-extrabold text-white">Позаботиться</span>
+              <span className="shrink-0 rounded-full bg-[#f0b94f] px-4 py-3 text-[14px] font-extrabold text-white shadow-md">Позаботиться</span>
             </button>
           )}
           {/* Карточка-напоминание про урок: не постоянная, только если ребёнок
               давно не заходил на урок в течение дня (см. shouldShowLessonReminder)
               и напоминания не выключены в настройках. */}
-          {showLessonReminder && !lessonReminderSuppressed && remindersEnabled && (
+          {showLessonReminder
+            && !lessonReminderSuppressed
+            && remindersEnabled
+            && !petNeedsAttention
+            && !tutorialActive
+            && !periodResultModal
+            && !pendingPetAction
+            && !periodGuide
+            && !eventModalOpen
+            && sheet === null && (
             <div
               className="relative rounded-[26px] border px-3.5 pb-3.5 pt-[30px] shadow-xl"
               style={{ background: '#fbefe1', borderColor: '#eeddc3' }}
@@ -1177,6 +1402,7 @@ export default function Home() {
             onClose={closeSheet}
             initialDepositAmount={piggyPrefillAmount}
             onSavingsPlanChange={(amount) => usePeriodStore.getState().updateSavingsPlan(amount)}
+            tutorialActive={tutorialActive}
           />
         ) : sheet === 'period' ? (
           // Раздел "День" (задания дня) — раньше открывался вкладкой нижней
@@ -1201,7 +1427,6 @@ export default function Home() {
             wealth={wealth}
             activeKitchenRoomId={activeKitchenRoomId}
             onOpenEarnModal={() => setEarnModalOpen(true)}
-            onOpenProgress={() => setSheet('progress')}
             onOpenShop={() => {
               setShopKitchenOnly(true);
               setTab('shop');
@@ -1225,8 +1450,9 @@ export default function Home() {
             onFullScreenChange={setNavHidden}
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-[#fbefe1] text-[15px] font-bold" style={{ color: '#7b7a8c' }}>
-            Раздел в разработке
+          <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#fbefe1] px-6 text-center">
+            <p className="text-[15px] font-bold" style={{ color: '#7b7a8c' }}>Раздел пока недоступен</p>
+            <button onClick={closeSheet} className="rounded-full px-5 py-2.5 text-[13px] font-extrabold text-white" style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #6262e4 100%)' }}>Вернуться</button>
           </div>
         )}
       </BottomSheet>
@@ -1234,6 +1460,16 @@ export default function Home() {
       {/* Модалка сюжетного события — глобальная, поверх любого экрана внутри
           Home (см. эффект автопоказа выше), кроме активного урока. */}
       <EventModal open={eventModalOpen} onClose={closeEventModal} />
+
+      {roadRunnerOpen && (
+        <div className="absolute inset-0 z-[80]">
+          <RoadRunnerGame
+            onExit={closeRoadRunner}
+            onFinish={completeRoadRunner}
+            onEvent={onRoadRunnerEvent}
+          />
+        </div>
+      )}
 
       {/* Окошко "как заработать монеты" — по кнопке "+" в балансе */}
       <EarnCoinsModal
@@ -1257,13 +1493,13 @@ export default function Home() {
             ownedRoomIds={ownedRoomIds}
             activeRoomId={previewRoom.section === 'kitchen' ? activeKitchenRoomId : activeRoomId}
             onBack={() => setPreviewRoom(null)}
-            onBuy={(room) => {
+            onBuy={(room, savingsContribution = 0) => {
               // Покупка/установка НЕ закрывает просмотр — комната куплена, но
               // человек может захотеть тут же её установить или просто
               // посмотреть дальше. Выйти можно только явной стрелкой "назад"
               // (см. onBack выше), и тогда откроется магазин, откуда пришли
               // (шторка sheet==='shop' всё это время остаётся открытой под просмотром).
-              purchaseRoom(room);
+              purchaseRoom(room, { savingsContribution });
             }}
             onOpenEarnModal={() => setEarnModalOpen(true)}
             confirmationEnabled={purchaseConfirmationEnabled}
@@ -1278,16 +1514,16 @@ export default function Home() {
           загрузки исчезает, переход уже полностью завершён. */}
       {loadingMounted && (
         <div
-          className="pointer-events-none absolute inset-0 z-[70] transition-opacity"
+          className="pointer-events-none absolute inset-0 z-[90] transition-opacity"
           style={{
             transitionProperty: 'opacity',
-            transitionDuration: `${SCREEN_LOADING_FADE_MS}ms`,
-            transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            transitionDuration: `${loadingExit ? GAME_EXIT_FADE_MS : loadingSlow ? GAME_LOADING_FADE_MS : SCREEN_LOADING_FADE_MS}ms`,
+            transitionTimingFunction: loadingSlow ? 'ease-in-out' : 'cubic-bezier(0.22, 1, 0.36, 1)',
             opacity: loadingShown ? 1 : 0,
             willChange: 'opacity',
           }}
         >
-          <PageLoading durationMs={SCREEN_LOADING_MS} />
+          <PageLoading durationMs={loadingExit ? GAME_EXIT_LOADING_MS : loadingSlow ? GAME_LOADING_MS : SCREEN_LOADING_MS} variant={loadingGameBg ? 'game' : 'default'} />
         </div>
       )}
 

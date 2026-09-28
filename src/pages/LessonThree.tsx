@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import videoSrc from '../assets/lesson2/lesson-video.mp4';
+import LessonHintBubble from '../components/LessonHintBubble';
+import videoSrc from '../assets/lesson3/lesson-video.mp4';
 import scene1 from '../assets/lesson3/practice-1.jpg';
 import scene2 from '../assets/lesson3/practice-2.jpg';
 import scene3 from '../assets/lesson3/practice-3.jpg';
@@ -24,8 +25,11 @@ import canIcon from '../assets/lesson3/items/can.png';
 import shampooIcon from '../assets/lesson3/items/shampoo.png';
 import ballIcon from '../assets/lesson3/items/ball.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
+import { pausePracticeMusic, startPracticeMusic } from '../services/practiceMusic';
+import { playCorrectAnswerSound, playWrongAnswerSound } from '../services/answerSound';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import DragCardPreview from '../components/DragCardPreview';
+import { shuffleArray } from '../utils/shuffle';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void; onPracticeComplete?: () => void }
@@ -125,13 +129,19 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
   const [cart, setCart] = useState<string[]>([]); // сцены 2 и 4
   const [removed, setRemoved] = useState<string[]>([]); // сцена 5
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const lessonCompletedRef = useRef(false);
   const lastDragEndRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
-  const dnd = usePointerDrag(rootRef);
+  const dnd = usePointerDrag(rootRef, handleDrop);
+  const [foodCardsTray] = useState(() => shuffleArray(foodCards));
+  const [listGoodsTray] = useState(() => shuffleArray(listGoods));
+  const [scaleGoodsTray] = useState(() => shuffleArray(scaleGoods));
+  const [checkoutBasketTray] = useState(() => shuffleArray(checkoutBasket));
   const videoRef = useRef<HTMLVideoElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +150,16 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
     pauseBackgroundMusic();
     return () => startBackgroundMusic();
   }, []);
+
+  // Тихая фоновая музыка играет только во время практики — в видео-части
+  // свой закадровый голос, а общий трек приложения и так на паузе (см. выше).
+  useEffect(() => {
+    if (phase === 'practice') {
+      startPracticeMusic();
+      return () => pausePracticeMusic();
+    }
+    return undefined;
+  }, [phase]);
 
   useEffect(() => {
     scenes.forEach((source) => { const image = new Image(); image.src = source; });
@@ -165,7 +185,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
   }, [hintText]);
 
   const cartLimit = CART_SLOTS;
-  const goodsOfScene = scene === 1 ? listGoods : scaleGoods;
+  const goodsOfScene = scene === 1 ? listGoodsTray : scaleGoodsTray;
   const cartGoods = cart.map((id) => goodsOfScene.find((good) => good.id === id)).filter((good): good is Good => Boolean(good));
   const cartTotal = sumPrices(cartGoods);
 
@@ -216,13 +236,19 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
       onPracticeComplete?.();
       setHintText(null);
       setCheckState('correct');
+      playCorrectAnswerSound();
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else { lessonCompletedRef.current = true; onBack(); }
+        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+          setReviewNotice(true);
+          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onBack(); }, 1800);
+        } else { lessonCompletedRef.current = true; onBack(); }
       }, 700);
     } else {
+      setMistakeScenes((current) => current.includes(scene) ? current : [...current, scene]);
       setCheckState('wrong');
+      playWrongAnswerSound();
       setCheckPulse((value) => value + 1);
       setHintText(sceneHints[scene] ?? 'Попробуй ещё раз.');
     }
@@ -328,10 +354,12 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
           <div className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-white/45" />
           <div className="absolute left-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-[#675ff3] transition-[width] duration-500" style={{ width: `${(scene / (scenes.length - 1)) * 100}%` }} />
           {scenes.map((_, index) => (
-            <span key={index} className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#675ff3]' : 'bg-[#817b98]'}`} />
+            <span key={index} className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${mistakeScenes.includes(index) ? 'bg-[#f6c84c] shadow-[0_0_0_2px_rgba(246,200,76,.4)]' : index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#675ff3]' : 'bg-[#817b98]'}`} />
           ))}
         </div>
       </div>
+
+      {reviewNotice && <div className="absolute left-1/2 top-[11%] z-30 -translate-x-1/2 rounded-full bg-[#fff7d6] px-4 py-2 text-center text-[12px] font-black text-[#9a6d08] shadow-[0_5px_16px_rgba(116,84,10,.2)] [animation:lessonFadeIn_220ms_ease-out]">Работа над ошибками — закрепляем навык</div>}
 
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
 
@@ -339,7 +367,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
         {scene === 0 && (
           // Экран 1 — «Сравнение по карточкам»: два корма, выбрать более выгодный
           <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
-            {foodCards.map((card) => (
+            {foodCardsTray.map((card) => (
               <button key={card.id} type="button" onClick={() => setPick(card.id)} className={`flex min-h-0 min-w-0 flex-col items-center gap-1 rounded-[20px] p-2 shadow-sm transition active:scale-[.98] ${pick === card.id ? 'ring-[3px] ring-[#675ff3]' : ''}`} style={{ background: card.tint }}>
                 <div className="flex min-h-0 w-full flex-1 items-center justify-center"><img src={card.image} alt="" draggable={false} className="h-full w-full object-contain" /></div>
                 <span className="text-[clamp(14px,4.2vw,17px)] font-black leading-none text-[#1b4ea3]">{card.label}</span>
@@ -377,7 +405,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
             </div>
             <span className="-mb-1 shrink-0 text-[clamp(9.5px,2.7vw,11.5px)] font-black text-[#8a7a5a]">Доступные товары:</span>
             <div className="grid min-h-0 flex-[1.2] grid-cols-3 gap-1.5">
-              {listGoods.map((good) => renderGoodCard(good))}
+              {listGoodsTray.map((good) => renderGoodCard(good))}
             </div>
             {renderCartRow('Корзина', `${cart.length}/${CART_SLOTS}`)}
           </>
@@ -432,7 +460,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
             </div>
             <span className="-mb-1 shrink-0 text-[clamp(9.5px,2.7vw,11.5px)] font-black text-[#8a7a5a]">Доступные товары:</span>
             <div className="grid min-h-0 flex-[1.2] grid-cols-3 gap-1.5">
-              {scaleGoods.map((good) => renderGoodCard(good))}
+              {scaleGoodsTray.map((good) => renderGoodCard(good))}
             </div>
             {renderCartRow('Корзина', `${cartTotal} / ${SCALE_LIMIT}`, cartTotal > SCALE_LIMIT)}
           </>
@@ -454,7 +482,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
             <div className="flex min-h-0 flex-1 flex-col gap-1 rounded-[18px] bg-[#fdeaea] p-2">
               <span className="text-center text-[clamp(11px,3.2vw,13px)] font-black text-[#d1364e]">Твоя корзина:</span>
               <div className="grid min-h-0 flex-1 grid-cols-3 gap-1.5">
-                {checkoutBasket.map((good) => {
+                {checkoutBasketTray.map((good) => {
                   const isRemoved = removed.includes(good.id);
                   return (
                     <div key={good.id} className="flex min-h-0 min-w-0 flex-col items-center gap-0.5 rounded-[14px] bg-white/90 p-1 shadow-sm">
@@ -477,11 +505,7 @@ export default function LessonThree({ onBack, onPracticeComplete }: Props) {
         </div>
       )}
 
-      {hintText && (
-        <div className="absolute bottom-[22%] left-[6%] right-[6%] z-20 rounded-2xl bg-[#fff3cd] px-4 py-2 text-center text-[clamp(11px,3.2vw,13px)] font-bold text-[#7a5b13] shadow-[0_4px_12px_rgba(120,90,20,.2)] [animation:lessonItemIn_200ms_ease-out]">
-          💡 {hintText}
-        </div>
-      )}
+      <LessonHintBubble text={hintText} />
 
       <div className="absolute bottom-[3.5%] left-[4%] right-[4%] z-20 flex items-center gap-[6%]">
         <button type="button" aria-label="Подсказка" onClick={toggleHint} className="flex h-14 w-[45%] min-w-0 shrink-0 items-center justify-center gap-2 rounded-[30px] bg-white/95 px-3 text-[clamp(14px,4.2vw,16px)] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">

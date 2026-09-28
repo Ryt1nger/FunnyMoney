@@ -380,6 +380,7 @@ export default function TutorialOverlay() {
         containerHeight={containerSize.height}
         ready={ready}
         scene={scene}
+        freeInteraction={!!step.freeInteraction}
         onNext={() => {
           hapticTap();
           next();
@@ -528,6 +529,14 @@ interface CardProps {
   containerHeight: number;
   ready: boolean;
   scene: string | null;
+  /** Шаг с перетаскиванием "через" весь экран (например, кормление —
+   *  еду тащат снизу вверх, ко рту питомца). Обычное позиционирование
+   *  карточки "вплотную к подсветке" тут не годится: подсветка (поднос
+   *  внизу) далеко от места, куда несут еду, и карточка, вставая между
+   *  ними, закрывает собой самого питомца — именно то, что нужно видеть
+   *  во время перетаскивания. Поэтому такую карточку прижимаем к самому
+   *  верху экрана, подальше от пути пальца. */
+  freeInteraction: boolean;
   onNext: () => void;
   onSkip: () => void;
 }
@@ -538,9 +547,16 @@ interface CardProps {
 // неё вместо того, чтобы вылезать за пределы экрана.
 const CARD_CLEARANCE = 190;
 
-function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight, ready, scene, onNext, onSkip }: CardProps) {
+// Отступ от самого верха экрана для карточек freeInteraction-шагов — чуть
+// ниже шапки со статами питомца, чтобы не перекрывать и её.
+const FREE_INTERACTION_TOP = 96;
+
+function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight, ready, scene, freeInteraction, onNext, onSkip }: CardProps) {
   const CARD_WIDTH = 'min(86%, 340px)';
   const style: CSSProperties = (() => {
+    if (freeInteraction) {
+      return { left: '50%', top: FREE_INTERACTION_TOP, transform: 'translateX(-50%)', width: CARD_WIDTH };
+    }
     if (!rect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: CARD_WIDTH };
     const containerH = containerHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
     const spaceBelow = containerH - (rect.top + rect.height);

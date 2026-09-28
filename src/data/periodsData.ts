@@ -1,4 +1,4 @@
-// Содержимое карточек трёх периодов — иллюстрации, названия и порядок событий.
+// Содержимое карточек пяти периодов — иллюстрации, названия и порядок событий.
 // Правила, доступность, решения и последствия событий живут в
 // features/periodEvents; этот файл только связывает их id с визуальными
 // карточками и обложками периодов.
@@ -15,6 +15,12 @@ import eventWallet from '../assets/periods/event-wallet.jpg';
 import eventSick from '../assets/periods/event-sick.jpg';
 import eventInventor from '../assets/periods/event-inventor.jpg';
 import eventMountain from '../assets/periods/event-mountain.jpg';
+import eventSickPet from '../assets/periods/event-sick-pet.jpg';
+import eventReward from '../assets/periods/event-reward.jpg';
+import eventBrokenToy from '../assets/periods/event-broken-toy.jpg';
+import eventPreparingParty from '../assets/periods/event-preparing-party.jpg';
+import eventLastChance from '../assets/periods/event-last-chance.jpg';
+import eventFinalChoice from '../assets/periods/event-final-choice.jpg';
 import heroPeriod1 from '../assets/periods/hero-period1.jpg';
 import heroPeriod2 from '../assets/periods/hero-period2.jpg';
 import heroPeriod3 from '../assets/periods/hero-period3.jpg';
@@ -27,7 +33,7 @@ export interface PeriodEvent {
 }
 
 export interface PeriodContent {
-  id: 1 | 2 | 3;
+  id: 1 | 2 | 3 | 4 | 5;
   title: string;
   subtitle: string;
   description: string;
@@ -46,7 +52,7 @@ export const PERIODS: PeriodContent[] = [
     description: 'Заработай, распредели и сделай первые финансовые шаги.',
     card: cardPeriod1,
     hero: heroPeriod1,
-    rewardCoins: 40,
+    rewardCoins: 52,
     rewardXp: 5,
     events: [
       { id: 'period-1-feed-first', title: 'Корм закончился', subtitle: 'Сначала важное', image: eventFair },
@@ -61,7 +67,7 @@ export const PERIODS: PeriodContent[] = [
     description: 'Сохрани план, когда появляются желания и сюрпризы.',
     card: cardPeriod2,
     hero: heroPeriod2,
-    rewardCoins: 40,
+    rewardCoins: 52,
     rewardXp: 5,
     events: [
       { id: 'period-2-smart-shopping', title: 'Большой поход в магазин', subtitle: 'Список и сравнение', image: eventRain },
@@ -76,12 +82,42 @@ export const PERIODS: PeriodContent[] = [
     description: 'Справься с обязательными расходами и приблизь большую цель.',
     card: cardPeriod3,
     hero: heroPeriod3,
-    rewardCoins: 40,
+    rewardCoins: 52,
     rewardXp: 5,
     events: [
       { id: 'period-3-dream-house', title: 'Домик мечты', subtitle: 'Начинаем копить', image: eventSick },
       { id: 'period-3-plan-changed', title: 'План изменился', subtitle: 'План и факт', image: eventInventor },
       { id: 'period-3-last-ten', title: 'Последние 10 монет', subtitle: 'Цель или желание', image: eventMountain },
+    ],
+  },
+  {
+    id: 4,
+    title: 'Период 4',
+    subtitle: 'Финансовая подушка',
+    description: 'Научись справляться с неожиданными расходами и сохранять запас.',
+    card: cardPeriod3,
+    hero: heroPeriod3,
+    rewardCoins: 65,
+    rewardXp: 10,
+    events: [
+      { id: 'period-4-sick-pet', title: 'Мани простудился', subtitle: 'Нужное важнее желаний', image: eventSickPet },
+      { id: 'period-4-reward', title: 'Неожиданная награда', subtitle: 'Сохрани часть денег', image: eventReward },
+      { id: 'period-4-broken-toy', title: 'Сломалась игрушка', subtitle: 'Выбор между желанием и пользой', image: eventBrokenToy },
+    ],
+  },
+  {
+    id: 5,
+    title: 'Период 5',
+    subtitle: 'Самостоятельное решение',
+    description: 'Сбалансируй здоровье, счастье и большую финансовую цель.',
+    card: cardPeriod3,
+    hero: heroPeriod3,
+    rewardCoins: 78,
+    rewardXp: 15,
+    events: [
+      { id: 'period-5-preparing-party', title: 'Подготовка к празднику', subtitle: 'Не потрать всё сразу', image: eventPreparingParty },
+      { id: 'period-5-last-chance', title: 'Последняя возможность накопить', subtitle: 'Цель и забота о питомце', image: eventLastChance },
+      { id: 'period-5-final-choice', title: 'Главное решение', subtitle: 'Финальный выбор', image: eventFinalChoice },
     ],
   },
 ];

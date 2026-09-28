@@ -7,7 +7,7 @@ import { usePeriodStore } from '../economy/periodStore';
 // и возвращает результат для UI (что показать ребёнку и что скажет учитель).
 export function resolveScenarioChoice(scenario: Scenario, option: ScenarioOption): ScenarioResult {
   const { applyDelta } = usePetStore.getState();
-  const { applyCoinsDelta, applyWealthDelta } = useEconomyStore.getState();
+  const { applyCoinsDelta } = useEconomyStore.getState();
 
   if (option.effects.coins) {
     const period = usePeriodStore.getState();
@@ -15,9 +15,6 @@ export function resolveScenarioChoice(scenario: Scenario, option: ScenarioOption
       periodId: period.status === 'completed' ? undefined : period.id,
       category: 'reward',
     });
-  }
-  if (option.effects.wealth) {
-    applyWealthDelta(option.effects.wealth);
   }
   if (option.effects.health || option.effects.happiness) {
     applyDelta({ health: option.effects.health, happiness: option.effects.happiness });

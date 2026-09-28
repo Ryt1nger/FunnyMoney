@@ -6,12 +6,24 @@ import { usePeriodStore } from '../economy/periodStore';
 import { useLessonProgressStore } from '../progress/lessonProgressStore';
 import { useInventoryStore } from '../inventory/inventoryStore';
 import { shopProducts } from '../../data/shopData';
-import { getPeriodEvent, getPeriodEvents, type EventEffects, type PeriodEventDefinition, type PeriodEventOption } from './eventData';
+import { useSettingsStore } from '../settings/settingsStore';
+import { getPeriodEvent, getPeriodEvents, type EventEffects, type PeriodEventDefinition, type PeriodEventOption, type PeriodId } from './eventData';
 import type { PetActionType } from '../../core/periodRules';
 
 const STORAGE_KEY = 'period_events';
 export const FIRST_EVENT_DELAY_MS = 2 * 60 * 1000;
 export const BETWEEN_EVENTS_DELAY_MS = 30 * 1000;
+const DEMO_FIRST_EVENT_DELAY_MS = 1500;
+const DEMO_BETWEEN_EVENTS_DELAY_MS = 900;
+
+function eventDelay(event: PeriodEventDefinition): number {
+  if (useSettingsStore.getState().demoMode) {
+    return event.order === 1 || !!event.lessonId
+      ? DEMO_FIRST_EVENT_DELAY_MS
+      : DEMO_BETWEEN_EVENTS_DELAY_MS;
+  }
+  return event.order === 1 || !!event.lessonId ? FIRST_EVENT_DELAY_MS : BETWEEN_EVENTS_DELAY_MS;
+}
 
 export interface EventChoiceRecord {
   eventId: string;
@@ -23,7 +35,7 @@ export interface EventChoiceRecord {
 }
 
 export interface PeriodEventState {
-  periodId: 1 | 2 | 3;
+  periodId: PeriodId;
   completedEventIds: string[];
   introAppliedEventIds: string[];
   choices: EventChoiceRecord[];
@@ -37,7 +49,7 @@ export interface PeriodEventState {
 
 interface PeriodEventStore extends PeriodEventState {
   hydrate: () => void;
-  syncPeriod: (periodId: 1 | 2 | 3) => void;
+  syncPeriod: (periodId: PeriodId) => void;
   getAvailableEvent: () => PeriodEventDefinition | null;
   getPendingPetAction: () => PetActionType | null;
   isEventCompleted: (eventId: string) => boolean;
@@ -59,7 +71,7 @@ function actionForChoice(event: PeriodEventDefinition, option: PeriodEventOption
   return 'buyToy';
 }
 
-function emptyState(periodId: 1 | 2 | 3): PeriodEventState {
+function emptyState(periodId: PeriodId): PeriodEventState {
   return { periodId, completedEventIds: [], introAppliedEventIds: [], choices: [], history: [] };
 }
 
@@ -67,7 +79,7 @@ function isValid(value: unknown): value is PeriodEventState {
   if (!value || typeof value !== 'object') return false;
   const state = value as Record<string, unknown>;
   return (
-    (state.periodId === 1 || state.periodId === 2 || state.periodId === 3)
+    (state.periodId === 1 || state.periodId === 2 || state.periodId === 3 || state.periodId === 4 || state.periodId === 5)
     && Array.isArray(state.completedEventIds)
     && Array.isArray(state.introAppliedEventIds)
     && Array.isArray(state.choices)
@@ -125,7 +137,8 @@ function applyOptionEffects(event: PeriodEventDefinition, option: PeriodEventOpt
   if (additionalCoins && !applyCoinsEffect(additionalCoins, `${event.title}: ${option.label}`, period.id)) return false;
   if (savingsToAdd > 0 && !economy.depositToSavings(savingsToAdd)) return false;
   if ((effects.savings ?? 0) < 0 && !economy.withdrawFromSavings(Math.abs(effects.savings ?? 0))) return false;
-  if (effects.wealth) economy.applyWealthDelta(effects.wealth);
+  // Богатство не изменяется отдельным бонусом события: оно всегда считается
+  // от текущего капитала (кошелёк + копилка) в Home/статистике.
   if (effects.health || effects.happiness) {
     usePetStore.getState().applyDelta({ health: effects.health, happiness: effects.happiness });
   }
@@ -153,13 +166,13 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
   getAvailableEvent: () => {
     const period = usePeriodStore.getState();
     const state = get();
-    if (state.periodId !== period.id) get().syncPeriod(period.id as 1 | 2 | 3);
+    if (state.periodId !== period.id) get().syncPeriod(period.id as PeriodId);
     if (period.status !== 'active') return null;
     const current = get();
     const pet = usePetStore.getState().pet;
     if (current.careVersionRequired !== undefined && (pet?.careVersion ?? 0) <= current.careVersionRequired) return null;
     const lessons = useLessonProgressStore.getState();
-    const event = getPeriodEvents(period.id as 1 | 2 | 3).find((event) => {
+    const event = getPeriodEvents(period.id as PeriodId).find((event) => {
       if (current.completedEventIds.includes(event.id)) return false;
       if (event.previousEventId && !current.completedEventIds.includes(event.previousEventId)) return false;
       if (event.lessonId && !lessons.isCompleted(event.lessonId)) return false;
@@ -167,8 +180,7 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
     });
     if (!event) return null;
     if (current.nextEventAt === undefined) {
-      const delay = event.order === 1 || !!event.lessonId ? FIRST_EVENT_DELAY_MS : BETWEEN_EVENTS_DELAY_MS;
-      const next = { ...current, nextEventAt: Date.now() + delay };
+      const next = { ...current, nextEventAt: Date.now() + eventDelay(event) };
       persist(next);
       set(next);
       return null;
@@ -239,7 +251,7 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
         : get().introAppliedEventIds,
       choices: [...get().choices, choice],
       history: [...get().history, choice],
-      nextEventAt: Date.now() + BETWEEN_EVENTS_DELAY_MS,
+      nextEventAt: Date.now() + (useSettingsStore.getState().demoMode ? DEMO_BETWEEN_EVENTS_DELAY_MS : BETWEEN_EVENTS_DELAY_MS),
       careVersionRequired: usePetStore.getState().pet?.careVersion ?? 0,
       requiredPetAction,
     };

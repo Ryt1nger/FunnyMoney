@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import LessonHintBubble from '../components/LessonHintBubble';
 import videoSrc from '../assets/lesson2/lesson-video.mp4';
 import scene1 from '../assets/lesson1/backgrounds/practice-1.png';
 import { IconArrowLeft, IconBook } from '../components/icons';
@@ -26,8 +27,11 @@ import walletIcon from '../assets/lesson2/items/21_coin_wallet.png';
 import teddyCarIcon from '../assets/lesson2/items/23_teddy_bear_car.png';
 import basketIcon from '../assets/lesson2/basket.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
+import { pausePracticeMusic, startPracticeMusic } from '../services/practiceMusic';
+import { playCorrectAnswerSound, playWrongAnswerSound } from '../services/answerSound';
 import { usePointerDrag } from '../hooks/usePointerDrag';
 import DragCardPreview from '../components/DragCardPreview';
+import { shuffleArray } from '../utils/shuffle';
 
 type Phase = 'video' | 'practice';
 interface Props { onBack: () => void; onPracticeComplete?: () => void }
@@ -211,6 +215,8 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
   const [stepPlacements, setStepPlacements] = useState<(string | null)[]>([null, null, null, null]);
   const [selected, setSelected] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
+  const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -221,7 +227,13 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
   // карточке (select) продолжает работать как раньше — drag это просто
   // дополнительный способ того же самого действия.
   const rootRef = useRef<HTMLDivElement>(null);
-  const dnd = usePointerDrag(rootRef);
+  const dnd = usePointerDrag(rootRef, (id, from, zone) => handleDrop(id, from, zone));
+  // Порядок карточек в лотках перемешиваем один раз при открытии урока —
+  // иначе правильные варианты всегда стоят в одних и тех же местах.
+  const [incomeExpenseTray] = useState(() => shuffleArray(incomeExpenseItems));
+  const [budgetTray] = useState(() => shuffleArray(budgetItems));
+  const [familyPersonalTray] = useState(() => shuffleArray(familyPersonalItems));
+  const [stepTrayOrder] = useState(() => shuffleArray(stepItems));
   const videoRef = useRef<HTMLVideoElement>(null);
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -230,6 +242,16 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
     pauseBackgroundMusic();
     return () => startBackgroundMusic();
   }, []);
+
+  // Тихая фоновая музыка играет только во время практики — в видео-части
+  // свой закадровый голос, а общий трек приложения и так на паузе (см. выше).
+  useEffect(() => {
+    if (phase === 'practice') {
+      startPracticeMusic();
+      return () => pausePracticeMusic();
+    }
+    return undefined;
+  }, [phase]);
 
   useEffect(() => {
     scenes.forEach((source) => {
@@ -420,13 +442,19 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
       onPracticeComplete?.();
       setHintText(null);
       setCheckState('correct');
+      playCorrectAnswerSound();
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else { lessonCompletedRef.current = true; onBack(); }
+        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+          setReviewNotice(true);
+          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onBack(); }, 1800);
+        } else { lessonCompletedRef.current = true; onBack(); }
       }, 700);
     } else {
+      setMistakeScenes((current) => current.includes(scene) ? current : [...current, scene]);
       setCheckState('wrong');
+      playWrongAnswerSound();
       setCheckPulse((value) => value + 1);
       setHintText(sceneHints[scene] ?? 'Попробуй ещё раз.');
     }
@@ -486,12 +514,12 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
     );
   }
 
-  const tray = incomeExpenseItems.filter((item) => !income.includes(item.id) && !expense.includes(item.id));
+  const tray = incomeExpenseTray.filter((item) => !income.includes(item.id) && !expense.includes(item.id));
   const budgetTotal = basket.reduce((sum, id) => sum + (budgetItems.find((item) => item.id === id)?.amount ?? 0), 0);
   const budgetBalance = BUDGET_INCOME - budgetTotal;
-  const tray3 = familyPersonalItems.filter((item) => !family.includes(item.id) && !personal.includes(item.id));
+  const tray3 = familyPersonalTray.filter((item) => !family.includes(item.id) && !personal.includes(item.id));
   const giftTray = giftCoinIds.filter((id) => !giftPiggy.includes(id) && !giftCandy.includes(id));
-  const stepTray = stepItems.filter((item) => !stepPlacements.includes(item.id));
+  const stepTray = stepTrayOrder.filter((item) => !stepPlacements.includes(item.id));
 
   return (
     <div ref={rootRef} className="relative h-full w-full overflow-hidden bg-[#fbefe1]">
@@ -508,11 +536,13 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
             {scenes.map((_, index) => (
               <span
                 key={index}
-                className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#675ff3]' : 'bg-[#817b98]'}`}
+                className={`relative z-10 h-3.5 w-3.5 rounded-full border-2 border-white/55 transition ${mistakeScenes.includes(index) ? 'bg-[#f6c84c] shadow-[0_0_0_2px_rgba(246,200,76,.4)]' : index === scene ? 'bg-white shadow-[0_0_0_2px_rgba(114,106,255,.75),0_0_10px_3px_rgba(255,255,255,.85)]' : index < scene ? 'bg-[#675ff3]' : 'bg-[#817b98]'}`}
             />
           ))}
         </div>
       </div>
+
+      {reviewNotice && <div className="absolute left-1/2 top-[11%] z-30 -translate-x-1/2 rounded-full bg-[#fff7d6] px-4 py-2 text-center text-[12px] font-black text-[#9a6d08] shadow-[0_5px_16px_rgba(116,84,10,.2)] [animation:lessonFadeIn_220ms_ease-out]">Работа над ошибками — закрепляем навык</div>}
 
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>
@@ -590,7 +620,7 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
             </div>
 
             <div className="grid min-h-0 flex-[1.5] grid-cols-4 gap-1.5">
-              {budgetItems.map((item) => (
+              {budgetTray.map((item) => (
                 <BudgetCard key={item.id} item={item} inBasket={basket.includes(item.id)} dnd={dnd} onDrop={handleDrop} onToggle={() => toggleBudgetItem(item.id)} />
               ))}
             </div>
@@ -768,11 +798,7 @@ export default function LessonTwo({ onBack, onPracticeComplete }: Props) {
       )}
 
       {/* Подсказка/обратная связь при ошибке — над нижней панелью кнопок. */}
-      {hintText && (
-        <div className="absolute bottom-[22%] left-[6%] right-[6%] z-20 rounded-2xl bg-[#fff3cd] px-4 py-2 text-center text-[clamp(11px,3.2vw,13px)] font-bold text-[#7a5b13] shadow-[0_4px_12px_rgba(120,90,20,.2)] [animation:lessonItemIn_200ms_ease-out]">
-          💡 {hintText}
-        </div>
-      )}
+      <LessonHintBubble text={hintText} />
 
       <div className="absolute bottom-[3.5%] left-[4%] right-[4%] z-20 flex items-center gap-[6%]">
         <button type="button" aria-label="Подсказка" onClick={toggleHint} className="flex h-14 w-[45%] min-w-0 shrink-0 items-center justify-center gap-3 rounded-[30px] bg-white/95 px-3 text-[clamp(14px,4.2vw,16px)] font-extrabold text-[#16449b] shadow-[0_6px_18px_rgba(80,63,120,.16)] backdrop-blur-sm transition active:scale-[.98]">

@@ -19,6 +19,8 @@ export interface SettingsState {
   /** родительский контроль: спрашивать подтверждение перед любой покупкой
    * (кроме еды — она всегда покупается сразу, см. Shop.tsx) */
   purchaseConfirmationEnabled: boolean;
+  /** ускоряет игровые таймеры для демонстрации и ручного тестирования */
+  demoMode: boolean;
 }
 
 interface SettingsStore extends SettingsState {
@@ -30,6 +32,7 @@ interface SettingsStore extends SettingsState {
   setRemindersEnabled: (value: boolean) => void;
   setBrightHintsEnabled: (value: boolean) => void;
   setPurchaseConfirmationEnabled: (value: boolean) => void;
+  setDemoMode: (value: boolean) => void;
   /** Перечитывает состояние из storage — реальная проверка на межстраничном экране загрузки. */
   hydrate: () => void;
 }
@@ -46,6 +49,7 @@ const defaultState: SettingsState = {
   remindersEnabled: true,
   brightHintsEnabled: true,
   purchaseConfirmationEnabled: true,
+  demoMode: false,
 };
 
 function isValidSettingsState(value: unknown): value is SettingsState {
@@ -62,6 +66,7 @@ function isValidSettingsState(value: unknown): value is SettingsState {
     typeof v.remindersEnabled === 'boolean' &&
     typeof v.brightHintsEnabled === 'boolean' &&
     typeof v.purchaseConfirmationEnabled === 'boolean'
+    && typeof v.demoMode === 'boolean'
   );
 }
 
@@ -120,6 +125,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const next = { ...get(), purchaseConfirmationEnabled: value };
     persist(next);
     set({ purchaseConfirmationEnabled: value });
+  },
+  setDemoMode: (value) => {
+    const next = { ...get(), demoMode: value };
+    persist(next);
+    set({ demoMode: value });
   },
 
   hydrate: () => {

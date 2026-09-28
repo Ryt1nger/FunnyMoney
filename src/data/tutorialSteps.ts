@@ -233,7 +233,7 @@ export const tutorialSteps: TutorialStep[] = [
     id: 'piggy-balance',
     targets: ['piggy-balance'],
     title: 'Кошелёк и копилка',
-    text: 'Слева — монетки на покупки. Справа — монетки в копилке.',
+    text: 'Слева — монетки на покупки. Справа — монетки в копилке. В конце периода копилка приносит +20% доходности.',
     action: 'next',
   },
   {

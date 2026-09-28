@@ -6,6 +6,8 @@
 
 import type { PetActionType, PetHelpAlternative } from '../../core/periodRules';
 
+export type PeriodId = 1 | 2 | 3 | 4 | 5;
+
 export type EventExpenseType = 'mandatory' | 'optional' | 'goal';
 
 export interface EventEffects {
@@ -33,7 +35,7 @@ export interface PeriodEventOption {
 
 export interface PeriodEventDefinition {
   id: string;
-  periodId: 1 | 2 | 3;
+  periodId: PeriodId;
   order: 1 | 2 | 3;
   title: string;
   context: string;
@@ -165,10 +167,76 @@ export const PERIOD_EVENTS: PeriodEventDefinition[] = [
       { id: 'split-last-ten', label: '5 отложить, 5 потратить', cost: 5, effects: { coins: -5, savings: 5, happiness: 6, wealth: 2 }, feedback: 'Ты приблизился к цели и оставил себе небольшую радость.' },
     ],
   },
+  {
+    id: 'period-4-sick-pet', periodId: 4, order: 1,
+    title: 'Мани простудился',
+    context: 'Мани плохо себя чувствует. Лекарство стоит 30 монет, но ты хотел купить новую игрушку.',
+    options: [
+      { id: 'medicine', label: 'Купить лекарство', cost: 30, expenseType: 'mandatory', requiredPetAction: 'medicine', effects: { coins: -30, health: 8 }, feedback: 'Здоровье питомца восстановится после лекарства.' },
+      { id: 'food-help', label: 'Купить полезную еду', cost: 15, expenseType: 'mandatory', requiredPetAction: 'feed', effects: { coins: -15, health: 3 }, feedback: 'Еда поможет, но восстановление будет неполным.' },
+      { id: 'toy-first', label: 'Купить игрушку', cost: 30, expenseType: 'optional', requiredPetAction: 'medicine', effects: { coins: -30, happiness: 8, health: -5 }, feedback: 'Игрушка порадовала Мани, но здоровье всё ещё требует помощи.' },
+    ],
+  },
+  {
+    id: 'period-4-reward', periodId: 4, order: 2, previousEventId: 'period-4-sick-pet', introEffects: { coins: 50 },
+    title: 'Неожиданная награда',
+    context: 'Мани помог соседям и получил 50 монет. Как распорядиться наградой?',
+    options: [
+      { id: 'food-and-save', label: '20 на корм, остальное сохранить', cost: 20, expenseType: 'mandatory', requiredPetAction: 'feed', effects: { coins: -20, health: 6, wealth: 3 }, feedback: 'Питомец накормлен, а часть награды осталась в запасе.' },
+      { id: 'new-toy', label: 'Купить игрушку за 40', cost: 40, expenseType: 'optional', requiredPetAction: 'buyToy', effects: { coins: -40, happiness: 10, wealth: -3 }, feedback: 'Мани рад, но запас денег стал меньше.' },
+      { id: 'save-all', label: 'Сохранить все 50', requiredPetAction: 'buyToy', effects: { wealth: 5 }, feedback: 'Запас вырос, но Мани начинает скучать.' },
+    ],
+  },
+  {
+    id: 'period-4-broken-toy', periodId: 4, order: 3, previousEventId: 'period-4-reward',
+    title: 'Сломалась любимая игрушка',
+    context: 'Любимая игрушка Мани сломалась. Новая стоит 30 монет, но деньги могут понадобиться на корм.',
+    options: [
+      { id: 'replace-toy', label: 'Купить новую игрушку', cost: 30, expenseType: 'optional', requiredPetAction: 'buyToy', effects: { coins: -30, happiness: 8 }, feedback: 'Мани снова может играть.' },
+      { id: 'food-first', label: 'Сначала купить корм', cost: 20, expenseType: 'mandatory', requiredPetAction: 'feed', effects: { coins: -20, health: 6 }, feedback: 'Здоровье важнее желания, игрушку можно купить позже.' },
+      { id: 'wait', label: 'Пока ничего не покупать', requiredPetAction: 'buyToy', effects: { happiness: -5 }, feedback: 'Деньги сохранены, но грусть Мани усилилась.' },
+    ],
+  },
+  {
+    id: 'period-5-preparing-party', periodId: 5, order: 1,
+    title: 'Подготовка к празднику',
+    context: 'У тебя 60 монет. Нужно подготовить Мани к празднику и не потратить всё сразу.',
+    options: [
+      { id: 'food-toy', label: 'Корм и небольшая игрушка', cost: 50, expenseType: 'mandatory', requiredPetAction: 'feed', effects: { coins: -50, health: 5, happiness: 5 }, feedback: 'Питомец накормлен и готов к празднику.' },
+      { id: 'big-toy', label: 'Потратить всё на большую игрушку', cost: 60, expenseType: 'optional', requiredPetAction: 'buyToy', effects: { coins: -60, happiness: 12, health: -4 }, feedback: 'Праздник яркий, но на корм денег не осталось.' },
+      { id: 'food-only', label: 'Купить только корм', cost: 20, expenseType: 'mandatory', requiredPetAction: 'feed', effects: { coins: -20, health: 7 }, feedback: 'Здоровье в порядке, а на праздник осталось накопить.' },
+    ],
+  },
+  {
+    id: 'period-5-last-chance', periodId: 5, order: 2, previousEventId: 'period-5-preparing-party', introEffects: { coins: 50 },
+    title: 'Последняя возможность накопить',
+    context: 'До большой цели не хватает 40 монет. Ты получил последние 50, но Мани тоже нужна забота.',
+    options: [
+      { id: 'save-40', label: 'Отложить 40 монет', effects: { savings: 40, wealth: 8 }, requiredPetAction: 'feed', feedback: 'Цель достигнута, но на заботу осталась только малая сумма.' },
+      { id: 'save-30-food', label: 'Отложить 30 и купить корм', cost: 20, expenseType: 'mandatory', effects: { savings: 30, coins: -20, health: 6 }, requiredPetAction: 'feed', feedback: 'Цель близко, а здоровье питомца поддержано.' },
+      { id: 'toy', label: 'Купить игрушку за 40', cost: 40, expenseType: 'optional', effects: { coins: -40, happiness: 10, wealth: -3 }, requiredPetAction: 'buyToy', feedback: 'Мани счастлив, но большая цель отдалилась.' },
+    ],
+  },
+  {
+    id: 'period-5-final-choice', periodId: 5, order: 3, previousEventId: 'period-5-last-chance',
+    title: 'Главное решение',
+    context: 'У Мани снизились здоровье и настроение. В кошельке осталось 40 монет. Что важнее сейчас?',
+    options: [
+      { id: 'final-medicine', label: 'Купить лекарство', cost: 30, expenseType: 'mandatory', requiredPetAction: 'medicine', effects: { coins: -30, health: 10 }, feedback: 'Здоровье восстановлено, и период можно завершать уверенно.' },
+      { id: 'final-food', label: 'Купить корм', cost: 20, expenseType: 'mandatory', requiredPetAction: 'feed', effects: { coins: -20, health: 5 }, feedback: 'Корм поможет, но восстановление будет частичным.' },
+      { id: 'final-toy', label: 'Купить игрушку', cost: 30, expenseType: 'optional', requiredPetAction: 'buyToy', effects: { coins: -30, happiness: 12, health: -3 }, feedback: 'Настроение улучшилось, но здоровье всё ещё требует внимания.' },
+    ],
+  },
 ];
 
-export function getPeriodEvents(periodId: 1 | 2 | 3): PeriodEventDefinition[] {
+export function getPeriodEvents(periodId: PeriodId): PeriodEventDefinition[] {
   return PERIOD_EVENTS.filter((event) => event.periodId === periodId).sort((a, b) => a.order - b.order);
+}
+
+export function getPeriodLessonIds(periodId: PeriodId): string[] {
+  return getPeriodEvents(periodId)
+    .map((event) => event.lessonId)
+    .filter((lessonId): lessonId is string => Boolean(lessonId));
 }
 
 export function getPeriodEvent(id: string): PeriodEventDefinition | undefined {

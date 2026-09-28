@@ -28,6 +28,18 @@ import avatar6 from '../assets/pet/main/bear-avatar-6.png';
 import avatar7 from '../assets/pet/main/bear-avatar-7.png';
 import avatar8 from '../assets/pet/main/bear-avatar-8.png';
 import avatar9 from '../assets/pet/main/bear-avatar-9.png';
+// Больной мишка (здоровье < 20%) — тот же персонаж, тот же цвет худи/костюма,
+// просто с соплями/платком — картинка на главном экране подменяется, а не
+// генерируется общим фильтром, чтобы совпадать с выбранным на онбординге видом.
+import sick1 from '../assets/pet/main/bear-main-sick-1.png';
+import sick2 from '../assets/pet/main/bear-main-sick-2.png';
+import sick3 from '../assets/pet/main/bear-main-sick-3.png';
+import sick4 from '../assets/pet/main/bear-main-sick-4.png';
+import sick5 from '../assets/pet/main/bear-main-sick-5.png';
+import sick6 from '../assets/pet/main/bear-main-sick-6.png';
+import sick7 from '../assets/pet/main/bear-main-sick-7.png';
+import sick8 from '../assets/pet/main/bear-main-sick-8.png';
+import sick9 from '../assets/pet/main/bear-main-sick-9.png';
 
 export interface PetCharacter {
   id: string;
@@ -37,19 +49,22 @@ export interface PetCharacter {
   mainImage: string;
   /** Круглая аватарка (шапка на главной, кухне и т.д.). */
   avatarImage: string;
+  /** Тот же мишка, но больной (платок/сопли) — показывается на главном экране
+   * вместо mainImage, когда здоровье питомца падает ниже 20%. */
+  sickMainImage: string;
 }
 
 // 9 визуальных вариантов медвежонка для экрана выбора персонажа при онбординге.
 export const PET_CHARACTERS: PetCharacter[] = [
-  { id: 'bear-1', image: bear1, mainImage: main1, avatarImage: avatar1 },
-  { id: 'bear-2', image: bear2, mainImage: main2, avatarImage: avatar2 },
-  { id: 'bear-3', image: bear3, mainImage: main3, avatarImage: avatar3 },
-  { id: 'bear-4', image: bear4, mainImage: main4, avatarImage: avatar4 },
-  { id: 'bear-5', image: bear5, mainImage: main5, avatarImage: avatar5 },
-  { id: 'bear-6', image: bear6, mainImage: main6, avatarImage: avatar6 },
-  { id: 'bear-7', image: bear7, mainImage: main7, avatarImage: avatar7 },
-  { id: 'bear-8', image: bear8, mainImage: main8, avatarImage: avatar8 },
-  { id: 'bear-9', image: bear9, mainImage: main9, avatarImage: avatar9 },
+  { id: 'bear-1', image: bear1, mainImage: main1, avatarImage: avatar1, sickMainImage: sick1 },
+  { id: 'bear-2', image: bear2, mainImage: main2, avatarImage: avatar2, sickMainImage: sick2 },
+  { id: 'bear-3', image: bear3, mainImage: main3, avatarImage: avatar3, sickMainImage: sick3 },
+  { id: 'bear-4', image: bear4, mainImage: main4, avatarImage: avatar4, sickMainImage: sick4 },
+  { id: 'bear-5', image: bear5, mainImage: main5, avatarImage: avatar5, sickMainImage: sick5 },
+  { id: 'bear-6', image: bear6, mainImage: main6, avatarImage: avatar6, sickMainImage: sick6 },
+  { id: 'bear-7', image: bear7, mainImage: main7, avatarImage: avatar7, sickMainImage: sick7 },
+  { id: 'bear-8', image: bear8, mainImage: main8, avatarImage: avatar8, sickMainImage: sick8 },
+  { id: 'bear-9', image: bear9, mainImage: main9, avatarImage: avatar9, sickMainImage: sick9 },
 ];
 
 export const DEFAULT_CHARACTER_ID = PET_CHARACTERS[0].id;

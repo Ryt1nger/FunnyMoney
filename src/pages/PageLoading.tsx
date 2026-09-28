@@ -1,4 +1,5 @@
 import loadingBg from '../assets/onboarding/loading-bg.jpg';
+import loadingGameBg from '../assets/onboarding/loading-game-bg.jpg';
 import splashLogo from '../assets/onboarding/splash-logo.png';
 import coinIcon from '../assets/icons/coin.png';
 
@@ -6,6 +7,8 @@ interface PageLoadingProps {
   /** Сколько реально держится экран загрузки (App.tsx: TRANSITION_MIN_MS) —
    * полоса заполняется равномерно ровно за это время, а не за фиксированный срок. */
   durationMs?: number;
+  /** Вариант фона: 'game' — мишка на велосипеде (вход в мини-игру). Остальные элементы не меняются. */
+  variant?: 'default' | 'game';
 }
 
 /**
@@ -16,10 +19,10 @@ interface PageLoadingProps {
  * растянутый на весь durationMs, чтобы полоса доходила до конца ровно
  * к моменту, когда загрузка реально завершается.
  */
-export default function PageLoading({ durationMs = 4000 }: PageLoadingProps) {
+export default function PageLoading({ durationMs = 4000, variant = 'default' }: PageLoadingProps) {
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <img src={loadingBg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <img src={variant === 'game' ? loadingGameBg : loadingBg} alt="" className="absolute inset-0 h-full w-full object-cover" />
 
       {/* Логотип сверху слева */}
       <img

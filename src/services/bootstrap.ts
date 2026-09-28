@@ -29,7 +29,6 @@ function recoverFromResetBugOnce() {
 
   usePetStore.getState().applyDelta({ health: 80, happiness: 80 });
   useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.recoveryCoins, 'Восстановление после сбоя');
-  useEconomyStore.getState().applyWealthDelta(80);
 }
 
 /**

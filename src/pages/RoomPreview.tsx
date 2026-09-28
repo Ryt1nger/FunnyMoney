@@ -4,6 +4,7 @@ import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '../components/
 import type { RoomProduct } from '../data/shopData';
 import ConfirmPurchaseModal from '../components/ConfirmPurchaseModal';
 import { useEconomyStore } from '../features/economy/economyStore';
+import { getRoomPurchaseFunding } from '../features/economy/purchase';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
@@ -18,7 +19,7 @@ interface Props {
   activeRoomId: string;
   onBack: () => void;
   /** купить/установить — компонент сам решает по owned/active, что означает нажатие */
-  onBuy: (room: RoomProduct) => void;
+  onBuy: (room: RoomProduct, savingsContribution?: number) => void;
   /** плюсик у баланса — то же окно "как заработать монеты", что и на главной;
    * открывается вместо покупки, если монет не хватает */
   onOpenEarnModal?: () => void;
@@ -73,8 +74,9 @@ export default function RoomPreview({
   const room = rooms[index];
   const owned = ownedRoomIds.includes(room.id);
   const active = activeRoomId === room.id;
-  const enough = coins >= room.price;
-  const savings = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
+  const funding = getRoomPurchaseFunding(room);
+  const enough = funding.savingsNeeded === 0;
+  const selectedGoalId = useEconomyStore((s) => s.savingsGoal?.id);
   const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   // Подтверждение — только для реальной покупки новой комнаты, а не для
   // "Установить" уже купленную (это не трата монет, спрашивать не о чем).
@@ -181,7 +183,7 @@ export default function RoomPreview({
               </div>
             )}
           </div>
-          {!owned && <div className="mt-1 text-[10px] font-bold text-[#5360d9]">Покупка — из кошелька</div>}
+          {!owned && <div className="mt-1 text-[10px] font-bold text-[#5360d9]">{selectedGoalId === room.id ? 'Покупка — из копилки' : 'Покупка — из бюджета желаний'}</div>}
 
           <button
             onClick={() => {
@@ -193,7 +195,7 @@ export default function RoomPreview({
               // Не хватает монет — вместо попытки покупки показываем то же
               // окно "как заработать монеты", что и по кнопке "+" у баланса.
               if (!enough) {
-                if (savings >= room.price - coins) setWithdrawOpen(true);
+                if (funding.canUseSavings) setWithdrawOpen(true);
                 else onOpenEarnModal?.();
                 return;
               }
@@ -219,7 +221,7 @@ export default function RoomPreview({
       </div>
 
       <ConfirmPurchaseModal
-        item={confirmOpen ? { name: room.name, image: room.background, price: room.price, source: 'wallet', categoryLabel: 'Цель' } : null}
+        item={confirmOpen ? { name: room.name, image: room.background, price: room.price, source: selectedGoalId === room.id ? 'savings' : 'wallet', categoryLabel: selectedGoalId === room.id ? 'Моя цель' : 'Желание' } : null}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => {
           setConfirmOpen(false);
@@ -232,20 +234,20 @@ export default function RoomPreview({
           <div className="w-full rounded-[24px] bg-white p-4 text-center shadow-2xl">
             <h2 className="text-[18px] font-black text-[#111b72]">Не хватает монет</h2>
             <p className="mt-2 text-[12px] font-semibold leading-snug text-[#777da8]">
-              Вывести из копилки ровно {room.price - coins} монет и продолжить покупку?
+              В категории «{funding.categoryLabel}» не хватает {funding.savingsNeeded} монет. Можно взять их из копилки, но это накопления на важную цель. Точно потратить их сейчас?
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button onClick={() => setWithdrawOpen(false)} className="h-11 rounded-[14px] bg-[#f0eef7] text-[12px] font-extrabold text-[#686d9a]">Отмена</button>
               <button
                 onClick={() => {
-                  if (!withdrawFromSavings(room.price - coins)) return;
+                  if (!withdrawFromSavings(funding.savingsNeeded)) return;
                   setWithdrawOpen(false);
-                  setConfirmOpen(true);
+                  onBuy(room, funding.savingsNeeded);
                 }}
                 className="h-11 rounded-[14px] text-[12px] font-extrabold text-white"
                 style={{ background: VIOLET }}
               >
-                Вывести и купить
+                Использовать и купить
               </button>
             </div>
           </div>

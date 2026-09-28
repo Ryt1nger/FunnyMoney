@@ -28,6 +28,18 @@ import iconTreatBone from '../../assets/periods/event-icons/treat-bone.png';
 import iconTruckBallCoin from '../../assets/periods/event-icons/truck-ball-coin.png';
 import iconTruck from '../../assets/periods/event-icons/truck.png';
 import iconVitamins from '../../assets/periods/event-icons/vitamins.png';
+import iconBunnyBlueBow from '../../assets/periods/event-icons/bunny-blue-bow.png';
+import iconCoinStackNew from '../../assets/periods/event-icons/coin-stack-new.png';
+import iconDinoPlush from '../../assets/periods/event-icons/dino-plush.png';
+import iconDogPlush from '../../assets/periods/event-icons/dog-plush.png';
+import iconFoodBagYellowNew from '../../assets/periods/event-icons/food-bag-yellow-new.png';
+import iconFoodBowlBlueNew from '../../assets/periods/event-icons/food-bowl-blue-new.png';
+import iconMedicineBottleNew from '../../assets/periods/event-icons/medicine-bottle-new.png';
+import iconMedicineBoxNew from '../../assets/periods/event-icons/medicine-box-new.png';
+import iconMonsterTruck from '../../assets/periods/event-icons/monster-truck.png';
+import iconPiggyBankNew from '../../assets/periods/event-icons/piggy-bank-new.png';
+import iconSoupBowl from '../../assets/periods/event-icons/soup-bowl.png';
+import iconTeddyRedBow from '../../assets/periods/event-icons/teddy-red-bow.png';
 
 // Иконки строк эффектов на экране последствий — те же ассеты, что и в
 // статистике на главном экране/странице статистики (Здоровье/Счастье/
@@ -35,7 +47,6 @@ import iconVitamins from '../../assets/periods/event-icons/vitamins.png';
 import coinIcon from '../../assets/icons/coin.png';
 import heartMetricIcon from '../../assets/icons/metrics/heart-3d.png';
 import smileMetricIcon from '../../assets/icons/metrics/smile-3d.png';
-import coinsMetricIcon from '../../assets/icons/metrics/coins-3d.png';
 import piggyIcon from '../../assets/piggy-bank/piggy.png';
 
 export interface EffectRow {
@@ -55,11 +66,8 @@ export function buildEffectRows(effects: EventEffects): EffectRow[] {
   const rows: EffectRow[] = [];
   if (effects.coins) rows.push({ key: 'coins', label: 'Монеты', value: effects.coins, icon: coinIcon, unit: '' });
   if (effects.savings) rows.push({ key: 'savings', label: 'Копилка', value: effects.savings, icon: piggyIcon, unit: '' });
-  // Богатство/Здоровье/Счастье — те же метрики 0..100%, что и на главном
-  // экране (GlassMetric), эффекты событий — точечные приращения по этой же
-  // шкале (см. eventStore.applyChoice: applyWealthDelta / petStore.applyDelta).
-  // Сама механика не меняется — только подпись значения дополнена "%".
-  if (effects.wealth) rows.push({ key: 'wealth', label: 'Богатство', value: effects.wealth, icon: coinsMetricIcon, unit: '%' });
+  // Богатство не показываем как отдельный эффект события: оно всегда
+  // пересчитывается из текущего капитала кошелька и копилки.
   if (effects.health) rows.push({ key: 'health', label: 'Здоровье', value: effects.health, icon: heartMetricIcon, unit: '%' });
   if (effects.happiness) rows.push({ key: 'happiness', label: 'Счастье', value: effects.happiness, icon: smileMetricIcon, unit: '%' });
   return rows;
@@ -118,6 +126,37 @@ const OPTION_ICON_FILES: Record<string, [string] | [string, string]> = {
   'save-last-ten': [iconPiggyCoinDrop],
   'buy-last-toy': [iconTruck],
   'split-last-ten': [iconCoinStack, iconTruck],
+
+  // period-4-sick-pet — макет: "Мани простудился"
+  'medicine': [iconMedicineBottleNew, iconMedicineBoxNew],
+  'food-help': [iconSoupBowl],
+  'toy-first': [iconMonsterTruck],
+
+  // period-4-reward — макет: "Неожиданная награда"
+  'food-and-save': [iconFoodBowlBlueNew],
+  'new-toy': [iconDinoPlush],
+  // 'save-all' переиспользует iconCoinsToPiggyBig (см. period-3-dream-house),
+  // отдельного макета для этого варианта не было.
+
+  // period-4-broken-toy — макет: "Сломалась любимая игрушка"
+  'replace-toy': [iconBunnyBlueBow],
+  'food-first': [iconFoodBowlBlueNew],
+  'wait': [iconCoinStackNew],
+
+  // period-5-preparing-party — макет: "Подготовка к празднику"
+  'food-toy': [iconFoodBowlBlueNew, iconDogPlush],
+  'big-toy': [iconMonsterTruck],
+  'food-only': [iconFoodBowlBlueNew],
+
+  // period-5-last-chance — макет: "Последняя возможность накопить"
+  'save-40': [iconPiggyBankNew],
+  'save-30-food': [iconFoodBowlBlueNew, iconFoodBagYellowNew],
+  'toy': [iconTeddyRedBow],
+
+  // period-5-final-choice — макет: "Главное решение"
+  'final-medicine': [iconMedicineBottleNew],
+  'final-food': [iconFoodBowlBlueNew],
+  'final-toy': [iconTeddyRedBow],
 };
 
 function optionIconBg(option: PeriodEventOption): string {

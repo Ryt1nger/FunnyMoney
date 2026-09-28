@@ -192,6 +192,19 @@ export const storage = {
   resetAll(): Promise<void> {
     return enqueue(async () => {
       await ensureInitialization();
+      // Режим демо — настройка тестировщика, а не игровой прогресс. Сохраняем
+      // его при полном сбросе, чтобы следующий прогон можно было начать сразу
+      // с ускоренными интервалами.
+      const settingsRaw = cache.get(prefKey('settings'));
+      let demoMode: boolean | undefined;
+      if (settingsRaw) {
+        try {
+          const settings = JSON.parse(settingsRaw) as { demoMode?: unknown };
+          if (typeof settings.demoMode === 'boolean') demoMode = settings.demoMode;
+        } catch {
+          // повреждённые настройки всё равно будут заменены дефолтами;
+        }
+      }
       const keys = new Set([...cache.keys(), ...listLegacyKeys().map((key) => LEGACY_META_KEYS[key] ?? key)]);
       for (const key of keys) {
         if (!key.startsWith(PREFIX) || key === VERSION_KEY) continue;
@@ -210,6 +223,14 @@ export const storage = {
         } catch {
           // ignore
         }
+      }
+      if (demoMode !== undefined) {
+        const settings = { musicEnabled: true, musicVolume: 35, soundsEnabled: true, assistantVoiceEnabled: false, vibrationEnabled: true, remindersEnabled: true, brightHintsEnabled: true, purchaseConfirmationEnabled: true, demoMode };
+        const raw = JSON.stringify(settings);
+        cache.set(prefKey('settings'), raw);
+        stableCache.set(prefKey('settings'), raw);
+        if (useNativePreferences) await Preferences.set({ key: prefKey('settings'), value: raw });
+        else localStorage.setItem(prefKey('settings'), raw);
       }
     });
   },

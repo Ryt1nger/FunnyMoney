@@ -15,6 +15,7 @@ interface EconomyStore extends EconomyState {
   setSavingsGoal: (goal: SavingsGoal) => void;
   depositToSavings: (amount: number) => boolean;
   withdrawFromSavings: (amount: number) => boolean;
+  applySavingsInterest: (amount: number, periodId: number) => boolean;
 }
 
 const STORAGE_KEY = 'economy';
@@ -95,14 +96,10 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
   },
 
   applyWealthDelta: (amount) => {
-    const state = get();
-    const next: EconomyState = {
-      ...state,
-      wealthScore: state.wealthScore + amount,
-      totalSaved: state.totalSaved + (amount > 0 ? amount : 0),
-    };
-    persist(next);
-    set(next);
+    // Оставлено для совместимости со старыми сценариями. Богатство больше не
+    // изменяется отдельными бонусами: интерфейс считает его от кошелька и
+    // копилки через wealthPercentFromCapital.
+    void amount;
   },
 
   hydrate: () => {
@@ -165,6 +162,28 @@ export const useEconomyStore = create<EconomyStore>((set, get) => ({
     // Кошелёк изменился через экран копилки — синхронизируем его с текущим
     // периодом, иначе следующая покупка будет ошибочно считаться рассинхроном.
     usePeriodStore.getState().ensureCurrentPeriod(next.coins, next.savingsBalance ?? next.totalSaved);
+    return true;
+  },
+
+  applySavingsInterest: (amount, periodId) => {
+    const value = Math.floor(amount);
+    const state = get();
+    if (!Number.isFinite(value) || value <= 0) return false;
+    const next: EconomyState = {
+      ...state,
+      savingsBalance: (state.savingsBalance ?? state.totalSaved) + value,
+      totalEarned: state.totalEarned + value,
+      transactions: [...state.transactions, {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        amount: value,
+        reason: 'Доходность копилки +20%',
+        periodId,
+        category: 'savings' as const,
+      }],
+    };
+    persist(next);
+    set(next);
     return true;
   },
 

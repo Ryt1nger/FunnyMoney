@@ -14,6 +14,8 @@ import { storage } from '../../services/storage';
 import { useLessonProgressStore } from '../progress/lessonProgressStore';
 import { usePetStore } from '../pet/petStore';
 import { useEconomyStore } from './economyStore';
+import { getPeriodLessonIds, type PeriodId } from '../periodEvents/eventData';
+import { PERIODS } from '../../data/periodsData';
 
 const STORAGE_KEY = 'economy_period';
 
@@ -88,7 +90,7 @@ interface PeriodStore extends PeriodState {
   ensureCurrentPeriod: (walletBalance: number, savingsBalance: number) => void;
   confirmPlan: (plan: BudgetPlan) => boolean;
   updateSavingsPlan: (amount: number) => boolean;
-  recordPurchase: (product: EconomyProductMeta) => boolean;
+  recordPurchase: (product: EconomyProductMeta, savingsContribution?: number) => boolean;
   recordSavingsDeposit: (amount: number) => boolean;
   markCashbackGranted: () => boolean;
   markDailyRewardGranted: () => boolean;
@@ -99,7 +101,7 @@ interface PeriodStore extends PeriodState {
   repeatPeriodWithBonus: () => void;
   /** Только для дев-панели: принудительно переключить на период id, сохранив
    *  текущие балансы, но сбросив план/факт/флаги этого периода набело. */
-  setPeriod: (id: 1 | 2 | 3) => void;
+  setPeriod: (id: PeriodId) => void;
 }
 
 function loadInitial(): PeriodState {
@@ -164,11 +166,19 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     return true;
   },
 
-  recordPurchase: (product) => {
+  recordPurchase: (product, savingsContribution = 0) => {
     const state = get();
     if (state.status !== 'active' || !state.plan) return false;
     if (product.savingsOnly) return false;
+    if (!Number.isInteger(savingsContribution) || savingsContribution < 0) return false;
     if (product.price <= 0 || state.walletBalance < product.price) return false;
+    const categoryRemaining = product.expenseType === 'goal'
+      ? 0
+      : Math.max(0, state.plan[product.expenseType] - state.actual[product.expenseType]);
+    // Обычная покупка не может забирать деньги, отложенные для другой
+    // категории. Перерасход разрешён только на сумму, которую пользователь
+    // явно согласился взять из копилки.
+    if (categoryRemaining + savingsContribution < product.price) return false;
     const actual: PeriodActuals = {
       ...state.actual,
       mandatory: state.actual.mandatory + (product.expenseType === 'mandatory' ? product.price : 0),
@@ -246,17 +256,35 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
   completePeriod: () => {
     const state = get();
     if (state.status !== 'active') return false;
-    // Для первого тестового периода обязательны две уже реализованные темы.
-    // Второй и третий пока не блокируем несуществующим контентом уроков.
-    if (state.id === 1) {
-      const lessons = useLessonProgressStore.getState();
-      if (!lessons.isCompleted('what-is-money') || !lessons.isCompleted('needs-vs-wants')) return false;
-    }
+    const lessons = useLessonProgressStore.getState();
+    if (getPeriodLessonIds(state.id as PeriodId).some((lessonId) => !lessons.isCompleted(lessonId))) return false;
     const result = calculatePeriodResult(state);
     // Итог периода влияет на состояние питомца ровно один раз: повторный
     // запуск приложения уже видит status=completed и не применяет награду снова.
     usePetStore.getState().applyDelta({ health: result.satietyDelta, happiness: result.moodDelta });
-    const next = { ...state, status: 'completed' as const, result };
+    let completedState = state;
+    const rewardCoins = PERIODS.find((period) => period.id === state.id)?.rewardCoins ?? 0;
+    if (result.score >= 70 && rewardCoins > 0 && !state.rewardFlags.periodRewardGranted) {
+      // Начисляем через общий economyStore, чтобы награда попала в баланс и
+      // историю транзакций. После этого перечитываем период: applyCoinsDelta
+      // синхронизирует его walletBalance через ensureCurrentPeriod.
+      useEconomyStore.getState().applyCoinsDelta(rewardCoins, `Награда за завершение периода ${state.id}`, {
+        periodId: state.id,
+        category: 'reward',
+      });
+      completedState = get();
+    }
+    const next = {
+      ...completedState,
+      status: 'completed' as const,
+      result,
+      rewardFlags: {
+        ...completedState.rewardFlags,
+        periodRewardGranted: result.score >= 70
+          ? true
+          : completedState.rewardFlags.periodRewardGranted,
+      },
+    };
     persist(next);
     set(next);
     return true;
@@ -264,9 +292,15 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
 
   advancePeriod: (walletBalance, savingsBalance) => {
     const state = get();
-    if (state.status !== 'completed' || state.id >= 3) return;
+    if (state.status !== 'completed' || state.id >= 5) return;
+    const currentSavings = useEconomyStore.getState().savingsBalance ?? savingsBalance;
+    const interest = Math.floor(currentSavings * 0.2);
+    if (interest > 0) {
+      useEconomyStore.getState().applySavingsInterest(interest, state.id);
+    }
+    const economy = useEconomyStore.getState();
     const next = {
-      ...createInitialPeriod(walletBalance, savingsBalance),
+      ...createInitialPeriod(economy.coins ?? walletBalance, economy.savingsBalance ?? savingsBalance),
       id: state.id + 1,
       history: [...(state.history ?? []), summarizePeriod(state)],
     };

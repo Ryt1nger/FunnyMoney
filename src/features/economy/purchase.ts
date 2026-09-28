@@ -5,8 +5,22 @@ import { useDayProgressStore } from '../progress/dayProgressStore';
 import { usePeriodStore } from './periodStore';
 import type { ShopProduct, RoomProduct } from '../../data/shopData';
 import { dayTasks } from '../../data/dayData';
+import { remainingCategoryBudget, type EconomyProductMeta } from '../../core/economy';
 
 export type PurchaseResult = 'ok' | 'already_owned' | 'insufficient_funds';
+
+export interface PurchaseFunding {
+  categoryLabel: 'Обязательное' | 'Желания' | 'Накопления' | 'Кошелёк';
+  categoryRemaining: number;
+  savingsNeeded: number;
+  savingsAvailable: number;
+  canUseSavings: boolean;
+}
+
+interface PurchaseOptions {
+  /** Сумма, которую пользователь уже подтвердил и вывел из копилки. */
+  savingsContribution?: number;
+}
 
 const SHOP_TASK_XP = dayTasks.find((t) => t.id === 'shop')?.xp ?? 0;
 
@@ -17,12 +31,12 @@ const SHOP_TASK_XP = dayTasks.find((t) => t.id === 'shop')?.xp ?? 0;
 export function toEconomyProductMeta(product: ShopProduct) {
   const isFood = product.category === 'food';
   const isCare = product.category === 'care';
-  const isInterior = product.category === 'interior';
   const isFullMeal = isFood && product.price >= 120;
+  const isSelectedGoal = useEconomyStore.getState().savingsGoal?.id === product.id;
   return {
     id: product.id,
     price: product.price,
-    expenseType: isInterior ? 'goal' as const : isFood && isFullMeal ? 'mandatory' as const : isCare ? 'mandatory' as const : 'optional' as const,
+    expenseType: isSelectedGoal ? 'goal' as const : isFood && isFullMeal ? 'mandatory' as const : isCare ? 'mandatory' as const : 'optional' as const,
     mealType: isFullMeal ? 'fullMeal' as const : isFood ? 'snack' as const : 'none' as const,
     satietyEffect: product.effects?.health ?? 0,
     moodEffect: product.effects?.happiness ?? 0,
@@ -31,6 +45,59 @@ export function toEconomyProductMeta(product: ShopProduct) {
     savingsOnly: false,
     periodEligible: true,
   };
+}
+
+function getFunding(meta: EconomyProductMeta): PurchaseFunding {
+  const economy = useEconomyStore.getState();
+  const period = usePeriodStore.getState();
+  const savingsAvailable = economy.savingsBalance ?? economy.totalSaved;
+
+  if (period.status !== 'active' || !period.plan) {
+    const categoryRemaining = economy.coins;
+    const savingsNeeded = Math.max(0, meta.price - categoryRemaining);
+    return {
+      categoryLabel: 'Кошелёк',
+      categoryRemaining,
+      savingsNeeded,
+      savingsAvailable,
+      canUseSavings: savingsNeeded > 0 && savingsAvailable >= savingsNeeded,
+    };
+  }
+
+  const categoryRemaining = remainingCategoryBudget(period.plan, period.actual, meta.expenseType);
+  const availableNow = meta.expenseType === 'goal'
+    ? 0
+    : Math.min(categoryRemaining, economy.coins);
+  const savingsNeeded = Math.max(0, meta.price - availableNow);
+  return {
+    categoryLabel: meta.expenseType === 'mandatory'
+      ? 'Обязательное'
+      : meta.expenseType === 'optional'
+        ? 'Желания'
+        : 'Накопления',
+    categoryRemaining,
+    savingsNeeded,
+    savingsAvailable,
+    canUseSavings: savingsNeeded > 0 && savingsAvailable >= savingsNeeded,
+  };
+}
+
+export function getProductPurchaseFunding(product: ShopProduct): PurchaseFunding {
+  return getFunding(toEconomyProductMeta(product));
+}
+
+export function getRoomPurchaseFunding(room: RoomProduct): PurchaseFunding {
+  const isSelectedGoal = useEconomyStore.getState().savingsGoal?.id === room.id;
+  return getFunding({
+    id: room.id,
+    price: room.price,
+    expenseType: isSelectedGoal ? 'goal' : 'optional',
+    mealType: 'none',
+    satietyEffect: 0,
+    moodEffect: 0,
+    savingsOnly: false,
+    periodEligible: true,
+  });
 }
 
 /** Засчитывает задание дня «Купи что-нибудь в магазине» — но только один раз
@@ -49,7 +116,7 @@ function completeShopTaskOnce() {
  * и помечает товар купленным в inventoryStore — всё персистится через storage.
  * Ни один экран не должен списывать монеты в обход этой функции.
  */
-export function purchaseProduct(product: ShopProduct): PurchaseResult {
+export function purchaseProduct(product: ShopProduct, options: PurchaseOptions = {}): PurchaseResult {
   const inventory = useInventoryStore.getState();
   const isFood = product.category === 'food';
   const isCare = product.category === 'care';
@@ -62,7 +129,7 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
   const meta = toEconomyProductMeta(product);
   const period = usePeriodStore.getState();
   if (period.status === 'active') {
-    if (economy.coins !== period.walletBalance || economy.coins < product.price || !period.recordPurchase(meta)) {
+    if (economy.coins !== period.walletBalance || economy.coins < product.price || !period.recordPurchase(meta, options.savingsContribution ?? 0)) {
       return 'insufficient_funds';
     }
   } else if (economy.coins < product.price) {
@@ -97,7 +164,7 @@ export function purchaseProduct(product: ShopProduct): PurchaseResult {
 /** Покупка/установка фона комнаты — тратит монеты только если комната ещё не куплена.
  *  Игровая и кухня — независимые «активные фоны» (см. inventoryStore), поэтому
  *  здесь всегда учитывается раздел комнаты (room.section). */
-export function purchaseRoom(room: RoomProduct): PurchaseResult {
+export function purchaseRoom(room: RoomProduct, options: PurchaseOptions = {}): PurchaseResult {
   const inventory = useInventoryStore.getState();
   if (inventory.ownedRoomIds.includes(room.id)) {
     if (room.section === 'kitchen') {
@@ -110,14 +177,19 @@ export function purchaseRoom(room: RoomProduct): PurchaseResult {
 
   const economy = useEconomyStore.getState();
   const period = usePeriodStore.getState();
+  const isSelectedGoal = economy.savingsGoal?.id === room.id;
   if (period.status === 'active') {
-    const meta = { id: room.id, price: room.price, expenseType: 'goal' as const, mealType: 'none' as const, satietyEffect: 0, moodEffect: 0, savingsOnly: true, periodEligible: true };
-    if (economy.coins !== period.walletBalance || economy.coins < room.price || !period.recordPurchase({ ...meta, savingsOnly: false })) {
+    const meta = { id: room.id, price: room.price, expenseType: isSelectedGoal ? 'goal' as const : 'optional' as const, mealType: 'none' as const, satietyEffect: 0, moodEffect: 0, savingsOnly: isSelectedGoal, periodEligible: true };
+    if (economy.coins !== period.walletBalance || economy.coins < room.price || !period.recordPurchase({ ...meta, savingsOnly: false }, options.savingsContribution ?? 0)) {
       return 'insufficient_funds';
     }
+    economy.applyCoinsDelta(-room.price, `Комната: ${room.name}`, {
+      periodId: period.id,
+      category: isSelectedGoal ? 'goal' : 'optional',
+    });
   } else if (room.price > 0) {
     if (economy.coins < room.price) return 'insufficient_funds';
-    economy.applyCoinsDelta(-room.price, `Комната: ${room.name}`, { category: 'goal' });
+    economy.applyCoinsDelta(-room.price, `Комната: ${room.name}`, { category: isSelectedGoal ? 'goal' : 'optional' });
   }
   inventory.addOwnedRoom(room.id, room.section);
   usePetStore.getState().registerInteraction();

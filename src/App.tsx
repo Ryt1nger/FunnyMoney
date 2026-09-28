@@ -230,7 +230,7 @@ function App() {
             usePeriodStore и просит Home открыть раздел "Периоды" — см. devNavStore. */}
         <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Периоды</span>
         <div className="flex gap-2">
-          {([1, 2, 3] as const).map((id) => (
+          {([1, 2, 3, 4, 5] as const).map((id) => (
             <button
               key={id}
               onClick={() => {
@@ -256,7 +256,7 @@ function App() {
             пропущенных событий при этом не начисляются. */}
         <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">События</span>
         <div className="flex flex-col gap-2">
-          {([1, 2, 3] as const).map((periodId) => (
+          {([1, 2, 3, 4, 5] as const).map((periodId) => (
             <div key={periodId} className="flex gap-2">
               {PERIOD_EVENTS.filter((event) => event.periodId === periodId).map((event) => (
                 <button

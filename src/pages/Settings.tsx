@@ -128,24 +128,26 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-/** Простая "родительская проверка" — арифметика, которую ребёнку решить не так легко. */
-function makeGateQuestion() {
-  const a = 3 + Math.floor(Math.random() * 6);
-  const b = 2 + Math.floor(Math.random() * 6);
-  return { a, b, answer: a * b };
-}
-
 function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () => void }) {
-  const [question] = useState(makeGateQuestion);
+  const PARENT_PIN_KEY = 'parental_pin';
+  const savedPin = storage.get<string>(PARENT_PIN_KEY);
+  const [mode] = useState<'setup' | 'unlock'>(() => savedPin && /^\d{4}$/.test(savedPin) ? 'unlock' : 'setup');
   const [value, setValue] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState(false);
 
   function submit() {
-    if (Number(value) === question.answer) {
+    if (mode === 'setup') {
+      if (!/^\d{4}$/.test(value) || value !== confirmation) {
+        setError(true);
+        return;
+      }
+      void storage.set(PARENT_PIN_KEY, value);
       onPass();
-    } else {
-      setError(true);
+      return;
     }
+    if (value === savedPin) onPass();
+    else setError(true);
   }
 
   return (
@@ -161,28 +163,28 @@ function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () =
           Родительская зона
         </h2>
         <p className="mt-1.5 text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-          Реши пример, чтобы продолжить
+          {mode === 'setup' ? 'Задай код для входа' : 'Введи код для входа'}
         </p>
       </div>
-      <div className="text-[22px] font-extrabold" style={{ color: '#2c2a5e' }}>
-        {question.a} × {question.b} = ?
-      </div>
+      {mode === 'setup' && <p className="max-w-[260px] text-center text-[11px] font-semibold leading-snug text-[#8b8190]">Придумай код из 4 цифр. Он сохранится только на этом устройстве.</p>}
       <input
-        type="number"
+        type="password"
         inputMode="numeric"
         autoFocus
         value={value}
         onChange={(e) => {
-          setValue(e.target.value);
+          setValue(e.target.value.replace(/\D/g, '').slice(0, 4));
           setError(false);
         }}
-        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        placeholder="4 цифры"
+        maxLength={4}
         className="w-32 rounded-[16px] border bg-white px-4 py-2.5 text-center text-[18px] font-bold outline-none"
         style={{ borderColor: error ? '#ef4060' : '#eeddc3', color: '#2c2a5e' }}
       />
+      {mode === 'setup' && <input type="password" inputMode="numeric" value={confirmation} onChange={(e) => { setConfirmation(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(false); }} placeholder="Повтори код" maxLength={4} className="w-32 rounded-[16px] border bg-white px-4 py-2.5 text-center text-[18px] font-bold outline-none" style={{ borderColor: error ? '#ef4060' : '#eeddc3', color: '#2c2a5e' }} />}
       {error && (
         <p className="-mt-3 text-[11.5px] font-semibold" style={{ color: '#ef4060' }}>
-          Не совсем так, попробуй ещё раз
+          {mode === 'setup' ? 'Коды должны совпадать и содержать 4 цифры' : 'Неверный код, попробуй ещё раз'}
         </p>
       )}
       <div className="mt-1 flex w-full flex-col gap-2.5">
@@ -191,7 +193,7 @@ function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () =
           className="w-full rounded-full py-3 text-[14px] font-bold text-white transition active:scale-[0.98]"
           style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)' }}
         >
-          Продолжить
+          {mode === 'setup' ? 'Сохранить код' : 'Открыть кабинет'}
         </button>
         <button
           onClick={onCancel}
@@ -294,13 +296,17 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
   const vibrationEnabled = useSettingsStore((s) => s.vibrationEnabled);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const brightHintsEnabled = useSettingsStore((s) => s.brightHintsEnabled);
+  const demoMode = useSettingsStore((s) => s.demoMode);
 
   const setMusic = useSettingsStore((s) => s.setMusicEnabled);
+  const musicVolume = useSettingsStore((s) => s.musicVolume);
+  const setMusicVolume = useSettingsStore((s) => s.setMusicVolume);
   const setSounds = useSettingsStore((s) => s.setSoundsEnabled);
   const setVoice = useSettingsStore((s) => s.setAssistantVoiceEnabled);
   const setVibration = useSettingsStore((s) => s.setVibrationEnabled);
   const setReminders = useSettingsStore((s) => s.setRemindersEnabled);
   const setBrightHints = useSettingsStore((s) => s.setBrightHintsEnabled);
+  const setDemoMode = useSettingsStore((s) => s.setDemoMode);
 
   const petName = usePetStore((s) => s.pet?.name ?? '');
   const renamePet = usePetStore((s) => s.renamePet);
@@ -444,6 +450,22 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
               setMusicEnabled(next);
             }}
           />
+          {musicEnabled && (
+            <div className="flex items-center gap-3 rounded-[18px] bg-white/85 px-3.5 py-3">
+              <span className="w-[74px] shrink-0 text-[12px] font-bold" style={{ color: '#6f6355' }}>Громкость</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={musicVolume}
+                onChange={(e) => setMusicVolume(Number(e.target.value))}
+                aria-label="Громкость музыки"
+                className="h-2 min-w-0 flex-1 cursor-pointer accent-[#6b61f4]"
+              />
+              <span className="w-8 shrink-0 text-right text-[12px] font-bold" style={{ color: '#2c2a5e' }}>{musicVolume}</span>
+            </div>
+          )}
           <SettingsRow
             icon={<IconBell className="h-5 w-5" />}
             label="Звуки игры"
@@ -485,6 +507,13 @@ export default function Settings({ bottomInset = 0, onClose, onFullScreenChange 
             description="Точки и бейджи на важных разделах"
             checked={brightHintsEnabled}
             onChange={setBrightHints}
+          />
+          <SettingsRow
+            icon={<IconAlarmClock className="h-5 w-5" />}
+            label="Демо-режим"
+            description="Сокращённые интервалы для тестирования цикла"
+            checked={demoMode}
+            onChange={setDemoMode}
           />
         </div>
 
