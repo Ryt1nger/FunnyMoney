@@ -341,9 +341,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
         </h2>
 
         {/* Три короткие темы по два урока — тема заблокирована, пока не
-            наступил её период (см. LESSON_THEMES выше). В открытой теме
-            уроки всё равно проходятся строго по порядку: пока предыдущий
-            не завершён, кнопка "Начать" у следующего урока серая. */}
+            наступил её период (см. LESSON_THEMES выше). Все уроки доступной
+            темы можно открыть напрямую: прогресс не должен превращать кнопку
+            «Начать» в неактивную после сброса или старого состояния профиля. */}
         <div className="mt-2.5 flex flex-col gap-4">
           {LESSON_THEMES.map((theme) => {
             const themeLocked = theme.periodId > currentPeriodId;
@@ -367,10 +367,6 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
               {list.filter((lesson) => theme.lessonIds.includes(lesson.id)).map((lesson) => (
             (() => {
               const lessonCompleted = completedLessonIds.includes(lesson.id);
-              const previousLesson = list.find((item) => item.step === lesson.step - 1);
-              const waitingForPreviousLesson = !lessonCompleted
-                && previousLesson !== undefined
-                && !completedLessonIds.includes(previousLesson.id);
               return (
             <div
               key={lesson.id}
@@ -434,19 +430,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 </span>
               ) : (
                 <button
-                  disabled={waitingForPreviousLesson}
-                  aria-disabled={waitingForPreviousLesson}
                   onClick={() => { if (LESSON_COMPONENTS[lesson.id]) startLesson(lesson.id); }}
-                  className={`absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition ${
-                    waitingForPreviousLesson
-                      ? 'cursor-not-allowed'
-                      : 'active:translate-y-[2px] active:scale-[0.98]'
-                  }`}
-                  style={waitingForPreviousLesson ? {
-                    background: 'linear-gradient(180deg, #c9c6cf 0%, #aaa6b1 100%)',
-                    boxShadow:
-                      'inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(112,108,120,0.45), 0 3px 8px rgba(85,80,95,0.16)',
-                  } : lessonCompleted ? {
+                  className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+                  style={lessonCompleted ? {
                     background: GREEN,
                     boxShadow:
                       'inset 0 2px 0 rgba(170,240,185,0.6), inset 0 -2px 0 rgba(30,120,58,0.8), 0 4px 10px rgba(47,166,79,0.28)',
