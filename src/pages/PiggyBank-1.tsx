@@ -8,9 +8,8 @@ import catClothes from '../assets/icons/shop/cat-clothes.png';
 import catInterior from '../assets/icons/shop/cat-interior.png';
 import { productsByCategory, roomsBySection, type ShopCategoryId } from '../data/shopData';
 import { useEconomyStore } from '../features/economy/economyStore';
-import { storage } from '../services/storage';
-import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { IconArrowLeft, IconCheck } from '../components/icons';
+import { useTutorialStore } from '../features/tutorial/tutorialStore';
 
 const BLUE = '#111b72';
 const VIOLET = 'linear-gradient(135deg, #5268ee 0%, #304bc7 100%)';
@@ -28,12 +27,9 @@ interface Props {
   onOpenEarnModal?: () => void;
   initialDepositAmount?: number | null;
   onSavingsPlanChange?: (amount: number) => boolean;
-  tutorialActive?: boolean;
 }
 
-const INTEREST_NOTICE_KEY = 'piggy_interest_notice_seen';
-
-export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepositAmount = null, onSavingsPlanChange, tutorialActive = false }: Props) {
+export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepositAmount = null, onSavingsPlanChange }: Props) {
   const [entered, setEntered] = useState(false);
   const goal = useEconomyStore((s) => s.savingsGoal);
   const saved = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
@@ -47,33 +43,14 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepo
   const [transferError, setTransferError] = useState('');
   const [historyTab, setHistoryTab] = useState<'income' | 'expense'>('income');
   const [tab, setTab] = useState<ShopCategoryId | 'rooms'>('toys');
-  const [interestNotice, setInterestNotice] = useState(() => !tutorialActive && storage.get<boolean>(INTEREST_NOTICE_KEY) !== true);
   useEffect(() => {
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
   }, []);
   // Короткая подсказка по разделу — включается сама при первом заходе сюда.
-  // Если экран открыт с уже предзаполненным переводом "по плану" (кнопка
-  // "Пополнить копилку по плану" в Периодах, см. initialDepositAmount) —
-  // сначала даём ребёнку закончить этот перевод, а тур показываем ПОСЛЕ
-  // (когда форма перевода закрывается — подтверждена или отменена), а не
-  // поверх неё: иначе подсветка целится в кнопки, которые в этот момент
-  // раздвинуты открытой формой, и тур виден только частично/криво.
   useEffect(() => {
-    if (initialDepositAmount) return;
     useTutorialStore.getState().startTourIfNeeded('piggy');
   }, []);
-  useEffect(() => {
-    if (!initialDepositAmount || transferMode !== null) return;
-    useTutorialStore.getState().startTourIfNeeded('piggy');
-  }, [initialDepositAmount, transferMode]);
-  useEffect(() => {
-    if (!interestNotice || tutorialActive) return;
-    // Отмечаем показ сразу, чтобы уведомление появлялось только при первом входе.
-    void storage.set(INTEREST_NOTICE_KEY, true);
-    const id = window.setTimeout(() => setInterestNotice(false), 3000);
-    return () => window.clearTimeout(id);
-  }, [interestNotice, tutorialActive]);
   const goalName = goal?.name ?? '';
   const goalPrice = goal?.price ?? 0;
   const currentSaved = saved;
@@ -132,7 +109,7 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepo
     setAmount('');
   }
   return (
-    <div className="relative h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)] transition-[opacity,transform] duration-300 ease-out" style={{ paddingBottom: bottomInset + (transferMode ? 220 : 16), color: BLUE, opacity: entered ? 1 : 0, transform: entered ? 'translateY(0)' : 'translateY(12px)' }}>
+    <div className="h-full overflow-y-auto bg-[#f8f4ec] px-3 pt-[calc(env(safe-area-inset-top,0px)+10px)] transition-[opacity,transform] duration-300 ease-out" style={{ paddingBottom: bottomInset + (transferMode ? 220 : 16), color: BLUE, opacity: entered ? 1 : 0, transform: entered ? 'translateY(0)' : 'translateY(12px)' }}>
       <header className="mb-2.5 flex h-9 items-center justify-between">
         <button data-tour="piggy-back" onClick={onClose} aria-label="Назад" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#4650ad] shadow-[0_2px_10px_rgba(31,37,105,0.08)]"><IconArrowLeft className="h-4 w-4" /></button>
         <h1 className="text-[19px] font-black tracking-[-0.3px]">Копилка</h1>
@@ -149,7 +126,7 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepo
             <div className="mt-0.5 text-[11px] font-black uppercase leading-none">монет</div>
           </div>
         </div>
-        <div className="relative flex h-[108px] min-w-0 items-center overflow-hidden rounded-[20px] bg-[#f7f2ff] px-2.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
+        <div className="flex h-[108px] min-w-0 items-center overflow-hidden rounded-[20px] bg-[#f7f2ff] px-2.5 shadow-[0_3px_14px_rgba(31,37,105,0.07)]">
           <div className="flex h-[76px] w-[64px] shrink-0 items-center justify-center">
             <img src={piggyAsset} alt="" className="h-[60px] w-[60px] max-w-none object-contain" />
           </div>
@@ -158,7 +135,6 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepo
             <div className={`mt-1 whitespace-nowrap font-black leading-none tracking-[-0.8px] ${amountTextSize(currentSaved)}`}>{currentSaved}</div>
             <div className="mt-0.5 text-[11px] font-black uppercase leading-none">монет</div>
           </div>
-          <span className="absolute right-2 top-2 rounded-full bg-[#dff7e6] px-1.5 py-0.5 text-[9px] font-black leading-tight text-[#159447]">+20%</span>
         </div>
       </section>
       {transferMode ? (
@@ -212,15 +188,6 @@ export default function PiggyBank({ bottomInset = 0, coins, onClose, initialDepo
         )}
       </section>
       </div>
-      {interestNotice && !tutorialActive && (
-        <>
-          <style>{`@keyframes piggyInterestNotice{0%{opacity:0;transform:translateY(-10px)}12%{opacity:1;transform:translateY(0)}82%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-8px)}}`}</style>
-          <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+12px)] z-[60] rounded-[16px] border border-[#c5ead0] bg-[#f4fff6] px-3.5 py-2.5 shadow-[0_6px_18px_rgba(35,125,70,0.14)] [animation:piggyInterestNotice_3000ms_ease-in-out_forwards]">
-            <div className="text-[12px] font-black text-[#237443]">Копилка: +20% в конце периода</div>
-            <p className="mt-0.5 text-[10px] font-semibold leading-snug text-[#528466]">Доход начисляется на сумму, которая лежит в копилке.</p>
-          </div>
-        </>
-      )}
     </div>
   );
 }

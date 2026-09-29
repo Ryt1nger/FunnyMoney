@@ -130,6 +130,7 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
   const [removed, setRemoved] = useState<string[]>([]); // сцена 5
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
@@ -230,8 +231,23 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
     setHintText(null);
   }
 
+  function hasAttempt(): boolean {
+    if (scene === 0 || scene === 2) return pick !== null;
+    if (scene === 1) return cart.length > 0;
+    if (scene === 3) return cart.length > 0;
+    return removed.length > 0;
+  }
+
+  function resetSceneInputs() {
+    setPick(null); setCart([]); setRemoved([]); setCheckState('idle'); setHintText(null);
+  }
+
   function handleCheck() {
     if (checkState === 'correct') return;
+    if (!hasAttempt()) {
+      setHintText('Сначала попробуй выполнить задание.');
+      return;
+    }
     if (isSceneCorrect()) {
       onPracticeComplete?.();
       setHintText(null);
@@ -240,9 +256,16 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+        if (reviewMode) {
+          const remaining = mistakeScenes.filter((value) => value !== scene);
+          setMistakeScenes(remaining);
+          if (remaining.length > 0) { setScene(remaining[0]); resetSceneInputs(); }
+          else { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }
+        } else if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+          advanceTimerRef.current = setTimeout(() => {
+            setReviewNotice(false); setReviewMode(true); setScene(mistakeScenes[0]); resetSceneInputs();
+          }, 1800);
         } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {
@@ -365,8 +388,10 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
 
       <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 flex flex-col gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 0 && (
-          // Экран 1 — «Сравнение по карточкам»: два корма, выбрать более выгодный
-          <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+          <>
+            {/* Экран 1 — «Сравнение по карточкам»: два корма, выбрать более выгодный */}
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Сравни цены на корм и выбери тот вариант, что дешевле.</p>
+            <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
             {foodCardsTray.map((card) => (
               <button key={card.id} type="button" onClick={() => setPick(card.id)} className={`flex min-h-0 min-w-0 flex-col items-center gap-1 rounded-[20px] p-2 shadow-sm transition active:scale-[.98] ${pick === card.id ? 'ring-[3px] ring-[#675ff3]' : ''}`} style={{ background: card.tint }}>
                 <div className="flex min-h-0 w-full flex-1 items-center justify-center"><img src={card.image} alt="" draggable={false} className="h-full w-full object-contain" /></div>
@@ -377,11 +402,13 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
               </button>
             ))}
           </div>
+          </>
         )}
 
         {scene === 1 && (
           // Экран 2 — «Покупки по списку»: бюджет, список, товары, корзина
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Собери покупки строго по списку и уложись в бюджет {LIST_BUDGET} монет.</p>
             <div className="flex shrink-0 items-center gap-2 rounded-full bg-[#e3f1fb] px-3 py-1 shadow-sm">
               <img src={coinsIcon} alt="" className="h-[clamp(26px,7.5vw,34px)] w-[clamp(26px,7.5vw,34px)] object-contain" />
               <div className="flex flex-1 items-center justify-between gap-2">
@@ -412,8 +439,10 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
         )}
 
         {scene === 2 && (
-          // Экран 3 — «Сравни две корзины»: итого считается из цен
-          <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
+          <>
+            {/* Экран 3 — «Сравни две корзины»: итого считается из цен */}
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Сложи стоимость товаров в каждой корзине и выбери ту, где дешевле.</p>
+            <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
             {([['a', 'Корзина A', basketA, '#fdeaf0'], ['b', 'Корзина B', basketB, '#e2f2fb']] as const).map(([id, title, goods, tint]) => (
               <button key={id} type="button" onClick={() => setPick(id)} className={`flex min-h-0 min-w-0 flex-col items-stretch gap-1 rounded-[20px] p-2 shadow-sm transition active:scale-[.98] ${pick === id ? 'ring-[3px] ring-[#675ff3]' : ''}`} style={{ background: tint }}>
                 <span className="text-center text-[clamp(13px,3.9vw,16px)] font-black leading-none text-[#c9364e]" style={id === 'b' ? { color: '#1b6fb5' } : undefined}>{title}</span>
@@ -434,11 +463,13 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
               </button>
             ))}
           </div>
+          </>
         )}
 
         {scene === 3 && (
           // Экран 4 — «Шкала корзины»: набрать товары в пределах лимита 30
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Добавляй товары в корзину, но не превышай лимит в {SCALE_LIMIT} монет.</p>
             <div className="flex shrink-0 items-center gap-2 rounded-full bg-[#e3f1fb] px-3 py-1 shadow-sm">
               <img src={coinsIcon} alt="" className="h-[clamp(26px,7.5vw,34px)] w-[clamp(26px,7.5vw,34px)] object-contain" />
               <div className="flex flex-1 items-center justify-between gap-2">
@@ -469,6 +500,7 @@ export default function LessonThree({ onBack, onPracticeComplete, onFinish }: Pr
         {scene === 4 && (
           // Экран 5 — «Проверка перед кассой»: убрать из корзины лишний товар
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Проверь корзину: убери из неё то, чего нет в списке покупок.</p>
             <div className="flex shrink-0 flex-col gap-1 rounded-[16px] bg-[#f3ede0] px-2 py-1.5">
               <span className="text-[clamp(10px,2.9vw,12px)] font-black text-[#1b3f8f]">Список покупок:</span>
               {checkoutList.map((good) => (

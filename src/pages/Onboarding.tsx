@@ -10,8 +10,11 @@ import cloudIcon from '../assets/onboarding/cloud.png';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
-const AGE_MIN = 1;
-const AGE_MAX = 99;
+// Возраст ребёнка выбирается в пределах целевой возрастной группы приложения.
+// Держим ограничения в одном месте, чтобы барабан, стрелки и отправляемое
+// значение не могли разойтись.
+const AGE_MIN = 6;
+const AGE_MAX = 12;
 const AGES = Array.from({ length: AGE_MAX - AGE_MIN + 1 }, (_, i) => i + AGE_MIN);
 const RANDOM_NAMES = ['Мани', 'Бублик', 'Тедди', 'Кекс', 'Барни', 'Гриша', 'Пончик', 'Кузя'];
 

@@ -344,6 +344,7 @@ export default function LessonFour({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 0 && (
           // Экран 1 — «Собери по списку»: бюджет 40, выбрать товары из списка
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Выбери из товаров только то, что есть в списке покупок, и уложись в бюджет {LIST_BUDGET} монет.</p>
             <LimitPill label="Бюджет на покупки" value={LIST_BUDGET} />
             <div className="flex shrink-0 flex-col gap-1 rounded-[16px] bg-[#e3f1fb] px-2 py-1.5">
               <span className="text-[clamp(10px,2.9vw,12px)] font-black text-[#1b3f8f]">Список покупок:</span>
@@ -375,6 +376,7 @@ export default function LessonFour({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 1 && (
           // Экран 2 — «Выгодно или просто ярко?»: игрушка со скидкой, которой нет в списке
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Игрушки нет в твоём списке. Подумай: покупка со скидкой — это выгода или лишняя трата?</p>
             <div className="relative flex min-h-0 flex-[1.5] flex-col gap-1 rounded-[18px] bg-[#fdeaea] p-2">
               <div className="relative flex min-h-0 flex-1 items-center justify-center">
                 <img src={carIcon} alt="Машинка" draggable={false} className="h-full max-w-[70%] object-contain" />
@@ -398,6 +400,7 @@ export default function LessonFour({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 2 && (
           // Экран 3 — «Умная выгода»: обычный или акционный корм
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Сравни обычную и акционную цену и выбери более выгодный вариант.</p>
             <div className="flex shrink-0 flex-col gap-1 rounded-[16px] bg-[#e3f1fb] px-2 py-1.5">
               <span className="text-center text-[clamp(11px,3.2vw,13px)] font-black text-[#1b3f8f]">Список покупок:</span>
               <div className="flex items-center gap-2 rounded-xl bg-white/85 px-3 py-1">
@@ -424,6 +427,7 @@ export default function LessonFour({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 3 && (
           // Экран 4 — «Возврат лишнего»: убрать лишний товар, чтобы уложиться в лимит 30
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">В корзине лишний товар — убери его, чтобы уложиться в лимит {RETURN_LIMIT} монет.</p>
             <LimitPill label="Лимит на покупки" value={RETURN_LIMIT} note={`Сейчас ${returnTotal}`} over={returnTotal > RETURN_LIMIT} />
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
               {returnGoodsTray.map((good) => {
@@ -446,6 +450,7 @@ export default function LessonFour({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 4 && (
           // Экран 5 — «Сколько сэкономил?»: 30 → 20
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Вычти новую цену из обычной и выбери, сколько монет ты сэкономил.</p>
             <div className="flex min-h-0 flex-[1.4] flex-col gap-1 rounded-[18px] bg-[#fdeaea] p-2">
               <div className="flex min-h-0 flex-1 items-center justify-center"><img src={bowlIcon} alt="Корм" draggable={false} className="h-full max-w-[60%] object-contain" /></div>
               <PricePair regularLabel="Обычная цена" saleLabel="Новая цена" regular={REGULAR_FOOD_PRICE} sale={SALE_FOOD_PRICE} />

@@ -2,13 +2,30 @@ import { useEffect, useState } from 'react';
 import { useEconomyStore } from '../../economy/economyStore';
 import { usePeriodStore } from '../../economy/periodStore';
 import { useLessonProgressStore } from '../../progress/lessonProgressStore';
+import { useSettingsStore } from '../../settings/settingsStore';
 import { usePeriodEventStore, type EventChoiceRecord } from '../eventStore';
 import type { PeriodEventDefinition, PeriodEventOption } from '../eventData';
 import { getPeriodEventImage } from '../../../data/periodsData';
-import { optionVisual, formatOptionCost } from '../eventPresentation';
+import { optionVisual, optionIconSrc, formatOptionCost } from '../eventPresentation';
 import EventOptionCard from './EventOptionCard';
 import EventResult from './EventResult';
+import ConfirmPurchaseModal, { type PurchaseEffect } from '../../../components/ConfirmPurchaseModal';
 import coinIcon from '../../../assets/icons/coin.png';
+import { findVoicePhrase, playVoicePhrase, playVoiceSequence, stopVoiceover } from '../../../services/voiceover';
+
+/** Влияние выбранного варианта на Здоровье/Счастье/Богатство для модалки
+ * подтверждения — тот же принцип, что и buildPurchaseEffects в Shop.tsx
+ * (эмодзи-иконка + подписанное значение), но по эффектам варианта события,
+ * а не товара. Богатство здесь не пересчитываем в проценты отдельно — у
+ * событий это уже готовый эффект (wealth) в тех же единицах, что и в EventResult. */
+function buildEventPurchaseEffects(option: PeriodEventOption): PurchaseEffect[] {
+  const { health, happiness, wealth } = option.effects;
+  const rows: PurchaseEffect[] = [];
+  if (health) rows.push({ label: 'Здоровье', value: health, icon: '❤️', color: '#f43f5e' });
+  if (happiness) rows.push({ label: 'Счастье', value: happiness, icon: '😊', color: '#f59e0b' });
+  if (wealth) rows.push({ label: 'Богатство', value: wealth, icon: '💰', color: '#22c55e', suffix: '%' });
+  return rows;
+}
 
 const TRANSITION_MS = 380;
 const EASE = 'cubic-bezier(0.25, 0.8, 0.25, 1)';
@@ -44,24 +61,48 @@ export default function EventModal({ open, onClose }: Props) {
   usePeriodEventStore((s) => s.completedEventIds.length);
   useLessonProgressStore((s) => s.completedLessonIds.length);
 
+  const purchaseConfirmationEnabled = useSettingsStore((s) => s.purchaseConfirmationEnabled);
+
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
   const [phase, setPhase] = useState<'choice' | 'result'>('choice');
+  // Событие фиксируем на момент открытия. После выбора eventStore специально
+  // блокирует следующее событие до ухода за питомцем, поэтому повторный вызов
+  // getAvailableEvent() здесь вернул бы null и стирал экран результата.
+  const [eventSnapshot, setEventSnapshot] = useState<PeriodEventDefinition | null>(null);
   const [lastChoice, setLastChoice] = useState<{ event: PeriodEventDefinition; option: PeriodEventOption; choice: EventChoiceRecord } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [overspendWarning, setOverspendWarning] = useState(false);
+  // Вариант, ожидающий подтверждения покупки (окно "Точно хотите купить?") —
+  // как в Shop/RoomPreview, показываем только для вариантов, которые реально
+  // тратят монеты из кошелька (option.effects.coins < 0), и только если
+  // подтверждение покупок включено в настройках.
+  const [confirmOption, setConfirmOption] = useState<PeriodEventOption | null>(null);
 
-  const event = open && periodStatus === 'active'
-    ? usePeriodEventStore.getState().getAvailableEvent()
-    : null;
+  const event = open && periodStatus === 'active' ? eventSnapshot : null;
+
+  useEffect(() => {
+    if (!open || !event) {
+      stopVoiceover();
+      return;
+    }
+    if (phase === 'result' && lastChoice) {
+      playVoicePhrase(lastChoice.choice.feedback);
+    } else {
+      playVoiceSequence([findVoicePhrase(event.title), findVoicePhrase(event.context)]);
+    }
+    return stopVoiceover;
+  }, [open, event?.id, phase, lastChoice?.choice.feedback]);
 
   useEffect(() => {
     if (open) {
       setMounted(true);
       setPhase('choice');
+      setEventSnapshot(usePeriodEventStore.getState().getAvailableEvent());
       setLastChoice(null);
       setErrorMessage('');
       setOverspendWarning(false);
+      setConfirmOption(null);
       let raf2 = 0;
       const raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => setShown(true));
@@ -72,19 +113,15 @@ export default function EventModal({ open, onClose }: Props) {
       };
     }
     setShown(false);
+    setEventSnapshot(null);
     const t = setTimeout(() => setMounted(false), TRANSITION_MS);
     return () => clearTimeout(t);
   }, [open]);
 
   if (!mounted) return null;
 
-  function handleSelect(option: PeriodEventOption) {
+  function applyChoice(option: PeriodEventOption) {
     if (!event) return;
-    if (event.id === OVERSPEND_EVENT_ID && option.id === OVERSPEND_OPTION_ID) {
-      setOverspendWarning(true);
-      return;
-    }
-    setOverspendWarning(false);
     const result = usePeriodEventStore.getState().resolveChoice(event.id, option.id);
     if (!result.ok) {
       setErrorMessage(reasonToMessage(result.reason));
@@ -93,6 +130,25 @@ export default function EventModal({ open, onClose }: Props) {
     setErrorMessage('');
     setLastChoice({ event, option, choice: result.choice });
     setPhase('result');
+  }
+
+  function handleSelect(option: PeriodEventOption) {
+    if (!event) return;
+    playVoicePhrase(option.label);
+    if (event.id === OVERSPEND_EVENT_ID && option.id === OVERSPEND_OPTION_ID) {
+      setOverspendWarning(true);
+      return;
+    }
+    setOverspendWarning(false);
+    // Любой вариант, тратящий монеты из кошелька, сначала проходит то же
+    // окно подтверждения, что и покупки в магазине/комнатах — если оно
+    // включено в настройках (родительский контроль).
+    const spendsCoins = (option.effects.coins ?? 0) < 0;
+    if (spendsCoins && purchaseConfirmationEnabled) {
+      setConfirmOption(option);
+      return;
+    }
+    applyChoice(option);
   }
 
   const globalIndex = event ? (event.periodId - 1) * 3 + event.order : 0;
@@ -207,6 +263,24 @@ export default function EventModal({ open, onClose }: Props) {
           </div>
         </div>
       </div>
+
+      <ConfirmPurchaseModal
+        item={confirmOption ? {
+          name: confirmOption.label,
+          image: optionIconSrc(confirmOption) ?? coinIcon,
+          price: Math.abs(confirmOption.effects.coins ?? 0),
+          source: 'wallet',
+          categoryLabel: confirmOption.expenseType === 'mandatory' ? 'Обязательное' : confirmOption.expenseType === 'goal' ? 'Моя цель' : 'Желание',
+          description: confirmOption.feedback,
+          effects: buildEventPurchaseEffects(confirmOption),
+        } : null}
+        onCancel={() => setConfirmOption(null)}
+        onConfirm={() => {
+          const option = confirmOption;
+          setConfirmOption(null);
+          if (option) applyChoice(option);
+        }}
+      />
     </div>
   );
 }

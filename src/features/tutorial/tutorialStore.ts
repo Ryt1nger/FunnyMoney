@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import { storage } from '../../services/storage';
-import { tutorialSteps } from '../../data/tutorialSteps';
+import { tutorialTours, type TutorialTourId } from '../../data/tutorialSteps';
 import { useInventoryStore } from '../inventory/inventoryStore';
 import { useEconomyStore } from '../economy/economyStore';
 import { ECONOMY_RULES } from '../../core/economy';
 
-// Флаг "обучение пройдено или пропущено" — после него тур больше не
-// запускается сам. Повторно открыть его можно из настроек (restart).
-const DONE_KEY = 'tutorial_done';
+// Флаг "этот тур пройден или пропущен" — у КАЖДОГО тура свой, независимый от
+// остальных. 'home' сохраняет старый ключ (совместимость со старыми
+// сохранениями, где было только одно общее обучение) — остальные туры
+// используют новые ключи per-раздел.
+function doneKey(tourId: TutorialTourId): string {
+  return tourId === 'home' ? 'tutorial_done' : `tutorial_${tourId}_done`;
+}
+
 const REWARD_KEY = 'tutorial_reward_granted';
 
 // На шаге "покорми меня" (кухня) ребёнок должен суметь реально перетащить
@@ -28,35 +33,48 @@ function ensureStarterFoodForTutorial() {
 
 interface TutorialStore {
   active: boolean;
+  /** Какой тур сейчас идёт (null, если обучение не активно). */
+  tourId: TutorialTourId | null;
   stepIndex: number;
-  /** Запускает тур, если ребёнок его ещё не проходил. */
-  startIfNeeded: () => void;
-  /** Запускает тур заново (кнопка в настройках). */
+  /** Запускает тур раздела, если этот раздел ребёнок открывает первый раз —
+   *  неважно, зашёл ли он сам или его привёл туда игровой ивент (оба пути
+   *  вызывают это из одного и того же mount-эффекта экрана раздела). Если
+   *  какой-то тур уже идёт — новый его не перебивает. */
+  startTourIfNeeded: (tourId: TutorialTourId) => void;
+  /** Запускает обучение заново (кнопка в настройках) — сбрасывает флаги
+   *  ВСЕХ туров и начинает с главного экрана. */
   restart: () => void;
   next: () => void;
-  /** Завершение — и кнопкой на последнем шаге, и "Пропустить". */
+  /** Завершение ТЕКУЩЕГО тура — и кнопкой на последнем шаге, и "Пропустить". */
   finish: () => void;
 }
 
 export const useTutorialStore = create<TutorialStore>((set, get) => ({
   active: false,
+  tourId: null,
   stepIndex: 0,
 
-  startIfNeeded: () => {
+  startTourIfNeeded: (tourId) => {
     if (get().active) return;
-    if (storage.get<boolean>(DONE_KEY)) return;
-    ensureStarterFoodForTutorial();
-    set({ active: true, stepIndex: 0 });
+    if (storage.get<boolean>(doneKey(tourId))) return;
+    if (tourId === 'kitchen') ensureStarterFoodForTutorial();
+    set({ active: true, tourId, stepIndex: 0 });
   },
 
   restart: () => {
+    (Object.keys(tutorialTours) as TutorialTourId[]).forEach((id) => {
+      void storage.remove(doneKey(id));
+    });
     ensureStarterFoodForTutorial();
-    set({ active: true, stepIndex: 0 });
+    set({ active: true, tourId: 'home', stepIndex: 0 });
   },
 
   next: () => {
-    const nextIndex = get().stepIndex + 1;
-    if (nextIndex >= tutorialSteps.length) {
+    const { tourId, stepIndex } = get();
+    if (!tourId) return;
+    const steps = tutorialTours[tourId];
+    const nextIndex = stepIndex + 1;
+    if (nextIndex >= steps.length) {
       get().finish();
       return;
     }
@@ -64,12 +82,18 @@ export const useTutorialStore = create<TutorialStore>((set, get) => ({
   },
 
   finish: () => {
-    if (storage.get<boolean>(REWARD_KEY) !== true) {
-      useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.oneTimeTheoryCoins, 'Награда за обучение', { category: 'reward' });
-      void storage.set(REWARD_KEY, true);
+    const { tourId } = get();
+    if (tourId) {
+      // Награда за обучение выдаётся один раз за всё приложение и привязана
+      // именно к завершению тура 'home' (первого, обязательного) — мини-туры
+      // разделов её не выдают.
+      if (tourId === 'home' && storage.get<boolean>(REWARD_KEY) !== true) {
+        useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.oneTimeTheoryCoins, 'Награда за обучение', { category: 'reward' });
+        void storage.set(REWARD_KEY, true);
+      }
+      void storage.set(doneKey(tourId), true);
+      if (tourId === 'home') void storage.set('tutorial_finished_at', Date.now());
     }
-    void storage.set(DONE_KEY, true);
-    void storage.set('tutorial_finished_at', Date.now());
-    set({ active: false, stepIndex: 0 });
+    set({ active: false, tourId: null, stepIndex: 0 });
   },
 }));

@@ -135,14 +135,16 @@ export const usePetStore = create<PetStore>((set, get) => ({
     const current = get().pet;
     if (!current) return null;
     const now = Date.now();
-    return [...(current.careInteractions ?? [])].reverse().find((item) => item.action === action && !item.usedForEventId && now - item.completedAt <= maxAgeMs) ?? null;
+    // Покупка предмета — это не само взаимодействие с питомцем. Купленная
+    // игрушка/еда/лекарство должна дождаться отдельной мини-игры или действия.
+    return [...(current.careInteractions ?? [])].reverse().find((item) => item.action === action && item.source !== 'shop' && !item.usedForEventId && now - item.completedAt <= maxAgeMs) ?? null;
   },
 
   findRecentOtherCareInteraction: (action, maxAgeMs = 15 * 60 * 1000) => {
     const current = get().pet;
     if (!current) return null;
     const now = Date.now();
-    return [...(current.careInteractions ?? [])].reverse().find((item) => item.action !== action && !item.usedForEventId && now - item.completedAt <= maxAgeMs) ?? null;
+    return [...(current.careInteractions ?? [])].reverse().find((item) => item.action !== action && item.source !== 'shop' && !item.usedForEventId && now - item.completedAt <= maxAgeMs) ?? null;
   },
 
   useCareInteractionForEvent: (action, eventId) => {

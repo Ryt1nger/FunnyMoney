@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { usePetStore } from '../features/pet/petStore';
-import { getCharacterById } from '../data/petCharacters';
+import bearAvatar from '../assets/pet/bear-avatar.png';
+import kitchenBearClosed from '../assets/pet/kitchen-bear-closed.png';
 import kitchenBearOpen from '../assets/pet/kitchen-bear-open.png';
 import kitchenBearOpenWide from '../assets/pet/kitchen-bear-open-wide.png';
 import levelFlower from '../assets/ui/level-flower.png';
@@ -11,6 +11,7 @@ import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
 import GlassMetric from '../components/GlassMetric';
 import {
   IconPlus,
+  IconChevronRight,
   IconHomeOutline,
   IconCart,
   IconHeart,
@@ -19,9 +20,9 @@ import {
 import { rooms, roomsBySection, shopProducts, type ShopProduct } from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { feedPet } from '../features/economy/purchase';
-import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { hapticTap } from '../services/haptics';
 import { playFeedCrunchSound, primeFeedCrunchSound } from '../services/feedSound';
+import { useTutorialStore } from '../features/tutorial/tutorialStore';
 
 // Фон кухни по умолчанию — если своя кухня ещё не куплена/не установлена,
 // показываем первую из каталога (см. shopData: rooms, section 'kitchen').
@@ -43,6 +44,7 @@ interface Props {
   wealth: number;
   activeKitchenRoomId: string;
   onOpenEarnModal?: () => void;
+  onOpenProgress: () => void;
   /** Иконка-корзинка под метриками — открывает магазин сразу на разделе «Еда». */
   onOpenShop: () => void;
   onClose: () => void;
@@ -72,10 +74,10 @@ export default function Kitchen({
   wealth,
   activeKitchenRoomId,
   onOpenEarnModal,
+  onOpenProgress,
   onOpenShop,
   onClose,
 }: Props) {
-  const character = getCharacterById(usePetStore((s) => s.pet?.characterId));
   const foodQty = useInventoryStore((s) => s.foodQty);
   const foodItems = shopProducts
     .filter((p) => p.category === 'food' && (foodQty[p.id] ?? 0) > 0)
@@ -100,8 +102,8 @@ export default function Kitchen({
   const swipeUpRef = useRef<{ startX: number; startY: number } | null>(null);
 
   // Короткая подсказка по разделу — включается сама при первом заходе сюда,
-  // неважно, зашёл ли ребёнок сам из любопытства или сюда привёл игровой
-  // ивент (например, "покорми меня") — оба пути монтируют этот же компонент.
+  // неважно, зашёл ли ребёнок на кухню сам или его привело сюда игровое
+  // событие (например, подсказка "покорми питомца" с главного экрана).
   useEffect(() => {
     useTutorialStore.getState().startTourIfNeeded('kitchen');
   }, []);
@@ -216,13 +218,14 @@ export default function Kitchen({
         className="safe-area-topbar relative z-20 flex items-start gap-2 px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 20px)' }}
       >
-        <div
-          className="flex min-w-0 flex-1 items-center rounded-2xl py-0.5 pr-1"
-          aria-label="Возраст мишки"
+        <button
+          onClick={onOpenProgress}
+          className="flex min-w-0 flex-1 items-center rounded-2xl py-0.5 pr-1 transition active:scale-[0.97]"
+          aria-label="Открыть прогресс уровня"
         >
           <div className="relative shrink-0">
             <img
-              src={character.avatarImage}
+              src={bearAvatar}
               alt={petName}
               className="h-[44px] w-[44px] rounded-full border-2 border-white object-cover shadow-lg"
             />
@@ -253,15 +256,10 @@ export default function Kitchen({
                 }}
               />
             </div>
-            <div
-              className="mt-1 text-[9.5px] font-medium leading-none text-white"
-              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
-            >
-              {xp} / {xpToNext} XP
-            </div>
           </div>
 
-        </div>
+          <IconChevronRight className="ml-1 h-3.5 w-3.5 shrink-0 self-center text-white drop-shadow" style={{ opacity: 0.85 }} />
+        </button>
 
         <div
           className="flex shrink-0 items-center gap-1.5 rounded-full border py-1.5 pl-2.5 pr-1.5 backdrop-blur-md"
@@ -344,7 +342,7 @@ export default function Kitchen({
           места. Поэтому высота подноса и количество карточек еды не меняют ни
           размер, ни положение питомца. Зона вокруг него остаётся достаточно
           широкой, чтобы ребёнку не требовалась ювелирная точность. */}
-      <div ref={bearZoneRef} className="absolute inset-x-0 top-[33vh] z-0 h-[40vh]">
+      <div ref={bearZoneRef} className="absolute inset-x-0 top-[27vh] z-0 h-[40vh]">
         <div className="absolute left-1/2 top-[-12%] z-10 -translate-x-1/2 rounded-[18px] bg-white px-3.5 py-2 shadow-lg">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold" style={{ color: '#2c2a5e' }}>
             <IconHeart className="h-4 w-4" style={{ color: '#ef4060' }} />
@@ -357,11 +355,11 @@ export default function Kitchen({
             кухне направлен влево, поэтому силуэт уходит только вправо. Она
             находится под базовым кадром и скрывается под подносом внизу. */}
         <img
-          src={character.mainImage}
+          src={kitchenBearClosed}
           alt=""
           aria-hidden="true"
           draggable={false}
-          className="pointer-events-none absolute left-1/2 h-[42vh] w-auto select-none object-contain"
+          className="pointer-events-none absolute left-1/2 h-[44vh] w-auto select-none object-contain"
           style={{
             bottom: '2%',
             transformOrigin: 'bottom center',
@@ -372,11 +370,11 @@ export default function Kitchen({
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[14px] w-[100px] rounded-[50%]"
+          className="pointer-events-none absolute bottom-[1%] left-1/2 h-[12px] w-[112px] rounded-[50%]"
           style={{
             transform: 'translateX(-2%)',
-            background: 'radial-gradient(ellipse at 50% 50%, rgba(20,10,2,0.45) 0%, rgba(20,10,2,0.20) 52%, rgba(20,10,2,0) 76%)',
-            filter: 'blur(2px)',
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(20,10,2,0.36) 0%, rgba(20,10,2,0.16) 52%, rgba(20,10,2,0) 76%)',
+            filter: 'blur(3px)',
           }}
         />
 
@@ -386,10 +384,10 @@ export default function Kitchen({
             кроссфейдится только мягко замаскированная область рта — иначе
             небольшие различия глаз в исходных кадрах выглядят как моргание. */}
         <img
-          src={character.mainImage}
+          src={kitchenBearClosed}
           alt={petName}
           draggable={false}
-          className="pointer-events-none absolute bottom-0 left-1/2 h-[42vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[44vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
         {[{ pose: 2, src: kitchenBearOpen }, { pose: 3, src: kitchenBearOpenWide }].map(({ pose, src }) => {
           const isVisible = pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
@@ -399,7 +397,7 @@ export default function Kitchen({
               src={src}
               alt=""
               draggable={false}
-              className="pointer-events-none absolute bottom-0 left-1/2 h-[42vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
+              className="pointer-events-none absolute bottom-0 left-1/2 h-[44vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transitionDuration: `${BEAR_STEP_MS}ms`,

@@ -377,6 +377,7 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 0 && (
           // Экран 1 — «Выбери цель»
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Выбери финансовую цель, на которую будешь копить монеты.</p>
             {goalsTray.map((item) => (
               <button key={item.id} type="button" onClick={() => setGoal(item.id)} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[18px] px-3 shadow-sm transition active:scale-[.98] ${goal === item.id ? SELECTED_RING : ''}`} style={{ background: item.bg }}>
                 <img src={item.image} alt="" draggable={false} className="h-[82%] w-[34%] shrink-0 object-contain" />
@@ -393,6 +394,7 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 1 && (
           // Экран 2 — «Первый взнос»: разложить монеты по двум зонам
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Раздели монеты: часть — в копилку на цель, часть — на текущие расходы.</p>
             <CoinsPill value={WALLET_TOTAL} />
             <div className="flex min-h-0 flex-[1.7] gap-2">
               {renderZone('piggy', 'В копилку на цель', piggyIcon, 'bg-[#fde3ea]', 'border-[#f0a3b8]', piggyCoins)}
@@ -407,6 +409,7 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 2 && (
           // Экран 3 — «План накоплений»: отметить недели, чтобы дойти до цели
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Отметь недели, чтобы накопления дошли до цели.</p>
             <div className="flex shrink-0 items-center gap-3 rounded-[18px] bg-[#fde3ea] px-3 py-1.5">
               <img src={piggyCoinIcon} alt="" draggable={false} className="h-[clamp(38px,11vw,50px)] w-[clamp(34px,10vw,44px)] shrink-0 object-contain" />
               <div className="flex flex-1 flex-col gap-0.5 leading-tight">
@@ -455,6 +458,7 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 3 && (
           // Экран 4 — «Цель или мелочь»
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">У тебя есть немного монет — выбери вариант, который приблизит тебя к цели.</p>
             <CoinsPill value={SMALL_COINS} />
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
               {impulseOptionsTray.map((option) => (
@@ -475,6 +479,7 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
         {scene === 4 && (
           // Экран 5 — «Финальный шаг»: последние 10 монет в копилку
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Осталось совсем немного! Положи последние монеты в копилку, чтобы достичь цели.</p>
             <div className="flex shrink-0 items-center gap-3 rounded-[16px] bg-[#fde3ea] px-3 py-1.5">
               <img src={piggyCoinIcon} alt="" draggable={false} className="h-[clamp(34px,10vw,44px)] w-[clamp(30px,9vw,38px)] shrink-0 object-contain" />
               <div className="flex min-w-0 flex-1 flex-col gap-1">

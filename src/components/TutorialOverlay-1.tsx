@@ -4,7 +4,6 @@ import { tutorialTours, type TutorialStep } from '../data/tutorialSteps';
 import { usePetStore } from '../features/pet/petStore';
 import { hapticTap } from '../services/haptics';
 import { getCharacterById } from '../data/petCharacters';
-import { playVoiceSequence, stopVoiceover } from '../services/voiceover';
 
 interface Rect {
   left: number;
@@ -17,30 +16,6 @@ interface Rect {
 const PAD = 8;
 // Тёмный полупрозрачный фон вокруг подсветки — единая константа для всех кусков.
 const SCRIM = 'rgba(20,16,32,0.72)';
-
-// Индексы фраз в трёх последовательно записанных дорожках, теперь по id шага
-// (раньше — по номеру в одном плоском списке; после разбивки на туры по
-// разделам плоского индекса больше нет, см. правку "разбить обучение на
-// мини-туры"). Шаги без записи здесь озвучки не имеют (новые шаги превью
-// кухни/копилки/нижнего меню, и шаги-тапы по нижнему меню, которых в турах
-// разделов больше нет).
-const TUTORIAL_VOICE_BY_ID: Readonly<Record<string, readonly number[]>> = {
-  welcome: [8, 9],
-  'home-coins': [11, 12],
-  'home-settings': [13, 14],
-  'home-inventory': [15, 16],
-  'home-kitchen-preview': [17, 18],
-  'home-piggy-preview': [33, 34],
-  finish: [42, 43, 44],
-  'period-card': [25, 26],
-  'period-plan': [27, 28],
-  'shop-categories': [29, 30],
-  'shop-products': [31, 32],
-  'kitchen-food': [21],
-  'kitchen-shop': [22, 23],
-  'piggy-overview': [35, 36, 37, 38],
-  'piggy-goal': [39, 40],
-};
 
 // Ближайший СКРОЛЛЯЩИЙСЯ предок элемента (overflow-y: auto/scroll и реально
 // есть что скроллить) — нужен, чтобы довернуть скролл вручную, а не полагаться
@@ -148,15 +123,6 @@ export default function TutorialOverlay() {
   const character = getCharacterById(usePetStore((s) => s.pet?.characterId));
 
   const step: TutorialStep | undefined = tourId ? tutorialTours[tourId][stepIndex] : undefined;
-
-  useEffect(() => {
-    if (!active || !step) {
-      stopVoiceover();
-      return;
-    }
-    playVoiceSequence(TUTORIAL_VOICE_BY_ID[step.id] ?? []);
-    return stopVoiceover;
-  }, [active, step]);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);

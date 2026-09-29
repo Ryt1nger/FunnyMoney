@@ -3,7 +3,7 @@ import checkIcon from '../assets/icons/result-check.png';
 import coinsStackIcon from '../assets/icons/result-coins.png';
 import xpStarIcon from '../assets/icons/result-xp.png';
 import targetIcon from '../assets/icons/result-target.png';
-import { IconArrowLeft, IconArrowRight } from './icons';
+import { IconArrowLeft } from './icons';
 import { usePetStore } from '../features/pet/petStore';
 import { getCharacterById } from '../data/petCharacters';
 
@@ -21,9 +21,6 @@ export interface LessonResultScreenProps {
   xpEarned: number;
   /** Текущий баланс монет — показывается в шапке (после начисления награды). */
   walletCoins: number;
-  /** Есть ли следующий доступный урок — иначе кнопка "Дальше" ведёт к списку уроков. */
-  hasNextLesson: boolean;
-  onNext: () => void;
   onRetry: () => void;
   onBackToList: () => void;
 }
@@ -90,8 +87,6 @@ export default function LessonResultScreen({
   coinsEarned,
   xpEarned,
   walletCoins,
-  hasNextLesson,
-  onNext,
   onRetry,
   onBackToList,
 }: LessonResultScreenProps) {
@@ -160,11 +155,11 @@ export default function LessonResultScreen({
         <div className="mt-4 flex flex-col gap-2.5">
           <button
             type="button"
-            onClick={onNext}
+            onClick={onBackToList}
             className="flex h-14 w-full items-center justify-center gap-1.5 rounded-[26px] bg-gradient-to-b from-[#8379ff] via-[#6b61f4] to-[#5044e8] text-[16px] font-extrabold text-white shadow-[0_7px_18px_rgba(80,65,215,.38)] transition active:scale-[.98]"
           >
-            {hasNextLesson ? 'Дальше' : 'К урокам'}
-            <IconArrowRight className="h-4 w-4" />
+            <IconGrid className="h-4 w-4" />
+            К урокам
           </button>
           <button
             type="button"
@@ -173,14 +168,6 @@ export default function LessonResultScreen({
           >
             <IconRefresh className="h-4 w-4" />
             Повторить
-          </button>
-          <button
-            type="button"
-            onClick={onBackToList}
-            className="flex h-12 w-full items-center justify-center gap-1.5 rounded-[26px] bg-[#efeaf7] text-[14px] font-extrabold text-[#5d57c9] transition active:scale-[.98]"
-          >
-            <IconGrid className="h-3.5 w-3.5" />
-            К урокам
           </button>
         </div>
       </div>

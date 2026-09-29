@@ -102,6 +102,9 @@ interface PeriodStore extends PeriodState {
   /** Только для дев-панели: принудительно переключить на период id, сохранив
    *  текущие балансы, но сбросив план/факт/флаги этого периода набело. */
   setPeriod: (id: PeriodId) => void;
+  /** Только для дев-панели: подготавливает настоящий active-период к
+   *  прохождению completePeriod() с предсказуемым успехом/неудачей. */
+  debugPrepareCompletion: (id: PeriodId, outcome: 'success' | 'failure') => void;
 }
 
 function loadInitial(): PeriodState {
@@ -335,6 +338,32 @@ export const usePeriodStore = create<PeriodStore>((set, get) => ({
     const next = {
       ...createInitialPeriod(state.walletBalance, state.savingsBalance),
       id,
+      history: state.history ?? [],
+    };
+    persist(next);
+    set(next);
+  },
+
+  debugPrepareCompletion: (id, outcome) => {
+    const state = get();
+    const wallet = Math.max(100, state.walletBalance);
+    const savings = state.savingsBalance;
+    const plan: BudgetPlan = { mandatory: 30, optional: 30, savings: 30 };
+    const actual: PeriodActuals = outcome === 'success'
+      ? { ...plan }
+      : { mandatory: 0, optional: 0, savings: 0 };
+    const next: PeriodState = {
+      ...createInitialPeriod(wallet, savings),
+      id,
+      income: wallet,
+      plan,
+      actual,
+      walletBalance: wallet,
+      savingsBalance: savings,
+      startingWalletBalance: wallet,
+      startingSavingsBalance: savings,
+      status: 'active',
+      rewardFlags: { ...emptyFlags(), planConfirmed: true },
       history: state.history ?? [],
     };
     persist(next);

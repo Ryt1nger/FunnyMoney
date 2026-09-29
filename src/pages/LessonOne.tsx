@@ -117,6 +117,17 @@ const sceneHints: Record<number, string> = {
   [ORDER_SCENE_INDEX]: 'Игрушку выбираем только после обязательного.',
 };
 
+// Короткая инструкция задания — что именно нужно сделать на этой сцене
+// (в отличие от sceneHints выше, это не подсказка при ошибке, а постоянное
+// пояснение, чтобы ребёнок понимал задачу до первой попытки).
+const sceneInstructions: Record<number, string> = {
+  0: 'Разложи карточки по трём коробкам: нужное каждый день, то, что хочется, и то, что стоит отложить.',
+  1: 'Собери в корзину еду, лекарство и наклейки — уложись в баланс, игрушка пока подождёт.',
+  [WALK_SCENE_INDEX]: 'Собери в дорогу только то, что точно понадобится на прогулке — остальное оставь дома.',
+  [PLAN_SCENE_INDEX]: 'Появилась новая покупка! Перенеси 10 монет из «Развлечений» в «Подарок другу».',
+  [ORDER_SCENE_INDEX]: 'Расставь карточки по порядку: с чего начать покупку и чем закончить.',
+};
+
 type PracticeItem = { id: string; label: string; price?: number; image: string; category: string };
 // Тип возвращаемого usePointerDrag() — та же тройка start/move/end/cancel,
 // что и в кормлении на кухне (Kitchen.tsx), но с центральным "куда бросили"
@@ -187,6 +198,7 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
   // держит подсказку на экране, пока задание не решено верно.
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   const [reviewNotice, setReviewNotice] = useState(false);
   // Счётчик, чтобы переигрывать CSS-анимацию (тряска/галочка) даже если
   // результат проверки не изменился (два неверных подряд и т.п.).
@@ -368,8 +380,30 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
     setHintText(null);
   }
 
+  function hasAttempt(): boolean {
+    if (scene === WALK_SCENE_INDEX) return walkCart.length > 0;
+    if (scene === ORDER_SCENE_INDEX) return orderPlacements.some(Boolean);
+    if (scene === PLAN_SCENE_INDEX) return planApplied;
+    if (scene === 1) return budgetCart.length > 0;
+    return placements.some(Boolean);
+  }
+
+  function resetSceneInputs() {
+    setPlacements([null, null, null]);
+    setBudgetCart([]);
+    setWalkCart([]);
+    setOrderPlacements([null, null, null, null]);
+    setPlanApplied(false);
+    setCheckState('idle');
+    setHintText(null);
+  }
+
   function handleCheck() {
     if (checkState === 'correct') return;
+    if (!hasAttempt()) {
+      setHintText('Сначала попробуй выполнить задание.');
+      return;
+    }
     if (isSceneCorrect()) {
       onPracticeComplete?.();
       setHintText(null);
@@ -378,9 +412,24 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+        if (reviewMode) {
+          const remaining = mistakeScenes.filter((value) => value !== scene);
+          setMistakeScenes(remaining);
+          if (remaining.length > 0) {
+            setScene(remaining[0]);
+            resetSceneInputs();
+          } else {
+            lessonCompletedRef.current = true;
+            onFinish(scenes.length - mistakeScenes.length);
+          }
+        } else if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+          advanceTimerRef.current = setTimeout(() => {
+            setReviewNotice(false);
+            setReviewMode(true);
+            setScene(mistakeScenes[0]);
+            resetSceneInputs();
+          }, 1800);
         } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {
@@ -463,6 +512,12 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
       </div>
 
       {reviewNotice && <div className="absolute left-1/2 top-[11%] z-30 -translate-x-1/2 rounded-full bg-[#fff7d6] px-4 py-2 text-center text-[12px] font-black text-[#9a6d08] shadow-[0_5px_16px_rgba(116,84,10,.2)] [animation:lessonFadeIn_220ms_ease-out]">Работа над ошибками — закрепляем навык</div>}
+
+      {sceneInstructions[scene] && (
+        <div key={`instruction-${scene}`} className="absolute left-1/2 top-[20%] z-10 w-[88%] -translate-x-1/2 rounded-[16px] bg-white/90 px-3 py-2 text-center shadow-[0_4px_14px_rgba(80,63,40,.14)] backdrop-blur-sm [animation:lessonFadeIn_260ms_ease-out]">
+          <p className="text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">{sceneInstructions[scene]}</p>
+        </div>
+      )}
 
       {/* Круглая кнопка книги — единственный дополнительный элемент на чистом фоне */}
       <button aria-label="Вернуться к анимационному уроку" onClick={() => { setPhase('video'); setWatched(false); setPlaying(false); if (videoRef.current) { videoRef.current.currentTime = 0; videoRef.current.pause(); } }} className="absolute right-5 top-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#5b4cf0] text-white shadow-[0_6px_18px_rgba(74,60,205,.38)] transition active:scale-95"><IconBook className="h-7 w-7" /></button>

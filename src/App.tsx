@@ -8,6 +8,7 @@ import { useEconomyStore } from './features/economy/economyStore';
 import { bootstrapGame } from './services/bootstrap';
 import { startBackgroundMusic } from './services/backgroundMusic';
 import { initGlobalTapSound } from './services/globalTapSound';
+import { startSessionTracking } from './services/sessionTracking';
 import { storage } from './services/storage';
 import { usePeriodStore } from './features/economy/periodStore';
 import { useDevNavStore } from './features/dev/devNavStore';
@@ -19,6 +20,10 @@ import { ECONOMY_RULES } from './core/economy';
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
 // тапа на любой кнопке приложения без ручной разводки по каждому месту.
 initGlobalTapSound();
+
+// Счётчик реального времени в приложении для родительского кабинета — один
+// heartbeat на весь запуск, а не на каждый рендер App().
+startSessionTracking();
 
 // Новая игра начинается без искусственно выданного дохода. Монеты приходят
 // только из уроков, практики и других игровых действий.
@@ -118,7 +123,10 @@ function App() {
     setOverlay('out');
     setOverlayVisible(false);
     fadeTimer.current = setTimeout(() => {
-      if (overlayRunId.current === runId) setOverlay('hidden');
+      if (overlayRunId.current === runId) {
+        setOverlay('hidden');
+        requestAnimationFrame(() => window.dispatchEvent(new Event('voiceover-ready')));
+      }
     }, FADE_MS);
 
     // Фоновую музыку включаем только после того, как заставка запуска реально
@@ -179,6 +187,7 @@ function App() {
             с прогресс-баром (и реальной проверкой данных, не имитацией). */}
         {overlay !== 'hidden' && (
           <div
+            data-voiceover-blocking="true"
             className="pointer-events-none absolute inset-0 z-50 transition-opacity ease-in-out"
             style={{
               transitionProperty: 'opacity',
@@ -246,6 +255,33 @@ function App() {
             >
               Период {id}
             </button>
+          ))}
+        </div>
+        <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Завершение периода</span>
+        <div className="flex gap-2">
+          {([1, 2, 3, 4, 5] as const).map((id) => (
+            <div key={id} className="flex min-w-0 flex-1 flex-col gap-1">
+              <button
+                onClick={() => {
+                  usePeriodStore.getState().debugPrepareCompletion(id, 'success');
+                  usePeriodEventStore.getState().debugCompletePeriod(id);
+                  jumpToHome();
+                }}
+                className="truncate rounded-xl bg-emerald-50 px-2 py-2 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                Успех {id}
+              </button>
+              <button
+                onClick={() => {
+                  usePeriodStore.getState().debugPrepareCompletion(id, 'failure');
+                  usePeriodEventStore.getState().debugCompletePeriod(id);
+                  jumpToHome();
+                }}
+                className="truncate rounded-xl bg-rose-50 px-2 py-2 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100"
+              >
+                Неудача {id}
+              </button>
+            </div>
           ))}
         </div>
         {/* Прыжок сразу к конкретному событию периода (дев-панель): топит

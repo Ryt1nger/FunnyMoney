@@ -168,6 +168,13 @@ function optionIconBg(option: PeriodEventOption): string {
   return '#e6f9ee';
 }
 
+/** Тот же ассет, что и в optionVisual, но как строка-src (для модалки
+ * подтверждения покупки, которой нужен обычный <img src>, а не готовый
+ * ReactNode). Для вариантов с двумя иконками — первая (основная). */
+export function optionIconSrc(option: PeriodEventOption): string | undefined {
+  return OPTION_ICON_FILES[option.id]?.[0];
+}
+
 /** Иконка + цвет фона карточки варианта. Иконка — реальный вырезанный ассет
  * по id варианта (см. OPTION_ICON_FILES), фон — по смыслу варианта
  * (копилка/обязательное/желание/нейтральное). */

@@ -17,7 +17,8 @@ import {
   type ShopProduct,
 } from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
-import { getProductPurchaseFunding, getRoomPurchaseFunding, purchaseProduct, toEconomyProductMeta } from '../features/economy/purchase';
+import { purchaseProduct } from '../features/economy/purchase';
+import { toEconomyProductMeta } from '../features/economy/purchase';
 import { useEconomyStore } from '../features/economy/economyStore';
 import ConfirmPurchaseModal, { type PurchaseEffect } from '../components/ConfirmPurchaseModal';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
@@ -41,7 +42,13 @@ const BTN_SHADOW =
 /** Короткое текстовое описание товара для модалки подтверждения — без цифр,
  * сами цифры (влияние на метрики) выносятся отдельно в buildPurchaseEffects. */
 function describeProduct(product: ShopProduct): string {
-  return product.description;
+  if (product.category === 'food') {
+    const meta = toEconomyProductMeta(product);
+    return meta.mealType === 'fullMeal' ? 'Сытный обед для питомца.' : 'Лёгкий перекус для питомца.';
+  }
+  if (product.category === 'toys') return 'Игрушка, с которой можно играть.';
+  if (product.category === 'clothes') return 'Обновка в гардероб питомца.';
+  return 'Украшение для дома питомца.';
 }
 
 /** Влияние покупки на три метрики игры — Здоровье, Счастье и Богатство.
@@ -53,7 +60,7 @@ function buildPurchaseEffects(product: ShopProduct, availableCoins: number): Pur
   const meta = toEconomyProductMeta(product);
   const wealthPercent = -Math.round((product.price / Math.max(1, availableCoins)) * 100);
   return [
-    { label: 'Сытость', value: meta.satietyEffect ?? 0, icon: '🍽️', color: '#f43f5e' },
+    { label: 'Здоровье', value: meta.satietyEffect ?? 0, icon: '❤️', color: '#f43f5e' },
     { label: 'Счастье', value: meta.moodEffect ?? 0, icon: '😊', color: '#f59e0b' },
     { label: 'Богатство', value: wealthPercent, icon: '💰', color: '#22c55e', suffix: '%' },
   ];
@@ -76,9 +83,6 @@ interface Props {
    *  интерьер (без игрушек/одежды/игровой комнаты). Из нижнего меню магазин
    *  как обычно полный (по умолчанию false). */
   kitchenOnly?: boolean;
-  /** стартовая категория при открытии магазина из сценария/события */
-  initialCategory?: ShopCategoryId;
-  onProductPurchased?: (product: ShopProduct) => void;
 }
 
 export default function Shop({
@@ -90,18 +94,16 @@ export default function Shop({
   onOpenEarnModal,
   confirmationEnabled = true,
   kitchenOnly = false,
-  initialCategory,
-  onProductPurchased,
 }: Props) {
   const categories = kitchenOnly ? CATEGORIES.filter((c) => c.id === 'food' || c.id === 'interior') : CATEGORIES;
-  const [category, setCategory] = useState<ShopCategoryId>(initialCategory ?? 'food');
+  const [category, setCategory] = useState<ShopCategoryId>('food');
   // Подраздел вкладки «Интерьер» — игровая (обычные комнаты) или кухня (столовая).
   // В режиме kitchenOnly выбора нет — всегда кухня.
   const [interiorSection, setInteriorSection] = useState<RoomSection>(kitchenOnly ? 'kitchen' : 'playroom');
   const [entered, setEntered] = useState(false);
   const ownedProductIds = useInventoryStore((s) => s.ownedProductIds);
   const foodQty = useInventoryStore((s) => s.foodQty);
-  const selectedGoalId = useEconomyStore((s) => s.savingsGoal?.id);
+  const savings = useEconomyStore((s) => s.savingsBalance ?? s.totalSaved);
   const withdrawFromSavings = useEconomyStore((s) => s.withdrawFromSavings);
   const products = category === 'interior' ? [] : productsByCategory(category);
   const interiorRooms = roomsBySection(kitchenOnly ? 'kitchen' : interiorSection);
@@ -109,19 +111,17 @@ export default function Shop({
   const [confirmProduct, setConfirmProduct] = useState<ShopProduct | null>(null);
   const [shortfallProduct, setShortfallProduct] = useState<ShopProduct | null>(null);
 
-  function handleBuy(product: ShopProduct, savingsContribution = 0) {
-    const result = purchaseProduct(product, { savingsContribution });
-    if (result === 'ok') onProductPurchased?.(product);
+  function handleBuy(product: ShopProduct) {
+    purchaseProduct(product); // 'ok' | 'already_owned' | 'insufficient_funds' — кнопка сама отражает итог по инвентарю/балансу
   }
 
   function requestBuy(product: ShopProduct) {
     // Еда — расходник, покупается сколько угодно раз (запас копится); остальное — один раз.
     if (product.category !== 'food' && ownedProductIds.includes(product.id)) return;
-    const funding = getProductPurchaseFunding(product);
-    // Сначала расходуется остаток категории, выбранный при распределении.
-    // Любая недостающая часть требует отдельного согласия взять накопления.
-    if (funding.savingsNeeded > 0) {
-      if (funding.canUseSavings) setShortfallProduct(product);
+    // Не хватает монет — вместо попытки покупки сразу показываем то же окно
+    // предложение вывести ровно недостающую сумму из копилки.
+    if (coins < product.price) {
+      if (savings >= product.price - coins) setShortfallProduct(product);
       else onOpenEarnModal?.();
       return;
     }
@@ -139,7 +139,6 @@ export default function Shop({
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
   }, []);
-
   // Короткая подсказка по разделу — включается сама при первом заходе сюда.
   useEffect(() => {
     useTutorialStore.getState().startTourIfNeeded('shop');
@@ -289,8 +288,7 @@ export default function Shop({
           <div className="mt-2.5 grid grid-cols-2 gap-2.5">
             {interiorRooms.map((room, idx) => {
               const owned = ownedRoomIds.includes(room.id);
-              const isGoal = selectedGoalId === room.id;
-              const canAfford = getRoomPurchaseFunding(room).savingsNeeded === 0;
+              const canAfford = coins >= room.price;
               return (
                 <button
                   key={room.id}
@@ -301,14 +299,7 @@ export default function Shop({
                 >
                   <div className="relative h-[150px] w-full overflow-hidden">
                     <img src={room.background} alt="" className="h-full w-full object-cover object-top" />
-                    {!owned && (
-                      <span
-                        className="absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[9px] font-extrabold text-white shadow-sm"
-                        style={{ background: isGoal ? '#35b96b' : '#9b73e8' }}
-                      >
-                        {isGoal ? 'Моя цель' : 'Желание'}
-                      </span>
-                    )}
+                    {!owned && <span className="absolute left-1.5 top-1.5 rounded-full bg-[#35b96b] px-2 py-0.5 text-[9px] font-extrabold text-white shadow-sm">Цель</span>}
                     {owned && (
                       <span
                         className="absolute right-1.5 top-1.5 rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
@@ -322,9 +313,6 @@ export default function Shop({
                     <div className="min-h-[26px] text-[10.5px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                       {room.name}
                     </div>
-                    <div className="mt-1 min-h-[20px] text-[8.5px] font-semibold leading-tight text-[#8c7d70]">
-                      {room.description}
-                    </div>
                     <div className="mt-1 flex items-center gap-1">
                       {owned ? (
                         <span className="text-[11px] font-bold" style={{ color: '#7fae6a' }}>
@@ -336,7 +324,7 @@ export default function Shop({
                           <span className="text-[11.5px] font-bold" style={{ color: '#4a4560' }}>
                             {room.price}
                           </span>
-                          <span className="ml-1 text-[9px] font-semibold text-[#5360d9]">{isGoal ? 'из копилки' : 'из бюджета желаний'}</span>
+                          <span className="ml-1 text-[9px] font-semibold text-[#5360d9]">из кошелька</span>
                         </>
                       )}
                     </div>
@@ -352,8 +340,8 @@ export default function Shop({
               const owned = !isFood && ownedProductIds.includes(p.id);
               const qty = foodQty[p.id] ?? 0;
               const meta = toEconomyProductMeta(p);
-              const canAfford = getProductPurchaseFunding(p).savingsNeeded === 0;
-              const badge = meta.expenseType === 'mandatory' ? 'Обязательное' : meta.expenseType === 'goal' ? 'Моя цель' : 'Желание';
+              const canAfford = coins >= p.price;
+              const badge = meta.expenseType === 'mandatory' ? 'Обязательное' : 'Желание';
               return (
                 <button
                   key={p.id}
@@ -367,7 +355,7 @@ export default function Shop({
                 >
                   <div className="relative mb-1.5 flex h-[74px] items-center justify-center rounded-[14px] bg-[#faf1e3]">
                     <img src={p.image} alt="" className="max-h-[66px] w-auto object-contain" />
-                    <span className="absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold text-white" style={{ background: meta.expenseType === 'mandatory' ? '#f36b76' : meta.expenseType === 'goal' ? '#35b96b' : '#9b73e8' }}>{badge}</span>
+                    <span className="absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold text-white" style={{ background: meta.expenseType === 'mandatory' ? '#f36b76' : '#9b73e8' }}>{badge}</span>
                     {isFood && qty > 0 && (
                       <span
                         className="absolute right-1 top-1 rounded-full px-1.5 py-0.5 text-[9.5px] font-extrabold text-white"
@@ -382,9 +370,6 @@ export default function Shop({
                     style={{ color: '#2c2a5e' }}
                   >
                     {p.name}
-                  </div>
-                  <div className="mt-1 min-h-[25px] text-[8.5px] font-semibold leading-tight text-[#8c7d70]">
-                    {p.description}
                   </div>
                   <div className="mt-1 flex items-center gap-1">
                     <img src={coinIcon} alt="" className="h-[15px] w-[15px]" />
@@ -419,8 +404,8 @@ export default function Shop({
           name: confirmProduct.name,
           image: confirmProduct.image,
           price: confirmProduct.price,
-          source: toEconomyProductMeta(confirmProduct).expenseType === 'goal' ? 'savings' : 'wallet',
-          categoryLabel: toEconomyProductMeta(confirmProduct).expenseType === 'mandatory' ? 'Обязательное' : toEconomyProductMeta(confirmProduct).expenseType === 'goal' ? 'Моя цель' : 'Желание',
+          source: 'wallet',
+          categoryLabel: toEconomyProductMeta(confirmProduct).expenseType === 'mandatory' ? 'Обязательное' : 'Желание',
           description: describeProduct(confirmProduct),
           effects: buildPurchaseEffects(confirmProduct, coins),
         } : null}
@@ -434,25 +419,25 @@ export default function Shop({
       {shortfallProduct && (
         <div className="absolute inset-0 z-[64] flex items-center justify-center bg-[rgba(20,14,26,0.5)] px-5">
           <div className="w-full rounded-[24px] bg-white p-4 text-center shadow-2xl">
-            <h2 className="text-[18px] font-black text-[#111b72]">Использовать накопления?</h2>
+            <h2 className="text-[18px] font-black text-[#111b72]">Не хватает монет</h2>
             <p className="mt-2 text-[12px] font-semibold leading-snug text-[#777da8]">
-              В категории «{getProductPurchaseFunding(shortfallProduct).categoryLabel}» не хватает {getProductPurchaseFunding(shortfallProduct).savingsNeeded} монет.
-              Можно взять их из копилки, но хорошо подумай: это твои накопления на важную цель. Точно потратить их сейчас?
+              Вывести из копилки ровно {shortfallProduct.price - coins} монет и продолжить покупку?
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button onClick={() => setShortfallProduct(null)} className="h-11 rounded-[14px] bg-[#f0eef7] text-[12px] font-extrabold text-[#686d9a]">Отмена</button>
               <button
                 onClick={() => {
                   const product = shortfallProduct;
-                  const amount = getProductPurchaseFunding(product).savingsNeeded;
+                  const amount = product.price - coins;
                   if (!withdrawFromSavings(amount)) return;
                   setShortfallProduct(null);
-                  handleBuy(product, amount);
+                  if (!confirmationEnabled) handleBuy(product);
+                  else setConfirmProduct(product);
                 }}
                 className="h-11 rounded-[14px] text-[12px] font-extrabold text-white"
                 style={{ background: VIOLET }}
               >
-                Использовать и купить
+                Вывести и купить
               </button>
             </div>
           </div>

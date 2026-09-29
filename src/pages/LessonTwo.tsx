@@ -216,6 +216,7 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
   const [selected, setSelected] = useState<string | null>(null);
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
@@ -436,8 +437,26 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
     setHintText(null);
   }
 
+  function hasAttempt(): boolean {
+    if (scene === 1) return basket.length > 0;
+    if (scene === 2) return family.length > 0 || personal.length > 0;
+    if (scene === 3) return giftPiggy.length + giftCandy.length > 0;
+    if (scene === 4) return stepPlacements.some(Boolean);
+    return income.length > 0 || expense.length > 0;
+  }
+
+  function resetSceneInputs() {
+    setIncome([]); setExpense([]); setBasket([]); setFamily([]); setPersonal([]);
+    setGiftPiggy([]); setGiftCandy([]); setStepPlacements([null, null, null, null]);
+    setSelected(null); setCheckState('idle'); setHintText(null);
+  }
+
   function handleCheck() {
     if (checkState === 'correct') return;
+    if (!hasAttempt()) {
+      setHintText('Сначала попробуй выполнить задание.');
+      return;
+    }
     if (isSceneCorrect()) {
       onPracticeComplete?.();
       setHintText(null);
@@ -446,9 +465,16 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+        if (reviewMode) {
+          const remaining = mistakeScenes.filter((value) => value !== scene);
+          setMistakeScenes(remaining);
+          if (remaining.length > 0) { setScene(remaining[0]); resetSceneInputs(); }
+          else { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }
+        } else if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+          advanceTimerRef.current = setTimeout(() => {
+            setReviewNotice(false); setReviewMode(true); setScene(mistakeScenes[0]); resetSceneInputs();
+          }, 1800);
         } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {
@@ -550,6 +576,7 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
       <div key={checkPulse} className={`absolute left-[5%] right-[5%] top-[37%] bottom-[17%] z-10 flex flex-col gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out] ${checkState === 'wrong' ? '[animation:lessonShake_420ms_ease-in-out]' : ''}`}>
         {scene === 0 && (
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Разложи карточки по корзинам: то, что приходит — в «Доходы», то, что тратится — в «Расходы».</p>
             {/* Упражнение 1 — "Доход или расход?": две корзины сверху (клик/drop
                 кладёт выбранную или перетаскиваемую карточку), лоток с 6
                 карточками снизу. Тап по карточке в лотке выбирает её (подсветка
@@ -606,6 +633,7 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
 
         {scene === 1 && (
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Собери покупки в корзину: сначала обязательное — лекарство, и уложись в доход 100 монет.</p>
             {/* Упражнение 2 — "Балансир бюджета": до 3 покупок в корзину так,
                 чтобы уложиться в доход 100 монет и сначала закрыть
                 обязательную покупку (лекарство). Тап по карточке — добавить,
@@ -652,6 +680,7 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
 
         {scene === 2 && (
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Разложи покупки по корзинам: общее для всей семьи — в «Семейное», твоё личное — в «Личное».</p>
             {/* Упражнение 3 — "Личное или семейное?": та же механика, что и в
                 упражнении 1 — две корзины сверху, лоток с 6 карточками снизу. */}
             <div className="grid min-h-0 flex-[0.65] grid-cols-2 gap-2">
@@ -705,6 +734,7 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
 
         {scene === 3 && (
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Раздели все 10 монет между копилкой и сладостями так, чтобы в копилке осталось не меньше 5.</p>
             {/* Упражнение 4 — "Подарок от бабушки": разложить все 10 монеток
                 между "Копилкой" и "Сладостями" так, чтобы в копилке
                 оказалось не меньше 5. Та же механика тап/drag, что и в
@@ -759,6 +789,7 @@ export default function LessonTwo({ onBack, onPracticeComplete, onFinish }: Prop
 
         {scene === 4 && (
           <>
+            <p className="shrink-0 text-center text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">Расставь карточки по порядку: сначала кошелёк, потом нужные покупки, накопления и только потом — игрушка.</p>
             {/* Упражнение 5 — "Шаги умных покупок": та же механика, что и
                 "Расставь шаги!" в первом уроке — 4 карточки-действия
                 расставить по порядку в пронумерованные слоты (зелёный →

@@ -32,6 +32,9 @@ export interface EventChoiceRecord {
   effects: EventEffects;
   feedback: string;
   requiredPetAction: PetActionType;
+  /** Если выбранный платный вариант оказался невыполнимым, движок применил
+   *  безопасную бесплатную альтернативу, чтобы цепочка не зависла. */
+  resolution?: 'normal' | 'alternative';
 }
 
 export interface PeriodEventState {
@@ -63,6 +66,9 @@ interface PeriodEventStore extends PeriodEventState {
    *  именно это событие — без реального прохождения предыдущих. Награды/
    *  эффекты пропущенных событий не начисляются (это не resolveChoice). */
   debugJumpToEvent: (eventId: string) => void;
+  /** Только для дев-панели: отмечает все события периода выполненными,
+   *  чтобы Home запустил обычный completePeriod(). */
+  debugCompletePeriod: (periodId: PeriodId) => void;
 }
 
 function actionForChoice(event: PeriodEventDefinition, option: PeriodEventOption): PetActionType {
@@ -72,6 +78,15 @@ function actionForChoice(event: PeriodEventDefinition, option: PeriodEventOption
   }
   // Даже хороший ответ не пропускает уход: питомцу становится скучно.
   return 'buyToy';
+}
+
+function findSafeAlternative(event: PeriodEventDefinition, selected: PeriodEventOption): PeriodEventOption | null {
+  return event.options.find((option) => (
+    option.id !== selected.id
+    && (option.cost ?? 0) <= 0
+    && (option.effects.coins ?? 0) >= 0
+    && (option.effects.savings ?? 0) >= 0
+  )) ?? null;
 }
 
 function emptyState(periodId: PeriodId): PeriodEventState {
@@ -110,6 +125,16 @@ function applyCoinsEffect(amount: number, reason: string, periodId: number): boo
   return true;
 }
 
+function requiredWalletForOption(option: PeriodEventOption): number {
+  const cost = Math.max(0, option.cost ?? 0);
+  const savings = Math.max(0, option.effects.savings ?? 0);
+  // `cost` и effects.coins часто описывают одну и ту же покупку. Учитываем
+  // только дополнительное списание сверх cost, чтобы не списать его дважды.
+  const netCoinsAfterCost = (option.effects.coins ?? 0) + cost;
+  const extraSpend = Math.max(0, -netCoinsAfterCost);
+  return cost + extraSpend + savings;
+}
+
 function applyOptionEffects(event: PeriodEventDefinition, option: PeriodEventOption, extraCoins = 0): boolean {
   const period = usePeriodStore.getState();
   const economy = useEconomyStore.getState();
@@ -119,8 +144,14 @@ function applyOptionEffects(event: PeriodEventDefinition, option: PeriodEventOpt
 
   // Проверяем всю операцию до первого списания, чтобы выбор не применился
   // частично, если кошелька не хватает на трату или взнос в копилку.
-  const requiredWallet = Math.max(0, cost) + Math.max(0, savingsToAdd);
+  const requiredWallet = requiredWalletForOption(option);
   if (economy.coins + extraCoins < requiredWallet) return false;
+  if ((effects.savings ?? 0) < 0 && (economy.savingsBalance ?? economy.totalSaved) < Math.abs(effects.savings ?? 0)) return false;
+  // Восстанавливаем синхронизацию перед изменением факта периода. Это
+  // защищает цепочку, если ребёнок потратил/получил монеты вне экрана периода.
+  if (period.status === 'active' && period.walletBalance !== economy.coins) {
+    period.ensureCurrentPeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
+  }
   if (period.status === 'active' && cost > 0) {
     const recorded = period.recordPurchase({
       id: `event:${event.id}:${option.id}`,
@@ -195,8 +226,23 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
   isEventCompleted: (eventId) => get().completedEventIds.includes(eventId),
 
   getPendingPetAction: () => {
-    const state = get();
+    let state = get();
     if (state.careVersionRequired === undefined || !state.requiredPetAction) return null;
+    // Восстанавливаем состояние после закрытия/перезапуска приложения: если
+    // мини-игра успела связать действие с событием, но сам eventStore не успел
+    // записать очистку pending-полей, не показываем ребёнку ту же задачу снова.
+    if (state.careEventId) {
+      const alreadyUsed = usePetStore.getState().pet?.careInteractions?.some(
+        (interaction) => interaction.usedForEventId === state.careEventId,
+      );
+      if (alreadyUsed) {
+        const next = { ...state, careVersionRequired: undefined, requiredPetAction: undefined, careEventId: undefined };
+        persist(next);
+        set(next);
+        state = next;
+        return null;
+      }
+    }
     // Если последствие требует лекарства, но ребёнок ещё не может его купить,
     // разрешаем безопасную альтернативу: покормить питомца. Это всё равно
     // меняет careVersion и не даёт перескочить через обязательное действие.
@@ -237,10 +283,10 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
     if (!option) return { ok: false, reason: 'invalid_option' };
 
     const introCoins = state.introAppliedEventIds.includes(event.id) ? 0 : (event.introEffects?.coins ?? 0);
-    const requiredWallet = (option.cost ?? 0) + Math.max(0, option.effects.savings ?? 0);
-    if (useEconomyStore.getState().coins + introCoins < requiredWallet) {
-      return { ok: false, reason: 'insufficient_funds' };
-    }
+    const requiredWallet = requiredWalletForOption(option);
+    const canPay = useEconomyStore.getState().coins + introCoins >= requiredWallet;
+    const alternative = !canPay ? findSafeAlternative(event, option) : null;
+    const resolvedOption = canPay ? option : alternative;
 
     // Одноразовый доход события 2 начисляется при первом выборе, а не при
     // каждом открытии модального окна.
@@ -249,16 +295,38 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
         return { ok: false, reason: 'insufficient_funds' };
       }
     }
-    if (!applyOptionEffects(event, option, introCoins)) return { ok: false, reason: 'insufficient_funds' };
+    let resolution: 'normal' | 'alternative' = 'normal';
+    let effectiveOption: PeriodEventOption = { ...option, cost: 0, effects: {} };
+    if (!resolvedOption) {
+      // В событии нет бесплатного варианта, но и это не должно блокировать
+      // период навсегда: фиксируем безопасное решение без списания денег.
+      resolution = 'alternative';
+    } else if (applyOptionEffects(event, resolvedOption, introCoins)) {
+      effectiveOption = resolvedOption;
+    } else {
+      const secondAlternative = findSafeAlternative(event, resolvedOption);
+      if (secondAlternative && applyOptionEffects(event, secondAlternative, 0)) {
+        effectiveOption = secondAlternative;
+      }
+      // Не оставляем частично применённый выбор незавершённым. Событие
+      // будет закрыто мягким fallback-результатом без новой траты.
+      resolution = 'alternative';
+    }
 
-    const requiredPetAction = actionForChoice(event, option);
+    const requiredPetAction = actionForChoice(event, effectiveOption);
+    const fallbackText = `Монет не хватило на выбранный вариант. Игра выбрала безопасный шаг без новой траты, чтобы продолжить период.`;
+    const feedback = resolution === 'alternative' ? `${fallbackText} ${effectiveOption.feedback ?? ''}` : effectiveOption.feedback;
+    const pet = usePetStore.getState();
+    const preCompletedCare = pet.findRecentCareInteraction(requiredPetAction);
+    const careSatisfied = Boolean(preCompletedCare && pet.useCareInteractionForEvent(requiredPetAction, eventId));
     const choice: EventChoiceRecord = {
       eventId,
       optionId,
       timestamp: Date.now(),
-      effects: option.effects,
-      feedback: option.feedback,
+      effects: effectiveOption.effects,
+      feedback,
       requiredPetAction,
+      resolution,
     };
     const next: PeriodEventState = {
       ...get(),
@@ -269,9 +337,9 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
       choices: [...get().choices, choice],
       history: [...get().history, choice],
       nextEventAt: Date.now() + (useSettingsStore.getState().demoMode ? DEMO_BETWEEN_EVENTS_DELAY_MS : BETWEEN_EVENTS_DELAY_MS),
-      careVersionRequired: usePetStore.getState().pet?.careVersion ?? 0,
-      requiredPetAction,
-      careEventId: eventId,
+      careVersionRequired: careSatisfied ? undefined : (usePetStore.getState().pet?.careVersion ?? 0),
+      requiredPetAction: careSatisfied ? undefined : requiredPetAction,
+      careEventId: careSatisfied ? undefined : eventId,
     };
     persist(next);
     set(next);
@@ -304,6 +372,19 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
       history: get().history,
       nextEventAt: Date.now(),
       careVersionRequired: undefined,
+    };
+    persist(next);
+    set(next);
+  },
+
+  debugCompletePeriod: (periodId) => {
+    const events = getPeriodEvents(periodId);
+    const completedEventIds = events.map((event) => event.id);
+    const next: PeriodEventState = {
+      ...emptyState(periodId),
+      completedEventIds,
+      introAppliedEventIds: completedEventIds,
+      nextEventAt: Date.now(),
     };
     persist(next);
     set(next);

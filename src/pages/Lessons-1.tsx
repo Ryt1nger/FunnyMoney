@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useState } from 'react';
 import heroImg from '../assets/heroes/hero-lessons.jpg';
 import coinIcon from '../assets/icons/coin.png';
 import xpIcon from '../assets/icons/xp-star.png';
@@ -7,11 +7,6 @@ import { IconArrowLeft, IconPlus, IconStar, IconLock } from '../components/icons
 import bookHero from '../assets/icons/book-3d.png';
 import LessonOne from './LessonOne';
 import LessonTwo from './LessonTwo';
-import LessonThree from './LessonThree';
-import LessonFour from './LessonFour';
-import LessonFive from './LessonFive';
-import LessonSix from './LessonSix';
-import LessonResultScreen from '../components/LessonResultScreen';
 import { useEconomyStore } from '../features/economy/economyStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { usePetStore } from '../features/pet/petStore';
@@ -21,7 +16,6 @@ import { useTutorialStore } from '../features/tutorial/tutorialStore';
 
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
-const GREEN = 'linear-gradient(180deg, #62d67d 0%, #40bd61 50%, #2fa64f 100%)';
 // 3 темы курса ↔ 3 игровых периода: тема periodId открывается вместе с
 // периодом того же номера (usePeriodStore().id) — тема текущего и уже
 // пройденных периодов доступна, темы будущих периодов заблокированы
@@ -31,23 +25,6 @@ const LESSON_THEMES: { title: string; periodId: 1 | 2 | 3; lessonIds: string[] }
   { title: 'Покупки', periodId: 2, lessonIds: ['piggy-bank', 'impulse-buying'] },
   { title: 'Накопления', periodId: 3, lessonIds: ['financial-goal', 'plan-and-fact'] },
 ];
-
-// Уроки, у которых уже свёрстана практика (компонент экрана) — id ↔ React-компонент.
-// Список карточек лежит отдельно в lessonsData.ts и может содержать больше
-// уроков, чем реально свёрстано; эта карта — единственное место, определяющее,
-// какие уроки можно открыть.
-const LESSON_COMPONENTS: Record<string, ComponentType<{
-  onBack: () => void;
-  onPracticeComplete?: () => void;
-  onFinish: (correctCount: number) => void;
-}>> = {
-  'what-is-money': LessonOne,
-  'needs-vs-wants': LessonTwo,
-  'piggy-bank': LessonThree,
-  'impulse-buying': LessonFour,
-  'financial-goal': LessonFive,
-  'plan-and-fact': LessonSix,
-};
 
 interface Props {
   /** высота нижней навигации: содержимое не должно прятаться под баром */
@@ -66,15 +43,6 @@ interface Props {
 export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal, onFullScreenChange, onLessonTransition }: Props) {
   const [entered, setEntered] = useState(false);
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
-  // Итог текущего прохождения — показывается вместо самого урока, когда
-  // пройдена последняя сцена практики (см. finishLesson ниже).
-  const [lessonResult, setLessonResult] = useState<{ lessonId: string; correctCount: number; coins: number; xp: number } | null>(null);
-  // Сколько монет/XP реально начислено за ТЕКУЩЕЕ прохождение урока — копится
-  // по мере ответов (rewardPractice) и читается один раз в finishLesson.
-  const sessionRewardRef = useRef({ coins: 0, xp: 0 });
-  // Меняя key у компонента урока, заставляем его полностью перемонтироваться
-  // (сцена 0, фаза видео) — так работает кнопка "Повторить" на экране результатов.
-  const [retryKey, setRetryKey] = useState(0);
   // Тот же currentId, что в разделе "Периоды" (Period.tsx): период 1..3,
   // зажатый в диапазон, чтобы не выйти за последнюю тему курса.
   const currentPeriodId = usePeriodStore((s) => Math.min(3, Math.max(1, s.id)));
@@ -86,7 +54,6 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
     return () => cancelAnimationFrame(id);
   }, []);
   useEffect(() => () => onFullScreenChange?.(false), [onFullScreenChange]);
-
   // Короткая подсказка по разделу — включается сама при первом заходе сюда
   // (см. правку "разбить обучение на мини-туры"), не только при первом
   // входе в приложение целиком.
@@ -96,122 +63,21 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
   const list = lessonCards;
 
-  // Награда за практику — лимит на каждый урок (5 верных ответов по +монеты/+XP),
-  // повторное прохождение уже выданных наград не даёт. Что выдано (или что
-  // лимит исчерпан) показывается всплывашкой поверх урока.
-  const [reward, setReward] = useState<{ key: number; paid: boolean } | null>(null);
-  useEffect(() => {
-    if (!reward) return;
-    const id = setTimeout(() => setReward(null), 1700);
-    return () => clearTimeout(id);
-  }, [reward]);
-
-  function rewardPractice(lessonId: string): boolean {
-    const progress = useLessonProgressStore.getState();
-    progress.completeLesson(lessonId);
-    const scenesCount = list.find((item) => item.id === lessonId)?.practiceCount || 5;
-    // Полная награда урока (ECONOMY_RULES.practiceRewardCoins/Xp) делится поровну
-    // между сценами практики — так же, как уже считает счётчик "макс. наград"
-    // (maxPracticeRewardXp/practiceRewardXp = число сцен) и как подписаны карточки
-    // уроков ("+150", "+10 XP × 5").
-    const coinsPerScene = Math.round(ECONOMY_RULES.practiceRewardCoins / scenesCount);
-    const paid = progress.claimPracticeReward(lessonId, ECONOMY_RULES.maxPracticeRewardXp / ECONOMY_RULES.practiceRewardXp);
-    if (paid) {
-      useEconomyStore.getState().applyCoinsDelta(coinsPerScene, 'Награда за практику', {
-        periodId: usePeriodStore.getState().id,
-        category: 'reward',
-      });
-      usePetStore.getState().addXp(ECONOMY_RULES.practiceRewardXp);
-      sessionRewardRef.current = {
-        coins: sessionRewardRef.current.coins + coinsPerScene,
-        xp: sessionRewardRef.current.xp + ECONOMY_RULES.practiceRewardXp,
-      };
-    }
-    setReward({ key: Date.now(), paid });
-    return paid;
+  function rewardPractice(lessonId: string) {
+    useLessonProgressStore.getState().completeLesson(lessonId);
+    if (!usePeriodStore.getState().recordPractice()) return;
+    useEconomyStore.getState().applyCoinsDelta(ECONOMY_RULES.practiceRewardCoins, 'Награда за практику', {
+      periodId: usePeriodStore.getState().id,
+      category: 'reward',
+    });
+    usePetStore.getState().addXp(ECONOMY_RULES.practiceRewardXp);
   }
 
-  // Открыть урок "с нуля": сбрасывает накопленную за прошлый заход награду
-  // и итог, включает полноэкранный режим урока.
-  function startLesson(lessonId: string) {
-    sessionRewardRef.current = { coins: 0, xp: 0 };
-    setLessonResult(null);
-    onLessonTransition?.('enter');
-    setActiveLesson(lessonId);
-    onFullScreenChange?.(true);
+  if (activeLesson === 'what-is-money') {
+    return <LessonOne onPracticeComplete={() => rewardPractice('what-is-money')} onFinish={() => {}} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
-
-  // Последняя сцена практики решена верно — показываем экран результатов
-  // вместо того, чтобы сразу возвращаться к списку уроков.
-  function finishLesson(lessonId: string, correctCount: number) {
-    setLessonResult({ lessonId, correctCount, coins: sessionRewardRef.current.coins, xp: sessionRewardRef.current.xp });
-  }
-
-  // "Повторить" на экране результатов — начинаем тот же урок заново.
-  function retryLesson() {
-    sessionRewardRef.current = { coins: 0, xp: 0 };
-    setLessonResult(null);
-    setRetryKey((key) => key + 1);
-  }
-
-  // "К урокам" — закрыть урок и вернуться к списку (тот же путь, что раньше
-  // проходил через onBack у самого компонента урока).
-  function goToLessonsList() {
-    onLessonTransition?.('exit');
-    setActiveLesson(null);
-    setLessonResult(null);
-    onFullScreenChange?.(false);
-  }
-
-  const rewardToast = reward ? (
-    <div key={reward.key} className="pointer-events-none absolute inset-x-0 top-[17%] z-[60] flex justify-center">
-      <style>{`@keyframes lessonRewardPop{0%{opacity:0;transform:translateY(12px) scale(.9)}15%{opacity:1;transform:translateY(0) scale(1)}80%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-14px) scale(1)}}`}</style>
-      <div className="flex items-center gap-3 rounded-full bg-white/95 px-4 py-2 shadow-[0_8px_22px_rgba(60,45,120,.28)] [animation:lessonRewardPop_1700ms_ease-out_forwards]">
-        {reward.paid ? (
-          <>
-            <span className="flex items-center gap-1.5 text-[17px] font-black text-[#c9862a]"><img src={coinIcon} alt="" className="h-6 w-6" />+{ECONOMY_RULES.practiceRewardCoins}</span>
-            <span className="flex items-center gap-1.5 text-[17px] font-black text-[#5d57c9]"><img src={xpIcon} alt="" className="h-6 w-6" />+{ECONOMY_RULES.practiceRewardXp} XP</span>
-          </>
-        ) : (
-          <span className="text-[13px] font-extrabold text-[#7b7a8c]">Награда за этот урок уже получена</span>
-        )}
-      </div>
-    </div>
-  ) : null;
-
-  if (activeLesson) {
-    const activeCard = list.find((item) => item.id === activeLesson);
-    if (lessonResult && lessonResult.lessonId === activeLesson && activeCard) {
-      return (
-        <LessonResultScreen
-          lessonStep={activeCard.step}
-          lessonTitle={activeCard.title}
-          skillName={activeCard.skill}
-          outcomeText={activeCard.outcome}
-          correctCount={lessonResult.correctCount}
-          totalCount={activeCard.practiceCount}
-          coinsEarned={lessonResult.coins}
-          xpEarned={lessonResult.xp}
-          walletCoins={coins}
-          onRetry={retryLesson}
-          onBackToList={goToLessonsList}
-        />
-      );
-    }
-    const ActiveLessonComponent = LESSON_COMPONENTS[activeLesson];
-    if (ActiveLessonComponent) {
-      return (
-        <>
-          <ActiveLessonComponent
-            key={retryKey}
-            onPracticeComplete={() => rewardPractice(activeLesson)}
-            onFinish={(correctCount) => finishLesson(activeLesson, correctCount)}
-            onBack={goToLessonsList}
-          />
-          {rewardToast}
-        </>
-      );
-    }
+  if (activeLesson === 'needs-vs-wants') {
+    return <LessonTwo onPracticeComplete={() => rewardPractice('needs-vs-wants')} onFinish={() => {}} onBack={() => { onLessonTransition?.('exit'); setActiveLesson(null); onFullScreenChange?.(false); }} />;
   }
 
   return (
@@ -327,9 +193,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
         </h2>
 
         {/* Три короткие темы по два урока — тема заблокирована, пока не
-            наступил её период (см. LESSON_THEMES выше). В открытой теме
-            уроки всё равно проходятся строго по порядку: пока предыдущий
-            не завершён, кнопка "Начать" у следующего урока серая. */}
+            наступил её период (см. LESSON_THEMES выше): серый заголовок,
+            значок замка рядом с ним, и каждая карточка урока внутри темы
+            тоже серая, с замком вместо кнопки "Начать" и недоступна для тапа. */}
         <div className="mt-2.5 flex flex-col gap-4">
           {LESSON_THEMES.map((theme) => {
             const themeLocked = theme.periodId > currentPeriodId;
@@ -353,10 +219,6 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
               {list.filter((lesson) => theme.lessonIds.includes(lesson.id)).map((lesson) => (
             (() => {
               const lessonCompleted = completedLessonIds.includes(lesson.id);
-              const previousLesson = list.find((item) => item.step === lesson.step - 1);
-              const waitingForPreviousLesson = !lessonCompleted
-                && previousLesson !== undefined
-                && !completedLessonIds.includes(previousLesson.id);
               return (
             <div
               key={lesson.id}
@@ -366,22 +228,11 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 themeLocked ? 'bg-white/50 grayscale' : 'bg-white/80'
               }`}
             >
-              <div className="relative h-[70px] w-[70px] shrink-0">
-                <img
-                  src={lesson.image}
-                  alt=""
-                  className={`h-full w-full rounded-[16px] object-cover ${themeLocked ? 'opacity-60' : ''}`}
-                />
-                {lessonCompleted && (
-                  <span
-                    aria-label="Урок пройден"
-                    className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-white shadow-md"
-                    style={{ background: GREEN }}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                  </span>
-                )}
-              </div>
+              <img
+                src={lesson.image}
+                alt=""
+                className={`h-[70px] w-[70px] shrink-0 rounded-[16px] object-cover ${themeLocked ? 'opacity-60' : ''}`}
+              />
               <div className={`min-w-0 flex-1 pr-24 ${themeLocked ? 'opacity-60' : ''}`}>
                 <div className="line-clamp-2 text-[13px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                   {lesson.title}
@@ -396,7 +247,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                   <span className="flex items-center gap-1">
                     <img src={coinIcon} alt="" className="h-4 w-4" />
                     <span className="text-[11px] font-bold" style={{ color: '#4a4560' }}>
-                      +{ECONOMY_RULES.practiceRewardCoins}
+                      +{ECONOMY_RULES.practiceRewardCoins} × 5
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
@@ -420,23 +271,9 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                 </span>
               ) : (
                 <button
-                  disabled={waitingForPreviousLesson}
-                  aria-disabled={waitingForPreviousLesson}
-                  onClick={() => { if (LESSON_COMPONENTS[lesson.id]) startLesson(lesson.id); }}
-                  className={`absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition ${
-                    waitingForPreviousLesson
-                      ? 'cursor-not-allowed'
-                      : 'active:translate-y-[2px] active:scale-[0.98]'
-                  }`}
-                  style={waitingForPreviousLesson ? {
-                    background: 'linear-gradient(180deg, #c9c6cf 0%, #aaa6b1 100%)',
-                    boxShadow:
-                      'inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(112,108,120,0.45), 0 3px 8px rgba(85,80,95,0.16)',
-                  } : lessonCompleted ? {
-                    background: GREEN,
-                    boxShadow:
-                      'inset 0 2px 0 rgba(170,240,185,0.6), inset 0 -2px 0 rgba(30,120,58,0.8), 0 4px 10px rgba(47,166,79,0.28)',
-                  } : {
+                  onClick={() => { if (lesson.id === 'what-is-money' || lesson.id === 'needs-vs-wants') { onLessonTransition?.('enter'); setActiveLesson(lesson.id); onFullScreenChange?.(true); } }}
+                  className="absolute bottom-2.5 right-2.5 rounded-full px-4 py-1.5 text-[13px] font-bold text-white transition active:translate-y-[2px] active:scale-[0.98]"
+                  style={{
                     background: VIOLET,
                     boxShadow:
                       'inset 0 2px 0 rgba(176,175,246,0.55), inset 0 -2px 0 rgba(71,72,187,0.8), 0 4px 10px rgba(92,90,216,0.26)',
@@ -454,7 +291,6 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
             );
           })}
         </div>
-
       </div>
     </div>
   );

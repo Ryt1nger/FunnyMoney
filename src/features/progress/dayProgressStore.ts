@@ -17,6 +17,9 @@ export interface DayProgressState {
   /** значения серии (кратные STREAK_MILESTONE_STEP), за которые бонус уже получен —
    *  не сбрасывается сменой дня, только реальным обнулением серии (см. normalizeStreak) */
   claimedStreakMilestones: number[];
+  /** Лучшая серия за всё время — в отличие от streak, никогда не обнуляется
+   *  (нужна родительскому кабинету, чтобы показать реальный рекорд ребёнка). */
+  bestStreak: number;
 }
 
 interface DayProgressStore extends DayProgressState {
@@ -64,6 +67,7 @@ function freshState(): DayProgressState {
     streak: 0,
     lastActiveDate: null,
     claimedStreakMilestones: [],
+    bestStreak: 0,
   };
 }
 
@@ -77,6 +81,7 @@ function withStreakDefaults(v: Record<string, unknown>): DayProgressState {
     streak: typeof v.streak === 'number' ? v.streak : 0,
     lastActiveDate: typeof v.lastActiveDate === 'string' ? v.lastActiveDate : null,
     claimedStreakMilestones: Array.isArray(v.claimedStreakMilestones) ? (v.claimedStreakMilestones as number[]) : [],
+    bestStreak: typeof v.bestStreak === 'number' ? v.bestStreak : (typeof v.streak === 'number' ? v.streak : 0),
   };
 }
 
@@ -166,6 +171,7 @@ export const useDayProgressStore = create<DayProgressStore>((set, get) => ({
       startedTaskIds: base.startedTaskIds.filter((id) => id !== taskId),
       streak,
       lastActiveDate,
+      bestStreak: Math.max(base.bestStreak ?? 0, streak),
     };
     persist(next);
     set(next);

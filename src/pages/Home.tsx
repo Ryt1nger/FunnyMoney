@@ -9,6 +9,8 @@ import boneToy from '../assets/items/toys/bone-toy-card.png';
 import boneBlob from '../assets/ui/bone-blob.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
+import resultCheckIcon from '../assets/icons/result-check.png';
+import resultTargetIcon from '../assets/icons/result-target.png';
 import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
 import smileMetricIcon from '../assets/icons/metrics/smile-3d.png';
 import coinsMetricIcon from '../assets/icons/metrics/coins-3d.png';
@@ -61,6 +63,7 @@ import {
 } from '../services/soundEffects';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 import { pauseGameMusic, startGameMusic } from '../services/gameMusic';
+import { stopVoiceover } from '../services/voiceover';
 import { RoadRunnerGame, type GameEventType, type GameResult } from '../features/minigame/roadrunner';
 import { storage } from '../services/storage';
 import { progressLevels, MAX_LEVEL } from '../data/progressLevels';
@@ -191,6 +194,8 @@ export default function Home() {
   const [showLessonReminder, setShowLessonReminder] = useState(shouldShowLessonReminder);
   const [lessonReminderSuppressed, setLessonReminderSuppressed] = useState(false);
   const [periodGuideEscalated, setPeriodGuideEscalated] = useState(false);
+  const [petNoticeVisible, setPetNoticeVisible] = useState(false);
+  const petNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [eventClock, setEventClock] = useState(0);
   // Окошко "как заработать монеты" по кнопке "+" в балансе — ведёт либо на
   // уроки, либо на задания дня.
@@ -215,6 +220,7 @@ export default function Home() {
 
   useEffect(() => {
     if (screenLoading !== null) {
+      stopVoiceover();
       const exit = screenLoading === 'game-exit';
       const slow = screenLoading === 'game-enter' || exit;
       loadingFadeMs.current = exit ? GAME_EXIT_FADE_MS : slow ? GAME_LOADING_FADE_MS : SCREEN_LOADING_FADE_MS;
@@ -235,7 +241,10 @@ export default function Home() {
     // разметке ниже), и только после завершения затухания убираем оверлей
     // из DOM целиком.
     setLoadingShown(false);
-    loadingUnmountTimer.current = setTimeout(() => setLoadingMounted(false), loadingFadeMs.current);
+    loadingUnmountTimer.current = setTimeout(() => {
+      setLoadingMounted(false);
+      requestAnimationFrame(() => window.dispatchEvent(new Event('voiceover-ready')));
+    }, loadingFadeMs.current);
     return () => {
       if (loadingUnmountTimer.current) clearTimeout(loadingUnmountTimer.current);
     };
@@ -311,10 +320,12 @@ export default function Home() {
     };
   }, []);
 
-  // Обучение при первом входе — запускается один раз (см. tutorialStore),
-  // повторно уже не появляется само (можно включить заново из настроек).
+  // Обучение при первом входе — только тур по главному экрану (см.
+  // tutorialStore), запускается один раз, повторно уже не появляется само
+  // (можно включить заново из настроек). Туры остальных разделов запускаются
+  // каждый на своём экране, при первом заходе в него.
   useEffect(() => {
-    useTutorialStore.getState().startIfNeeded();
+    useTutorialStore.getState().startTourIfNeeded('home');
   }, []);
 
   // Игровые часы: задержки событий, плавное снижение показателей питомца и
@@ -353,7 +364,6 @@ export default function Home() {
   const [roadRunnerPurpose, setRoadRunnerPurpose] = useState<'free' | 'pet'>('free');
   const [roadRunnerCareAction, setRoadRunnerCareAction] = useState<PetActionType | undefined>(undefined);
   const [eventModalOpen, setEventModalOpen] = useState(false);
-  const periodAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [periodResultModal, setPeriodResultModal] = useState<{ periodId: number; result: PeriodResult } | null>(null);
   const noticeGapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [noticeGapActive, setNoticeGapActive] = useState(false);
@@ -426,10 +436,8 @@ export default function Home() {
     }
   }
 
-  // Полный цикл периода: после последнего события ждём обязательное действие
-  // питомца и короткую паузу финального экрана, затем закрываем период.
-  // Переход к следующему периоду выполняется автоматически — отдельная кнопка
-  // «перейти дальше» ребёнку не нужна.
+  // После последнего события показываем итог периода и ждём осознанного выбора
+  // ребёнка: успешный период можно продолжить, неудачный — повторить.
   useEffect(() => {
     const period = usePeriodStore.getState();
     if (period.status !== 'active') return;
@@ -441,30 +449,38 @@ export default function Home() {
     if (period.completePeriod()) {
       const completed = usePeriodStore.getState();
       if (completed.result) setPeriodResultModal({ periodId: completed.id, result: completed.result });
-      if (periodAdvanceTimer.current) clearTimeout(periodAdvanceTimer.current);
-      periodAdvanceTimer.current = setTimeout(() => {
-        const current = usePeriodStore.getState();
-        if (current.status !== 'completed') return;
-        if (current.result && current.result.score < 70) {
-          current.repeatPeriodWithBonus();
-          usePeriodEventStore.getState().resetCurrentPeriod();
-          setPeriodResultModal(null);
-          return;
-        }
-        if (current.id >= 5) return;
-        const economy = useEconomyStore.getState();
-        current.advancePeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
-        const nextPeriod = usePeriodStore.getState().id;
-        usePeriodEventStore.getState().syncPeriod(nextPeriod as 1 | 2 | 3 | 4 | 5);
-        setPeriodResultModal(null);
-      }, demoMode ? 1200 : 5000);
     }
   }, [eventClock, periodStatusForEvents, pendingPetAction]);
 
   useEffect(() => () => {
-    if (periodAdvanceTimer.current) clearTimeout(periodAdvanceTimer.current);
     if (noticeGapTimer.current) clearTimeout(noticeGapTimer.current);
   }, []);
+
+  function continueAfterPeriod() {
+    const modal = periodResultModal;
+    const current = usePeriodStore.getState();
+    if (!modal || current.status !== 'completed' || modal.result.score < 70) return;
+    if (current.id >= 5) {
+      setPeriodResultModal(null);
+      return;
+    }
+    const economy = useEconomyStore.getState();
+    current.advancePeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
+    const nextPeriod = usePeriodStore.getState().id;
+    usePeriodEventStore.getState().syncPeriod(nextPeriod as 1 | 2 | 3 | 4 | 5);
+    setPeriodResultModal(null);
+    setEventClock((value) => value + 1);
+  }
+
+  function repeatFailedPeriod() {
+    const modal = periodResultModal;
+    const current = usePeriodStore.getState();
+    if (!modal || current.status !== 'completed' || modal.result.score >= 70) return;
+    current.repeatPeriodWithBonus();
+    usePeriodEventStore.getState().resetCurrentPeriod();
+    setPeriodResultModal(null);
+    setEventClock((value) => value + 1);
+  }
 
   const medicineProduct = shopProducts.find((product) => product.id === 'medicine-pet');
   const cheapestToyPrice = shopProducts
@@ -478,6 +494,27 @@ export default function Home() {
   const recentCareAction = pendingPetAction ? usePetStore.getState().findRecentCareInteraction(pendingPetAction) : null;
   const unrelatedRecentCare = pendingPetAction ? usePetStore.getState().findRecentOtherCareInteraction(pendingPetAction) : null;
   const requiredCareLabel = pendingPetAction === 'medicine' ? 'лекарство' : pendingPetAction === 'feed' ? 'корм' : 'игрушка';
+
+  // Уведомление о незавершённой заботе не должно превращаться в вечный
+  // блокирующий экран. Оно показывается один раз для каждого pending-действия,
+  // закрывается крестиком или само исчезает через 4 секунды. Само действие
+  // при этом остаётся в store и может быть выполнено позже через игру/кухню.
+  useEffect(() => {
+    if (petNoticeTimer.current) clearTimeout(petNoticeTimer.current);
+    if (!pendingPetAction) {
+      setPetNoticeVisible(false);
+      return;
+    }
+    setPetNoticeVisible(true);
+    petNoticeTimer.current = setTimeout(() => setPetNoticeVisible(false), 4000);
+    return () => {
+      if (petNoticeTimer.current) clearTimeout(petNoticeTimer.current);
+    };
+  }, [pendingPetAction]);
+
+  useEffect(() => () => {
+    if (petNoticeTimer.current) clearTimeout(petNoticeTimer.current);
+  }, []);
   const petActionCopy: Record<PetActionType, { title: string; text: string; button: string }> = {
     feed: { title: 'Питомцу нужен корм', text: 'Покорми питомца, чтобы продолжить период.', button: 'Покормить' },
     buyToy: {
@@ -868,11 +905,13 @@ export default function Home() {
           />
         </div>
 
-        {pendingPetAction && !noticeGapActive && !periodResultModal && !roadRunnerOpen && sheet === null && !isOnLesson && !tutorialActive && (
+        {pendingPetAction && petNoticeVisible && !noticeGapActive && !periodResultModal && !roadRunnerOpen && sheet === null && !isOnLesson && !tutorialActive && (
           <div
             className="pointer-events-auto absolute inset-0 z-[62] flex items-center justify-center bg-[rgba(20,14,26,0.5)] p-7 backdrop-blur-[2px]"
+            onClick={() => setPetNoticeVisible(false)}
           >
             <div
+              onClick={(event) => event.stopPropagation()}
               className="relative w-full max-w-[300px] rounded-[28px] p-5 pt-6 shadow-2xl"
               style={{
                 background: '#fbefe1',
@@ -880,6 +919,17 @@ export default function Home() {
                 boxShadow: '0 24px 48px rgba(20,10,30,0.35), 0 4px 14px rgba(20,10,30,0.18)',
               }}
             >
+              <button
+                type="button"
+                aria-label="Закрыть уведомление"
+                onClick={() => setPetNoticeVisible(false)}
+                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-[#8b899e] transition active:scale-90"
+                style={{ background: 'rgba(120,110,150,0.10)' }}
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M5 5l14 14M19 5L5 19" />
+                </svg>
+              </button>
               <div className="flex justify-center">
                 <div
                   className="flex h-16 w-16 items-center justify-center rounded-full"
@@ -1008,6 +1058,11 @@ export default function Home() {
                 <IconStar className="h-4 w-4" style={{ color: '#fcd34d' }} />
                 Итог периода {periodResultModal.periodId}
               </span>
+              <img
+                src={periodResultModal.result.score >= 70 ? resultCheckIcon : resultTargetIcon}
+                alt=""
+                className="mx-auto mb-2 h-16 w-16 object-contain"
+              />
               <div className="text-[18px] font-black" style={{ color: '#2c2a5e' }}>
                 {periodResultModal.result.score >= 70 ? 'Отлично, период завершён!' : 'Попробуем период ещё раз'}
               </div>
@@ -1042,13 +1097,21 @@ export default function Home() {
                   +{PERIODS.find((period) => period.id === periodResultModal.periodId)?.rewardCoins ?? 0} монет за успешное завершение
                 </div>
               )}
-              {periodResultModal.periodId >= 3 && (
+              {periodResultModal.result.score >= 70 ? (
                 <button
-                  onClick={() => setPeriodResultModal(null)}
-                  className="mt-3 rounded-full px-5 py-2.5 text-[12px] font-extrabold text-white shadow-md"
+                  onClick={continueAfterPeriod}
+                  className="mt-3 w-full rounded-full py-3 text-[13px] font-extrabold text-white shadow-md transition active:scale-[0.98]"
                   style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #6262e4 100%)' }}
                 >
-                  Понятно
+                  {periodResultModal.periodId >= 5 ? 'Завершить' : 'Перейти дальше'}
+                </button>
+              ) : (
+                <button
+                  onClick={repeatFailedPeriod}
+                  className="mt-3 w-full rounded-full py-3 text-[13px] font-extrabold text-white shadow-md transition active:scale-[0.98]"
+                  style={{ background: 'linear-gradient(180deg, #f08b65 0%, #d85d6e 100%)' }}
+                >
+                  Повторить период
                 </button>
               )}
             </div>
@@ -1561,6 +1624,7 @@ export default function Home() {
           загрузки исчезает, переход уже полностью завершён. */}
       {loadingMounted && (
         <div
+          data-voiceover-blocking="true"
           className="pointer-events-none absolute inset-0 z-[90] transition-opacity"
           style={{
             transitionProperty: 'opacity',

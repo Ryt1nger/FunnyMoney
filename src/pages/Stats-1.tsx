@@ -15,7 +15,6 @@ import confettiBlue3 from '../assets/icons/stats/confetti-blue-3.png';
 import bearAvatar from '../assets/pet/bear-avatar.png';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { IconArrowLeft, IconPlus } from '../components/icons';
-import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import {
   podium,
   aboveMe,
@@ -26,6 +25,7 @@ import {
   climbGoal,
   type LeaderboardEntry,
 } from '../data/statsData';
+import { useTutorialStore } from '../features/tutorial/tutorialStore';
 
 const VIOLET = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
 
@@ -145,7 +145,6 @@ export default function Stats({ bottomInset = 0, coins, onClose, onOpenEarnModal
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
   }, []);
-
   // Короткая подсказка по разделу — включается сама при первом заходе сюда.
   useEffect(() => {
     useTutorialStore.getState().startTourIfNeeded('stats');

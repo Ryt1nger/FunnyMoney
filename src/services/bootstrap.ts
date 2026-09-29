@@ -5,6 +5,7 @@ import { useDayProgressStore } from '../features/progress/dayProgressStore';
 import { usePeriodStore } from '../features/economy/periodStore';
 import { useLessonProgressStore } from '../features/progress/lessonProgressStore';
 import { usePeriodEventStore } from '../features/periodEvents/eventStore';
+import { useSessionStore } from '../features/progress/sessionStore';
 import { storage } from './storage';
 import { ECONOMY_RULES } from '../core/economy';
 
@@ -52,6 +53,7 @@ export async function bootstrapGame(): Promise<void> {
   useLessonProgressStore.getState().hydrate();
   usePeriodEventStore.getState().hydrate();
   usePeriodStore.getState().hydrate();
+  useSessionStore.getState().hydrate();
   recoverFromResetBugOnce();
   const economy = useEconomyStore.getState();
   usePeriodStore.getState().ensureCurrentPeriod(economy.coins, economy.savingsBalance ?? economy.totalSaved);
