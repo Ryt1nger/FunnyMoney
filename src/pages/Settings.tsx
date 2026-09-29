@@ -7,6 +7,7 @@ import { usePetStore } from '../features/pet/petStore';
 import { setMusicEnabled } from '../services/backgroundMusic';
 import { stopAssistantVoice } from '../services/assistantVoice';
 import { storage } from '../services/storage';
+import { hapticTap, hapticError, hapticSuccess } from '../services/haptics';
 import ParentDashboard from './ParentDashboard';
 import bearHeadIcon from '../assets/onboarding/bear-head.png';
 
@@ -128,26 +129,124 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () => void }) {
-  const PARENT_PIN_KEY = 'parental_pin';
-  const savedPin = storage.get<string>(PARENT_PIN_KEY);
-  const [mode] = useState<'setup' | 'unlock'>(() => savedPin && /^\d{4}$/.test(savedPin) ? 'unlock' : 'setup');
+const VIOLET_GRADIENT = 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)';
+
+type ParentGateMethod = 'example' | 'code';
+
+interface ArithmeticProblem {
+  text: string;
+  answer: number;
+}
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/** Простой пример, который ребёнок 6-9 лет с ходу не решит, а взрослый — легко:
+ * двузначное сложение/вычитание или умножение однозначных чисел. При ошибке
+ * подставляется новый пример, чтобы его нельзя было просто запомнить. */
+function generateArithmeticProblem(): ArithmeticProblem {
+  const kind = randomInt(0, 2);
+  if (kind === 0) {
+    const a = randomInt(24, 68);
+    const b = randomInt(11, 39);
+    return { text: `${a} + ${b}`, answer: a + b };
+  }
+  if (kind === 1) {
+    const a = randomInt(41, 89);
+    const b = randomInt(11, a - 12);
+    return { text: `${a} − ${b}`, answer: a - b };
+  }
+  const a = randomInt(4, 9);
+  const b = randomInt(4, 9);
+  return { text: `${a} × ${b}`, answer: a * b };
+}
+
+/** Четыре точки вместо текстового поля — тап по ряду фокусирует скрытый
+ * числовой инпут (открывает системную цифровую клавиатуру), а сами точки
+ * лишь отражают, сколько цифр уже введено. */
+function PinDots({
+  value,
+  length = 4,
+  error,
+  onChange,
+  onComplete,
+  autoFocus,
+}: {
+  value: string;
+  length?: number;
+  error?: boolean;
+  onChange: (next: string) => void;
+  onComplete?: (code: string) => void;
+  autoFocus?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
+
+  return (
+    <div
+      className={`relative flex items-center justify-center gap-4 py-1 ${error ? 'animate-shake' : ''}`}
+      onClick={() => inputRef.current?.focus()}
+    >
+      {Array.from({ length }).map((_, i) => (
+        <span
+          key={i}
+          className="h-4 w-4 rounded-full transition-colors"
+          style={{
+            background: i < value.length ? (error ? '#ef4060' : '#7574f0') : 'transparent',
+            border: `2px solid ${error ? '#ef4060' : i < value.length ? '#7574f0' : '#d9cdbd'}`,
+          }}
+        />
+      ))}
+      <input
+        ref={inputRef}
+        type="tel"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => {
+          const next = e.target.value.replace(/\D/g, '').slice(0, length);
+          onChange(next);
+          hapticTap();
+          if (next.length === length) onComplete?.(next);
+        }}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        aria-label="Код доступа"
+      />
+    </div>
+  );
+}
+
+function ExampleGate({
+  onPass,
+  onCancel,
+  onSwitchToCode,
+}: {
+  onPass: () => void;
+  onCancel: () => void;
+  onSwitchToCode: () => void;
+}) {
+  const [problem, setProblem] = useState<ArithmeticProblem>(generateArithmeticProblem);
   const [value, setValue] = useState('');
-  const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState(false);
 
   function submit() {
-    if (mode === 'setup') {
-      if (!/^\d{4}$/.test(value) || value !== confirmation) {
-        setError(true);
-        return;
-      }
-      void storage.set(PARENT_PIN_KEY, value);
+    if (value !== '' && Number(value) === problem.answer) {
+      hapticSuccess();
       onPass();
       return;
     }
-    if (value === savedPin) onPass();
-    else setError(true);
+    hapticError();
+    setError(true);
+    setTimeout(() => {
+      setProblem(generateArithmeticProblem());
+      setValue('');
+      setError(false);
+    }, 420);
   }
 
   return (
@@ -163,41 +262,54 @@ function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () =
           Родительская зона
         </h2>
         <p className="mt-1.5 text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
-          {mode === 'setup' ? 'Задай код для входа' : 'Введи код для входа'}
+          Реши пример, чтобы продолжить
         </p>
       </div>
-      {mode === 'setup' && <p className="max-w-[260px] text-center text-[11px] font-semibold leading-snug text-[#8b8190]">Придумай код из 4 цифр. Он сохранится только на этом устройстве.</p>}
+      <div
+        className={`text-[26px] font-extrabold tabular-nums ${error ? 'animate-shake' : ''}`}
+        style={{ color: error ? '#ef4060' : '#2c2a5e' }}
+      >
+        {problem.text} = ?
+      </div>
       <input
-        type="password"
+        type="text"
         inputMode="numeric"
+        pattern="[0-9]*"
         autoFocus
         value={value}
         onChange={(e) => {
-          setValue(e.target.value.replace(/\D/g, '').slice(0, 4));
+          setValue(e.target.value.replace(/\D/g, '').slice(0, 3));
           setError(false);
         }}
-        placeholder="4 цифры"
-        maxLength={4}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        placeholder="Ответ"
+        maxLength={3}
         className="w-32 rounded-[16px] border bg-white px-4 py-2.5 text-center text-[18px] font-bold outline-none"
         style={{ borderColor: error ? '#ef4060' : '#eeddc3', color: '#2c2a5e' }}
       />
-      {mode === 'setup' && <input type="password" inputMode="numeric" value={confirmation} onChange={(e) => { setConfirmation(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(false); }} placeholder="Повтори код" maxLength={4} className="w-32 rounded-[16px] border bg-white px-4 py-2.5 text-center text-[18px] font-bold outline-none" style={{ borderColor: error ? '#ef4060' : '#eeddc3', color: '#2c2a5e' }} />}
       {error && (
         <p className="-mt-3 text-[11.5px] font-semibold" style={{ color: '#ef4060' }}>
-          {mode === 'setup' ? 'Коды должны совпадать и содержать 4 цифры' : 'Неверный код, попробуй ещё раз'}
+          Не совпало, вот другой пример
         </p>
       )}
       <div className="mt-1 flex w-full flex-col gap-2.5">
         <button
           onClick={submit}
           className="w-full rounded-full py-3 text-[14px] font-bold text-white transition active:scale-[0.98]"
-          style={{ background: 'linear-gradient(180deg, #8b88f4 0%, #7574f0 45%, #6262e4 100%)' }}
+          style={{ background: VIOLET_GRADIENT }}
         >
-          {mode === 'setup' ? 'Сохранить код' : 'Открыть кабинет'}
+          Открыть кабинет
+        </button>
+        <button
+          onClick={onSwitchToCode}
+          className="w-full rounded-full py-2.5 text-[13px] font-bold transition active:scale-[0.98]"
+          style={{ color: '#7574f0' }}
+        >
+          Войти по коду
         </button>
         <button
           onClick={onCancel}
-          className="w-full rounded-full py-3 text-[14px] font-bold transition active:scale-[0.98]"
+          className="w-full rounded-full py-2.5 text-[14px] font-bold transition active:scale-[0.98]"
           style={{ color: '#7b7a8c' }}
         >
           Назад
@@ -207,6 +319,136 @@ function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () =
   );
 }
 
+function CodeGate({
+  savedPin,
+  onSaved,
+  onPass,
+  onCancel,
+  onSwitchToExample,
+}: {
+  savedPin: string | null;
+  onSaved: (pin: string) => void;
+  onPass: () => void;
+  onCancel: () => void;
+  onSwitchToExample: () => void;
+}) {
+  const hasCode = !!savedPin && /^\d{4}$/.test(savedPin);
+  const [step, setStep] = useState<'enter' | 'confirm'>('enter');
+  const [value, setValue] = useState('');
+  const [firstEntry, setFirstEntry] = useState('');
+  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  function handleComplete(code: string) {
+    if (!hasCode) {
+      // Настройка кода в первый раз: сначала вводим, потом повторяем для проверки.
+      if (step === 'enter') {
+        setFirstEntry(code);
+        setValue('');
+        setStep('confirm');
+        return;
+      }
+      if (code === firstEntry) {
+        onSaved(code);
+        hapticSuccess();
+        onPass();
+        return;
+      }
+      hapticError();
+      setError(true);
+      setErrorMessage('Коды не совпадают, начни заново');
+      setTimeout(() => {
+        setError(false);
+        setErrorMessage('');
+        setValue('');
+        setFirstEntry('');
+        setStep('enter');
+      }, 480);
+      return;
+    }
+    if (code === savedPin) {
+      hapticSuccess();
+      onPass();
+      return;
+    }
+    hapticError();
+    setError(true);
+    setErrorMessage('Неверный код, попробуй ещё раз');
+    setTimeout(() => {
+      setError(false);
+      setErrorMessage('');
+      setValue('');
+    }, 480);
+  }
+
+  const title = !hasCode ? (step === 'enter' ? 'Придумай код' : 'Повтори код') : 'Введи код';
+  const subtitle = !hasCode
+    ? step === 'enter'
+      ? 'Код из 4 цифр сохранится только на этом устройстве'
+      : 'Введи те же 4 цифры ещё раз'
+    : 'Код из 4 цифр для входа в кабинет';
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-5 bg-[#fbefe1] px-6">
+      <div
+        className="flex h-16 w-16 items-center justify-center rounded-full"
+        style={{ background: '#f0e6d3', color: '#6f6355' }}
+      >
+        <IconLock className="h-8 w-8" />
+      </div>
+      <div className="text-center">
+        <h2 className="text-[17px] font-extrabold" style={{ color: '#2c2a5e' }}>
+          {title}
+        </h2>
+        <p className="mt-1.5 max-w-[260px] text-[12.5px] leading-snug" style={{ color: '#7b7a8c' }}>
+          {subtitle}
+        </p>
+      </div>
+      <PinDots value={value} onChange={setValue} onComplete={handleComplete} error={error} autoFocus />
+      {errorMessage && (
+        <p className="-mt-3 text-[11.5px] font-semibold" style={{ color: '#ef4060' }}>
+          {errorMessage}
+        </p>
+      )}
+      <div className="mt-1 flex w-full flex-col gap-2.5">
+        <button
+          onClick={onSwitchToExample}
+          className="w-full rounded-full py-2.5 text-[13px] font-bold transition active:scale-[0.98]"
+          style={{ color: '#7574f0' }}
+        >
+          Войти по примеру
+        </button>
+        <button
+          onClick={onCancel}
+          className="w-full rounded-full py-2.5 text-[14px] font-bold transition active:scale-[0.98]"
+          style={{ color: '#7b7a8c' }}
+        >
+          Назад
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ParentalGate({ onPass, onCancel }: { onPass: () => void; onCancel: () => void }) {
+  const PARENT_PIN_KEY = 'parental_pin';
+  const savedPin = storage.get<string>(PARENT_PIN_KEY) ?? null;
+  const [method, setMethod] = useState<ParentGateMethod>('example');
+
+  if (method === 'code') {
+    return (
+      <CodeGate
+        savedPin={savedPin}
+        onSaved={(pin) => void storage.set(PARENT_PIN_KEY, pin)}
+        onPass={onPass}
+        onCancel={onCancel}
+        onSwitchToExample={() => setMethod('example')}
+      />
+    );
+  }
+
+  return <ExampleGate onPass={onPass} onCancel={onCancel} onSwitchToCode={() => setMethod('code')} />;
+}
 function ParentalZone({ onBack }: { onBack: () => void }) {
   const [confirmingReset, setConfirmingReset] = useState(false);
 

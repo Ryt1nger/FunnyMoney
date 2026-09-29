@@ -168,8 +168,8 @@ function App() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center gap-5 bg-neutral-300">
-      <div className="relative h-screen w-full overflow-hidden sm:h-[850px] sm:max-h-[92vh] sm:w-[390px] sm:rounded-[36px] sm:shadow-2xl sm:ring-8 sm:ring-black/80">
+    <div className="flex min-h-[100dvh] w-full items-center justify-center gap-5 bg-neutral-300">
+      <div className="relative h-[100dvh] min-h-0 w-full overflow-hidden sm:h-[850px] sm:max-h-[92vh] sm:w-[390px] sm:rounded-[36px] sm:shadow-2xl sm:ring-8 sm:ring-black/80">
         {screen === 'onboarding' && <Onboarding onComplete={handleOnboardingComplete} />}
         {screen === 'home' && <Home />}
 

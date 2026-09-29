@@ -41,6 +41,16 @@ export function hapticTap() {
   void vibrate(12);
 }
 
+/** Ошибка ввода — неверный код/ответ на проверке родителя. */
+export function hapticError() {
+  if (!enabled()) return;
+  if (Capacitor.isNativePlatform()) {
+    void Haptics.notification({ type: NotificationType.Error }).catch(() => vibrate([16, 60, 16, 60, 16]));
+    return;
+  }
+  void vibrate([16, 60, 16, 60, 16]);
+}
+
 /** Более выраженный отклик — успешное действие (покупка, выполнение задания). */
 export function hapticSuccess() {
   if (!enabled()) return;

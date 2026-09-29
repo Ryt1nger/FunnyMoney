@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 15+ принудительно включает edge-to-edge для targetSdk 35+.
+         Нам нужен обычный layout между системными панелями: контент должен
+         получить меньшую высоту, а не компенсировать status bar отступом. -->
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

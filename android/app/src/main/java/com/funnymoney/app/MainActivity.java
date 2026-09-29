@@ -12,30 +12,23 @@ public class MainActivity extends BridgeActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    // Настоящий edge-to-edge: WebView рисуется на весь экран, под системными
-    // панелями, а не просто ужимается под их отступы — панели становятся
-    // прозрачными и накладываются поверх контента, а не занимают своё место.
-    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-    getWindow().setStatusBarColor(Color.TRANSPARENT);
-    // Если на устройстве есть системная navigation bar, она должна быть
-    // отдельной чёрной областью, а не прозрачным слоем поверх контента.
-    // На устройствах без такой панели Android сам не создаёт этот цветной
-    // участок, поэтому дополнительного отступа в приложении не появляется.
-    getWindow().setNavigationBarColor(Color.BLACK);
+    // WebView должен занимать область между системными панелями. Раньше здесь
+    // был edge-to-edge режим, а экраны дополнительно добавляли safe-area сверху,
+    // поэтому высота статус-бара учитывалась дважды и весь контент съезжал вниз.
+    // В обычном режиме Android сам уменьшает высоту WebView, не смещая его
+    // внутреннюю раскладку.
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+    getWindow().setStatusBarColor(Color.rgb(251, 239, 225));
+    getWindow().setNavigationBarColor(Color.rgb(251, 239, 225));
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      // На Android 10+ система по умолчанию подкладывает под жестовую панель
-      // затемняющую подложку для контраста — она-то и выглядит как "серая
-      // полоса" поверх приложения. Отключаем, раз панель и так прозрачная.
       getWindow().setNavigationBarContrastEnforced(false);
     }
 
     WindowInsetsControllerCompat controller =
         new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
-    // Верх приложения почти везде тёмный/цветной фон — белые иконки статус-бара
-    // читаются на нём лучше, чем тёмные.
-    controller.setAppearanceLightStatusBars(false);
-    // На чёрной системной панели используем светлые системные кнопки.
-    controller.setAppearanceLightNavigationBars(false);
+    // Системные панели теперь отдельные и светлые, как фон приложения.
+    controller.setAppearanceLightStatusBars(true);
+    controller.setAppearanceLightNavigationBars(true);
   }
 }
