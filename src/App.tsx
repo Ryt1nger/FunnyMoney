@@ -10,12 +10,6 @@ import { startBackgroundMusic } from './services/backgroundMusic';
 import { initGlobalTapSound } from './services/globalTapSound';
 import { startSessionTracking } from './services/sessionTracking';
 import { storage } from './services/storage';
-import { usePeriodStore } from './features/economy/periodStore';
-import { useDevNavStore } from './features/dev/devNavStore';
-import { usePeriodEventStore } from './features/periodEvents/eventStore';
-import { PERIOD_EVENTS } from './features/periodEvents/eventData';
-import { useLessonProgressStore } from './features/progress/lessonProgressStore';
-import { lessonCards } from './data/lessonsData';
 import { ECONOMY_RULES } from './core/economy';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
@@ -58,7 +52,6 @@ function delay(ms: number) {
 // на реальном мобильном экране (и в APK) занимает весь экран.
 function App() {
   const [screen, setScreen] = useState<Screen>(() => (isOnboarded() ? 'home' : 'onboarding'));
-  const currentPeriodId = usePeriodStore((s) => s.id);
   const [overlay, setOverlay] = useState<OverlayPhase>('in');
   const [overlayKind, setOverlayKind] = useState<OverlayKind>('startup');
   // Видимость overlay отделена от overlay: сначала монтируем с opacity 0,
@@ -157,15 +150,6 @@ function App() {
     showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame, () => setScreen(next));
   }
 
-  // Дев-панель "Периоды"/"События": стор уже обновлён (setPeriod/debugJumpToEvent),
-  // и если мы и так на главном экране — Home сам подхватит изменения реактивно,
-  // без полноэкранного перехода. Оверлей нужен только когда мы реально СМЕНИЛИ
-  // экран (например, были на онбординге) — тогда используем обычный goTo.
-  function jumpToHome() {
-    if (screen === 'home') return;
-    goTo('home');
-  }
-
   function handleOnboardingComplete(age: number, petName: string, characterId: string) {
     void storage.set('onboarded', '1');
     void storage.set('user_age', String(age));
@@ -203,154 +187,6 @@ function App() {
         )}
       </div>
 
-      {/* Дев-панель переключения состояний — только для отладки на десктопе, в реальном приложении не нужна */}
-      <div className="hidden flex-col gap-2 rounded-2xl bg-white/90 p-3 shadow-lg sm:flex">
-        <span className="px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Состояние</span>
-        <button
-          onClick={() => showLoadingOverlay('startup', STARTUP_MIN_MS, bootstrapGame)}
-          className="rounded-xl bg-neutral-100 px-4 py-2 text-left text-[13px] font-semibold text-neutral-600 transition hover:bg-neutral-200"
-        >
-          Загрузка (запуск)
-        </button>
-        <button
-          onClick={() => showLoadingOverlay('transition', TRANSITION_MIN_MS, bootstrapGame)}
-          className="rounded-xl bg-neutral-100 px-4 py-2 text-left text-[13px] font-semibold text-neutral-600 transition hover:bg-neutral-200"
-        >
-          Загрузка (переход)
-        </button>
-        <button
-          onClick={() => goTo('onboarding')}
-          className={`rounded-xl px-4 py-2 text-left text-[13px] font-semibold transition ${
-            screen === 'onboarding' ? 'bg-[#6262e4] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-          }`}
-        >
-          Первый экран
-        </button>
-        <button
-          onClick={() => goTo('home')}
-          className={`rounded-xl px-4 py-2 text-left text-[13px] font-semibold transition ${
-            screen === 'home' ? 'bg-[#6262e4] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-          }`}
-        >
-          Главный экран
-        </button>
-
-        {/* Прыжок сразу в нужный период (демо-режим, п. 2.5 доп. ТЗ: "следующий
-            период" без ожидания реального прохождения). Переключает реальный
-            usePeriodStore и просит Home открыть раздел "Периоды" — см. devNavStore. */}
-        <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Периоды</span>
-        <div className="flex gap-2">
-          {([1, 2, 3, 4, 5] as const).map((id) => (
-            <button
-              key={id}
-              onClick={() => {
-                usePeriodStore.getState().setPeriod(id);
-                useDevNavStore.getState().requestScreen('period');
-                jumpToHome();
-              }}
-              className={`flex-1 rounded-xl px-3 py-2 text-[13px] font-semibold transition ${
-                screen === 'home' && currentPeriodId === id
-                  ? 'bg-[#6262e4] text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-              }`}
-            >
-              Период {id}
-            </button>
-          ))}
-        </div>
-        <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">Завершение периода</span>
-        <div className="flex gap-2">
-          {([1, 2, 3, 4, 5] as const).map((id) => (
-            <div key={id} className="flex min-w-0 flex-1 flex-col gap-1">
-              <button
-                onClick={() => {
-                  usePeriodStore.getState().debugPrepareCompletion(id, 'success');
-                  usePeriodEventStore.getState().debugCompletePeriod(id);
-                  jumpToHome();
-                }}
-                className="truncate rounded-xl bg-emerald-50 px-2 py-2 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
-              >
-                Успех {id}
-              </button>
-              <button
-                onClick={() => {
-                  usePeriodStore.getState().debugPrepareCompletion(id, 'failure');
-                  usePeriodEventStore.getState().debugCompletePeriod(id);
-                  jumpToHome();
-                }}
-                className="truncate rounded-xl bg-rose-50 px-2 py-2 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100"
-              >
-                Неудача {id}
-              </button>
-            </div>
-          ))}
-        </div>
-        {/* Прыжок сразу к конкретному событию периода (дев-панель): топит
-            кошелёк, форсирует активный статус периода с тестовым планом,
-            помечает предыдущие события в цепочке выполненными и, если у
-            события есть привязка к уроку, засчитывает этот урок — иначе
-            getAvailableEvent() событие не отдаст. Реальные эффекты/награды
-            пропущенных событий при этом не начисляются. */}
-        <span className="mt-1 px-1 text-[11px] font-bold uppercase tracking-wide text-neutral-400">События</span>
-        <div className="flex flex-col gap-2">
-          {([1, 2, 3, 4, 5] as const).map((periodId) => (
-            <div key={periodId} className="flex gap-2">
-              {PERIOD_EVENTS.filter((event) => event.periodId === periodId).map((event) => (
-                <button
-                  key={event.id}
-                  onClick={() => {
-                    // Открываем именно модалку события (она смонтирована
-                    // глобально в Home.tsx и всплывает поверх любого экрана),
-                    // а не раздел "Периоды" — requestScreen('period') здесь
-                    // специально не вызываем.
-                    useEconomyStore.getState().applyCoinsDelta(300, 'Дев: тест события', { category: 'reward' });
-                    usePeriodStore.getState().setPeriod(event.periodId);
-                    usePeriodEventStore.getState().debugJumpToEvent(event.id);
-                    if (event.lessonId) useLessonProgressStore.getState().completeLesson(event.lessonId);
-                    jumpToHome();
-                  }}
-                  title={event.title}
-                  className="flex-1 truncate rounded-xl bg-neutral-100 px-2 py-2 text-[11px] font-semibold text-neutral-600 transition hover:bg-neutral-200"
-                >
-                  {event.order}. {event.title}
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        {/* Разблокировка всех уровней: открывает последний период (снимает
-            блокировку тем) и засчитывает все уроки (снимает "сначала пройди
-            предыдущий урок"). Реальные награды за уроки не начисляются. */}
-        <button
-          onClick={() => {
-            if (currentPeriodId !== 5) usePeriodStore.getState().setPeriod(5);
-            lessonCards.forEach((lesson) => useLessonProgressStore.getState().completeLesson(lesson.id));
-            jumpToHome();
-          }}
-          className="rounded-xl bg-violet-50 px-4 py-2 text-left text-[13px] font-semibold text-violet-700 transition hover:bg-violet-100"
-        >
-          Разблокировать все уровни
-        </button>
-
-        <button
-          onClick={() => {
-            useEconomyStore.getState().applyCoinsDelta(5000, 'Дев: +5000 монет', { category: 'reward' });
-          }}
-          className="rounded-xl bg-amber-50 px-4 py-2 text-left text-[13px] font-semibold text-amber-600 transition hover:bg-amber-100"
-        >
-          +5000 монет
-        </button>
-
-        <button
-          onClick={() => {
-            void storage.resetAll().then(() => window.location.reload());
-          }}
-          className="rounded-xl bg-red-50 px-4 py-2 text-left text-[13px] font-semibold text-red-500 transition hover:bg-red-100"
-        >
-          Сбросить прогресс
-        </button>
-      </div>
     </div>
   );
 }

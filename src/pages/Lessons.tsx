@@ -66,6 +66,7 @@ interface Props {
 export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, onClose, onOpenEarnModal, onFullScreenChange, onLessonTransition }: Props) {
   const [entered, setEntered] = useState(false);
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   // Итог текущего прохождения — показывается вместо самого урока, когда
   // пройдена последняя сцена практики (см. finishLesson ниже).
   const [lessonResult, setLessonResult] = useState<{ lessonId: string; correctCount: number; coins: number; xp: number } | null>(null);
@@ -85,6 +86,11 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
   }, []);
+  useEffect(() => {
+    if (!entered) return;
+    const id = requestAnimationFrame(() => listRef.current?.scrollTo({ top: 0, behavior: 'auto' }));
+    return () => cancelAnimationFrame(id);
+  }, [entered]);
   useEffect(() => () => onFullScreenChange?.(false), [onFullScreenChange]);
 
   // Короткая подсказка по разделу — включается сама при первом заходе сюда
@@ -293,6 +299,7 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
 
       {/* Кремовый лист поверх шапки */}
       <div
+        ref={listRef}
         className="-mt-5 flex-1 overflow-y-auto rounded-t-[26px] bg-[#fbefe1] px-4 pt-4 transition-transform duration-[420ms]"
         style={{
           paddingBottom: bottomInset + 24,
@@ -370,14 +377,14 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
               data-tour={lesson.id === 'what-is-money' ? 'lessons-first' : undefined}
               aria-disabled={themeLocked}
               className={`relative flex min-h-[100px] gap-3 rounded-[22px] p-2.5 shadow-sm transition ${
-                themeLocked ? 'bg-white/50 grayscale' : 'bg-white/80'
+                themeLocked ? 'bg-white/65' : 'bg-white/80'
               }`}
             >
               <div className="relative h-[70px] w-[70px] shrink-0">
                 <img
                   src={lesson.image}
                   alt=""
-                  className={`h-full w-full rounded-[16px] object-cover ${themeLocked ? 'opacity-60' : ''}`}
+                  className={`h-full w-full rounded-[16px] object-cover ${themeLocked ? 'grayscale opacity-60' : ''}`}
                 />
                 {lessonCompleted && (
                   <span
@@ -389,8 +396,8 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
                   </span>
                 )}
               </div>
-              <div className={`min-w-0 flex-1 pr-24 ${themeLocked ? 'opacity-60' : ''}`}>
-                <div className="line-clamp-2 text-[13px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
+              <div className={`relative z-10 min-w-0 flex-1 pr-24 ${themeLocked ? 'opacity-75' : ''}`}>
+                <div className="text-[13px] font-bold leading-tight" style={{ color: '#2c2a5e' }}>
                   {lesson.title}
                 </div>
                 <p
