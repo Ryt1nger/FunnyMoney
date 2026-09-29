@@ -77,6 +77,16 @@ const sceneHints = [
 
 const SELECTED_RING = 'ring-[3px] ring-[#675ff3]';
 
+// Палитра цветных карточек-вариантов — та же, что и в переделанных
+// упражнениях 1-го урока, чтобы весь список ответов не был однотонно-белым.
+const OPTION_COLORS = [
+  { bg: '#dbe9fb', fg: '#2f6fd6' },
+  { bg: '#fdecd2', fg: '#b9781f' },
+  { bg: '#fde0e8', fg: '#d1497a' },
+  { bg: '#ece2fb', fg: '#7a54d9' },
+  { bg: '#dff8d7', fg: '#3f9142' },
+] as const;
+
 function Coin({ className = '' }: { className?: string }) {
   return <img src={coinIcon} alt="" draggable={false} className={`h-[1.15em] w-[1.15em] shrink-0 object-contain ${className}`} />;
 }
@@ -368,15 +378,18 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
           <>
             <p className="shrink-0 text-center text-[clamp(12px,3.6vw,14.5px)] font-bold leading-snug text-[#5a6a92]">Сравни план и факт расходов. По какой категории есть отклонение?</p>
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              {deviationRowsTray.map((row) => (
-                <button key={row.id} type="button" onClick={() => setDeviation(row.id)} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] bg-white/90 px-3 shadow-sm transition active:scale-[.98] ${deviation === row.id ? SELECTED_RING : ''}`}>
-                  <img src={row.image} alt="" draggable={false} className="h-[72%] w-[15%] shrink-0 object-contain" />
-                  <span className="flex-1 text-left text-[clamp(13px,4vw,16px)] font-black text-[#1b3f8f]">{row.label}</span>
-                  <span className="flex items-center gap-1 rounded-lg bg-[#e3f1fb] px-2 py-0.5 text-[clamp(11px,3.3vw,13.5px)] font-black text-[#1b4ea3]">План <Coin />{row.plan}</span>
-                  <span className="flex items-center gap-1 rounded-lg bg-[#fde3ea] px-2 py-0.5 text-[clamp(11px,3.3vw,13.5px)] font-black text-[#c23b5c]">Факт <Coin />{row.fact}</span>
-                  <Radio on={deviation === row.id} />
-                </button>
-              ))}
+              {deviationRowsTray.map((row, index) => {
+                const color = OPTION_COLORS[index % OPTION_COLORS.length];
+                return (
+                  <button key={row.id} type="button" onClick={() => setDeviation(row.id)} style={{ background: color.bg }} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] px-3 shadow-sm transition active:scale-[.98] ${deviation === row.id ? SELECTED_RING : ''}`}>
+                    <img src={row.image} alt="" draggable={false} className="h-[72%] w-[15%] shrink-0 object-contain" />
+                    <span className="flex-1 text-left text-[clamp(13px,4vw,16px)] font-black" style={{ color: color.fg }}>{row.label}</span>
+                    <span className="flex items-center gap-1 rounded-lg bg-white/70 px-2 py-0.5 text-[clamp(11px,3.3vw,13.5px)] font-black text-[#1b4ea3]">План <Coin />{row.plan}</span>
+                    <span className="flex items-center gap-1 rounded-lg bg-white/70 px-2 py-0.5 text-[clamp(11px,3.3vw,13.5px)] font-black text-[#c23b5c]">Факт <Coin />{row.fact}</span>
+                    <Radio on={deviation === row.id} />
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -387,12 +400,15 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
             <p className="shrink-0 text-center text-[clamp(12px,3.6vw,14.5px)] font-bold leading-snug text-[#5a6a92]">План был {TOY_PLAN} монет, а потратили {TOY_FACT}. На сколько монет получился перерасход?</p>
             <PlanFactCard />
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              {overspendOptionsTray.map((value) => (
-                <button key={value} type="button" onClick={() => setOverspend(value)} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] bg-white/90 px-3 shadow-sm transition active:scale-[.98] ${overspend === value ? SELECTED_RING : ''}`}>
-                  <span className="flex flex-1 items-center gap-1.5 text-[clamp(18px,5.6vw,23px)] font-black text-[#1b3f8f]"><Coin />{value}</span>
-                  <Radio on={overspend === value} />
-                </button>
-              ))}
+              {overspendOptionsTray.map((value, index) => {
+                const color = OPTION_COLORS[index % OPTION_COLORS.length];
+                return (
+                  <button key={value} type="button" onClick={() => setOverspend(value)} style={{ background: color.bg }} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] px-3 shadow-sm transition active:scale-[.98] ${overspend === value ? SELECTED_RING : ''}`}>
+                    <span className="flex flex-1 items-center gap-1.5 text-[clamp(18px,5.6vw,23px)] font-black" style={{ color: color.fg }}><Coin />{value}</span>
+                    <Radio on={overspend === value} />
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -412,11 +428,12 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
               </button>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              {blankWordsTray.map((word) => {
+              {blankWordsTray.map((word, index) => {
                 const on = blank1 === word || blank2 === word;
+                const color = OPTION_COLORS[index % OPTION_COLORS.length];
                 return (
-                  <button key={word} type="button" onClick={() => pickBlankWord(word)} className={`flex min-h-0 flex-1 items-center rounded-[14px] bg-white/90 px-3 shadow-sm transition active:scale-[.98] ${on ? SELECTED_RING : ''}`}>
-                    <span className="flex-1 text-left text-[clamp(13px,4vw,16px)] font-bold text-[#1b3f8f]">{word}</span>
+                  <button key={word} type="button" onClick={() => pickBlankWord(word)} style={{ background: color.bg }} className={`flex min-h-0 flex-1 items-center rounded-[14px] px-3 shadow-sm transition active:scale-[.98] ${on ? SELECTED_RING : ''}`}>
+                    <span className="flex-1 text-left text-[clamp(13px,4vw,16px)] font-bold" style={{ color: color.fg }}>{word}</span>
                     <Radio on={on} />
                   </button>
                 );
@@ -431,17 +448,20 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
             <p className="shrink-0 text-center text-[clamp(12px,3.6vw,14.5px)] font-bold leading-snug text-[#5a6a92]">План был {TOY_PLAN} монет, а потратили {TOY_FACT}. Как ты думаешь, почему это произошло?</p>
             <PlanFactCard />
             <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              {reasonOptionsTray.map((option) => (
-                <button key={option.id} type="button" onClick={() => setReason(option.id)} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] bg-white/90 px-3 shadow-sm transition active:scale-[.98] ${reason === option.id ? SELECTED_RING : ''}`}>
-                  {option.icon === 'gift' ? (
-                    <GiftIcon className="h-[60%] w-[13%] shrink-0" />
-                  ) : (
-                    <img src={option.icon === 'coins' ? coinIcon : appleIcon} alt="" draggable={false} className="h-[60%] w-[13%] shrink-0 object-contain" />
-                  )}
-                  <span className="flex-1 text-left text-[clamp(12.5px,3.8vw,15.5px)] font-black text-[#1b3f8f]">{option.title}</span>
-                  <Radio on={reason === option.id} />
-                </button>
-              ))}
+              {reasonOptionsTray.map((option, index) => {
+                const color = OPTION_COLORS[index % OPTION_COLORS.length];
+                return (
+                  <button key={option.id} type="button" onClick={() => setReason(option.id)} style={{ background: color.bg }} className={`flex min-h-0 flex-1 items-center gap-3 rounded-[16px] px-3 shadow-sm transition active:scale-[.98] ${reason === option.id ? SELECTED_RING : ''}`}>
+                    {option.icon === 'gift' ? (
+                      <GiftIcon className="h-[60%] w-[13%] shrink-0" />
+                    ) : (
+                      <img src={option.icon === 'coins' ? coinIcon : appleIcon} alt="" draggable={false} className="h-[60%] w-[13%] shrink-0 object-contain" />
+                    )}
+                    <span className="flex-1 text-left text-[clamp(12.5px,3.8vw,15.5px)] font-black" style={{ color: color.fg }}>{option.title}</span>
+                    <Radio on={reason === option.id} />
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -452,12 +472,13 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
             <p className="shrink-0 text-center text-[clamp(12px,3.6vw,14.5px)] font-bold leading-snug text-[#5a6a92]">Составь новый план расходов на {BUDGET_TOTAL} монет. Выбери подходящие категории и уложись в бюджет.</p>
             <CoinsPill value={BUDGET_TOTAL} label="Мой бюджет" />
             <div className="grid min-h-0 flex-1 grid-cols-2 gap-1.5">
-              {budgetItemsTray.map((item) => {
+              {budgetItemsTray.map((item, index) => {
                 const on = budgetPicks.includes(item.id);
+                const color = OPTION_COLORS[index % OPTION_COLORS.length];
                 return (
-                  <button key={item.id} type="button" onClick={() => toggleBudgetItem(item.id)} className={`flex min-h-0 flex-col items-center justify-center gap-0.5 rounded-[16px] bg-white/90 p-1.5 shadow-sm transition active:scale-[.98] ${on ? SELECTED_RING : ''}`}>
+                  <button key={item.id} type="button" onClick={() => toggleBudgetItem(item.id)} style={{ background: color.bg }} className={`flex min-h-0 flex-col items-center justify-center gap-0.5 rounded-[16px] p-1.5 shadow-sm transition active:scale-[.98] ${on ? SELECTED_RING : ''}`}>
                     <img src={item.image} alt="" draggable={false} className="h-[52%] w-auto max-w-[70%] object-contain" />
-                    <span className="text-[clamp(11px,3.3vw,13.5px)] font-black leading-tight text-[#1b3f8f]">{item.label}</span>
+                    <span className="text-[clamp(11px,3.3vw,13.5px)] font-black leading-tight" style={{ color: color.fg }}>{item.label}</span>
                     <span className="flex items-center gap-1 text-[clamp(12px,3.6vw,14.5px)] font-black text-[#c9862a]"><Coin />{item.price}</span>
                   </button>
                 );

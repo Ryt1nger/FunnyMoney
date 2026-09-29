@@ -15,6 +15,7 @@ import { useDevNavStore } from './features/dev/devNavStore';
 import { usePeriodEventStore } from './features/periodEvents/eventStore';
 import { PERIOD_EVENTS } from './features/periodEvents/eventData';
 import { useLessonProgressStore } from './features/progress/lessonProgressStore';
+import { lessonCards } from './data/lessonsData';
 import { ECONOMY_RULES } from './core/economy';
 
 // Один делегированный слушатель кликов на весь документ — даёт лёгкий звук
@@ -317,6 +318,20 @@ function App() {
             </div>
           ))}
         </div>
+
+        {/* Разблокировка всех уровней: открывает последний период (снимает
+            блокировку тем) и засчитывает все уроки (снимает "сначала пройди
+            предыдущий урок"). Реальные награды за уроки не начисляются. */}
+        <button
+          onClick={() => {
+            if (currentPeriodId !== 5) usePeriodStore.getState().setPeriod(5);
+            lessonCards.forEach((lesson) => useLessonProgressStore.getState().completeLesson(lesson.id));
+            jumpToHome();
+          }}
+          className="rounded-xl bg-violet-50 px-4 py-2 text-left text-[13px] font-semibold text-violet-700 transition hover:bg-violet-100"
+        >
+          Разблокировать все уровни
+        </button>
 
         <button
           onClick={() => {
