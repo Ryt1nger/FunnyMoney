@@ -19,11 +19,7 @@ import leashIcon from '../assets/lesson-items/leash.png';
 import ballIcon from '../assets/lesson-items/ball.png';
 import bowIcon from '../assets/lesson-items/bow.png';
 import candyIcon from '../assets/lesson-items/candy.png';
-import laptopIcon from '../assets/lesson-items/laptop.png';
-import checklistIcon from '../assets/lesson-items/checklist.png';
-import groceriesIcon from '../assets/lesson-items/groceries.png';
 import gamepadIcon from '../assets/lesson-items/gamepad.png';
-import giftIcon from '../assets/lesson-items/gift.png';
 import { pauseBackgroundMusic, startBackgroundMusic } from '../services/backgroundMusic';
 import { pausePracticeMusic, startPracticeMusic } from '../services/practiceMusic';
 import { playCorrectAnswerSound, playWrongAnswerSound } from '../services/answerSound';
@@ -72,31 +68,35 @@ const walkItems = [
   { id: 'walk-bow', label: 'Бантик', image: bowIcon, category: 'walk' },
   { id: 'walk-candy', label: 'Конфета', image: candyIcon, category: 'walk' },
 ] as const;
-// Упражнение 4 — "Расставь шаги!": 4 карточки-действия нужно расставить по
+// Упражнение 4 — "Расставь шаги!": 5 карточек-действий нужно расставить по
 // порядку в пронумерованные слоты (без цены — тут порядок действий, а не
-// покупка).
+// покупка). Каждая карточка — цветная плашка с общей монеткой-лапкой, как в
+// референсе (см. мокап "Расставь шаги").
 const orderItems = [
-  { id: 'order-balance', label: 'Баланс', image: laptopIcon, category: 'order' },
-  { id: 'order-find', label: 'Найти', image: checklistIcon, category: 'order' },
-  { id: 'order-buy', label: 'Купить', image: groceriesIcon, category: 'order' },
-  { id: 'order-toy', label: 'Игрушка', image: toyCar, category: 'order' },
+  { id: 'order-balance', label: 'Посмотреть баланс', shortLabel: 'Баланс', image: coinIcon, category: 'order', bg: '#dbe9fb', fg: '#2f6fd6' },
+  { id: 'order-find', label: 'Найти обязательное', shortLabel: 'Найти', image: coinIcon, category: 'order', bg: '#fdecd2', fg: '#b9781f' },
+  { id: 'order-buy', label: 'Купить обязательное', shortLabel: 'Купить', image: coinIcon, category: 'order', bg: '#fde0e8', fg: '#d1497a' },
+  { id: 'order-remainder', label: 'Посмотреть остаток', shortLabel: 'Остаток', image: coinIcon, category: 'order', bg: '#ece2fb', fg: '#7a54d9' },
+  { id: 'order-toy', label: 'Выбрать желание, если хватает', shortLabel: 'Желание', image: coinIcon, category: 'order', bg: '#dff8d7', fg: '#3f9142' },
 ] as const;
-// Цвета пронумерованных слотов упражнения "Расставь шаги!" (зелёный →
-// бирюзовый → фиолетовый → розовый, как в референсе).
-const orderSlots = [
-  { slot: 0, color: '#4fb35a' },
-  { slot: 1, color: '#2bb0b8' },
-  { slot: 2, color: '#8a5cf0' },
-  { slot: 3, color: '#ef5da8' },
+// Пронумерованные слоты упражнения "Расставь шаги!" — просто 1..5, порядок
+// определяется индексом (без индивидуального цвета, как в референсе).
+const orderSlots = [{ slot: 0 }, { slot: 1 }, { slot: 2 }, { slot: 3 }, { slot: 4 }] as const;
+// Упражнение 5 — "Появилась новая нужная трата!": план на месяц из 3 статей
+// (еда/копилка/развлечения = 100 монет), затем вопрос с тремя вариантами —
+// правильный ответ уменьшает "Развлечения" на 10 монет, чтобы найти деньги
+// на лекарство для питомца.
+const planItems = [
+  { id: 'plan-food', label: 'Еда', base: 60, image: foodBowl },
+  { id: 'plan-save', label: 'Отложить', base: 20, image: piggyBank },
+  { id: 'plan-fun', label: 'Развлечения', base: 20, image: gamepadIcon },
 ] as const;
-// Упражнение 5 — "Появилась новая покупка!": 4 статьи плана. Меняются
-// только "Развлечения" (60→ уменьшить на 10) и "Подарок другу" (+10) —
-// еда и копилка остаются без изменений.
-const planCategories = [
-  { id: 'plan-food', label: 'Еда', base: 60, image: foodBowl, color: '#dff8d7', border: '#83cf7a' },
-  { id: 'plan-save', label: 'Копилка', base: 20, image: piggyBank, color: '#d8f7f5', border: '#78cacc' },
-  { id: 'plan-fun', label: 'Развлечения', base: 20, image: gamepadIcon, color: '#eedfff', border: '#b18de9' },
-  { id: 'plan-gift', label: 'Подарок другу', base: 10, image: giftIcon, color: '#fff3d6', border: '#e8c363' },
+const PLAN_EXPENSE_LABEL = 'Лекарство для питомца';
+const PLAN_EXPENSE_COST = 10;
+const planOptions = [
+  { id: 'reduce-fun', label: `Уменьшить развлечения на ${PLAN_EXPENSE_COST} монет`, image: gamepadIcon },
+  { id: 'take-savings', label: `Взять из отложенных ${PLAN_EXPENSE_COST} монет`, image: piggyBank },
+  { id: 'reduce-food', label: `Уменьшить расход на еду на ${PLAN_EXPENSE_COST} монет`, image: foodBowl },
 ] as const;
 
 // Объединённый список карточек всех упражнений — только чтобы найти
@@ -178,8 +178,8 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
   const [placements, setPlacements] = useState<(string | null)[]>([null, null, null]);
   const [budgetCart, setBudgetCart] = useState<string[]>([]);
   const [walkCart, setWalkCart] = useState<string[]>([]);
-  const [orderPlacements, setOrderPlacements] = useState<(string | null)[]>([null, null, null, null]);
-  const [planApplied, setPlanApplied] = useState(false);
+  const [orderPlacements, setOrderPlacements] = useState<(string | null)[]>([null, null, null, null, null]);
+  const [planChoice, setPlanChoice] = useState<string | null>(null);
   // Перетаскивание пальцем — та же техника, что и кормление на кухне
   // (Kitchen.tsx): Pointer Events вместо нативного HTML5 drag-and-drop,
   // который на Android почти не работает без долгого нажатия.
@@ -316,14 +316,10 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
     setOrderPlacements((current) => current.map((value) => value === id ? null : value));
   }
 
-  // Перенос 10 монет из "Развлечения" в "Подарок другу" — единое действие
-  // (перетащить жетон в "Новый план" или кликнуть по нему на мобильном).
-  function applyPlanAdjustment() {
-    setPlanApplied(true);
-  }
-
-  function undoPlanAdjustment() {
-    setPlanApplied(false);
+  // Выбор ответа на вопрос "Что сделать?" — одиночный выбор варианта, без
+  // перетаскивания (см. мокап "Появилась новая нужная трата").
+  function choosePlanOption(id: string) {
+    setPlanChoice(id);
   }
 
   // Единая точка "куда бросили карточку" для всех упражнений — вызывается
@@ -339,7 +335,6 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
     if (zone === 'walk-cart') { addToWalkCart(id); return; }
     if (zone.startsWith('order-slot-')) { placeOrderItem(Number(zone.slice('order-slot-'.length)), id); return; }
     if (zone === 'order-tray') { returnOrderItemToTray(id); return; }
-    if (zone === 'plan-target' && id === 'plan-transfer') { applyPlanAdjustment(); return; }
   };
 
   const budgetSpent = budgetCart.reduce((total, id) => total + (budgetItems.find((item) => item.id === id)?.price ?? 0), 0);
@@ -354,17 +349,17 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
       return budgetCart.length === 3 && required.every((id) => budgetCart.includes(id));
     }
     if (scene === WALK_SCENE_INDEX) {
-      // "Найди лишнее": в корзину — вода, поводок и лекарство, остальное остаётся.
-      const required = ['walk-water', 'walk-leash', 'walk-medicine'];
+      // "Найди лишнее": в корзину — вода, лекарство и игрушка, остальное остаётся.
+      const required = ['walk-water', 'walk-medicine', 'walk-toy'];
       return walkCart.length === 3 && required.every((id) => walkCart.includes(id));
     }
     if (scene === ORDER_SCENE_INDEX) {
-      // "Расставь шаги": баланс -> обязательное -> покупка -> остаток и желание.
-      return orderPlacements[0] === 'order-balance' && orderPlacements[1] === 'order-find' && orderPlacements[2] === 'order-buy' && orderPlacements[3] === 'order-toy';
+      // "Расставь шаги": баланс -> обязательное -> покупка -> остаток -> желание.
+      return orderPlacements[0] === 'order-balance' && orderPlacements[1] === 'order-find' && orderPlacements[2] === 'order-buy' && orderPlacements[3] === 'order-remainder' && orderPlacements[4] === 'order-toy';
     }
     if (scene === PLAN_SCENE_INDEX) {
-      // "Появилась новая покупка": уменьшить развлечения и перевести 10 на подарок.
-      return planApplied;
+      // "Появилась новая нужная трата": находим деньги, уменьшив развлечения.
+      return planChoice === 'reduce-fun';
     }
     // "Разложи расходы": еда -> обязательное, копилка -> накопления, игрушка -> желания.
     return placements[0] === 'food' && placements[1] === 'savings' && placements[2] === 'toy';
@@ -374,8 +369,8 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
     setScene((value) => value + 1);
     setPlacements([null, null, null]);
     setWalkCart([]);
-    setOrderPlacements([null, null, null, null]);
-    setPlanApplied(false);
+    setOrderPlacements([null, null, null, null, null]);
+    setPlanChoice(null);
     setCheckState('idle');
     setHintText(null);
   }
@@ -383,7 +378,7 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
   function hasAttempt(): boolean {
     if (scene === WALK_SCENE_INDEX) return walkCart.length > 0;
     if (scene === ORDER_SCENE_INDEX) return orderPlacements.some(Boolean);
-    if (scene === PLAN_SCENE_INDEX) return planApplied;
+    if (scene === PLAN_SCENE_INDEX) return planChoice !== null;
     if (scene === 1) return budgetCart.length > 0;
     return placements.some(Boolean);
   }
@@ -392,8 +387,8 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
     setPlacements([null, null, null]);
     setBudgetCart([]);
     setWalkCart([]);
-    setOrderPlacements([null, null, null, null]);
-    setPlanApplied(false);
+    setOrderPlacements([null, null, null, null, null]);
+    setPlanChoice(null);
     setCheckState('idle');
     setHintText(null);
   }
@@ -514,7 +509,7 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
       {reviewNotice && <div className="absolute left-1/2 top-[11%] z-30 -translate-x-1/2 rounded-full bg-[#fff7d6] px-4 py-2 text-center text-[12px] font-black text-[#9a6d08] shadow-[0_5px_16px_rgba(116,84,10,.2)] [animation:lessonFadeIn_220ms_ease-out]">Работа над ошибками — закрепляем навык</div>}
 
       {sceneInstructions[scene] && (
-        <div key={`instruction-${scene}`} className="absolute left-1/2 top-[20%] z-10 w-[88%] -translate-x-1/2 rounded-[16px] bg-white/90 px-3 py-2 text-center shadow-[0_4px_14px_rgba(80,63,40,.14)] backdrop-blur-sm [animation:lessonFadeIn_260ms_ease-out]">
+        <div key={`instruction-${scene}`} className="absolute left-1/2 top-[28.5%] z-10 w-[88%] -translate-x-1/2 rounded-[16px] bg-white/90 px-3 py-2 text-center shadow-[0_4px_14px_rgba(80,63,40,.14)] backdrop-blur-sm [animation:lessonFadeIn_260ms_ease-out]">
           <p className="text-[clamp(11px,3.2vw,13px)] font-bold leading-snug text-[#5a6a92]">{sceneInstructions[scene]}</p>
         </div>
       )}
@@ -552,66 +547,89 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
             </div>
           </div>
         ) : scene === ORDER_SCENE_INDEX ? (
-          /* Упражнение 4 — "Расставь шаги!": тот же каркас карточки, что у
-             соседних упражнений — сверху пронумерованные слоты по порядку
-             (соединены стрелками), снизу лоток с карточками действий. Без
-             текстовой подписи (см. правило "убери эту подпись"). */
-          <div className="col-span-3 row-span-2 mt-[3%] grid min-h-0 grid-rows-[minmax(0,.68fr)_minmax(0,1fr)] gap-2 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
-            <div className="grid min-h-0 grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-1">
-              {orderSlots.flatMap((slotDef, index) => {
+          /* Упражнение 4 — "Расставь шаги!" (редизайн по мокапу): сверху 5
+             пронумерованных пустых слотов по порядку, снизу — лоток с
+             цветными плашками-действиями (полными фразами, как в
+             референсе), которые перетаскиваются или тапаются по очереди. */
+          <div className="col-span-3 row-span-2 mt-[3%] grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-2.5 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+            <div className="grid min-h-0 grid-cols-5 gap-1.5">
+              {orderSlots.map((slotDef, index) => {
                 const item = orderItems.find((entry) => entry.id === orderPlacements[slotDef.slot]);
-                const slotEl = (
+                return (
                   <div key={`slot-${slotDef.slot}`} data-drop={`order-slot-${slotDef.slot}`} className="flex min-h-0 flex-col items-center gap-1">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white" style={{ background: slotDef.color }}>{index + 1}</span>
-                    <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed bg-white/40 p-1" style={{ borderColor: slotDef.color }}>
-                      {item && <div onPointerDown={(e) => dnd.start(e, item.id, slotDef.slot)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={() => returnOrderItemToTray(item.id)} className="flex h-full w-full cursor-grab touch-none select-none items-center justify-center overflow-hidden rounded-lg bg-white/85 active:cursor-grabbing active:scale-95"><img src={item.image} alt={item.label} className="h-full w-full object-contain p-1" /></div>}
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#cbbfa0] bg-white text-[11px] font-black text-[#7a7260]">{index + 1}</span>
+                    <div className={`flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed p-0.5 ${item ? 'border-transparent' : 'border-[#d8cdb8] bg-white/40'}`} style={item ? { background: item.bg, borderColor: item.fg } : undefined}>
+                      {item && <div onPointerDown={(e) => dnd.start(e, item.id, slotDef.slot)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={() => returnOrderItemToTray(item.id)} className="flex h-full w-full cursor-grab touch-none select-none flex-col items-center justify-center gap-0.5 active:cursor-grabbing active:scale-95">
+                        <img src={item.image} alt="" className="h-[45%] w-[45%] object-contain" />
+                        <span className="max-w-full truncate px-0.5 text-[clamp(6.5px,1.7vw,8px)] font-black leading-none" style={{ color: item.fg }}>{item.shortLabel}</span>
+                      </div>}
                     </div>
                   </div>
                 );
-                if (index === orderSlots.length - 1) return [slotEl];
-                return [slotEl, <span key={`arrow-${slotDef.slot}`} className="text-[clamp(16px,4vw,22px)] font-black text-[#c9bfa8]">→</span>];
               })}
             </div>
-            <div data-drop="order-tray" className="grid min-h-0 grid-cols-4 gap-2 rounded-[18px] bg-white/55 p-2">
-              {orderTray.filter((item) => !orderPlacements.includes(item.id)).map((item) => <DraggableItem key={item.id} item={item} dnd={dnd} onDrop={handleDrop} isDragging={dragging?.id === item.id} onClick={() => placeOrderItem(orderPlacements.findIndex((value) => value === null), item.id)} />)}
+            <div data-drop="order-tray" className="flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-[18px] bg-white/55 p-1.5">
+              {orderTray.filter((item) => !orderPlacements.includes(item.id)).map((item) => (
+                <div
+                  key={item.id}
+                  onPointerDown={(e) => dnd.start(e, item.id, null)}
+                  onPointerMove={dnd.move}
+                  onPointerUp={(e) => dnd.end(e, handleDrop)}
+                  onPointerCancel={dnd.cancel}
+                  onClick={() => placeOrderItem(orderPlacements.findIndex((value) => value === null), item.id)}
+                  className={`flex min-h-0 shrink-0 touch-none select-none cursor-grab items-center gap-2 rounded-[16px] px-3 py-2 shadow-sm transition-all duration-200 active:cursor-grabbing active:scale-[.98] ${dragging?.id === item.id ? 'opacity-0' : 'animate-[lessonItemIn_220ms_ease-out]'}`}
+                  style={{ background: item.bg }}
+                >
+                  <img src={item.image} alt="" className="h-5 w-5 shrink-0 object-contain" />
+                  <span className="min-w-0 flex-1 text-[clamp(10.5px,3vw,12.5px)] font-black leading-tight" style={{ color: item.fg }}>{item.label}</span>
+                  <span aria-hidden className="grid shrink-0 grid-cols-2 gap-[2px] opacity-40" style={{ color: item.fg }}>
+                    {Array.from({ length: 6 }).map((_, i) => <span key={i} className="h-1 w-1 rounded-full bg-current" />)}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         ) : scene === PLAN_SCENE_INDEX ? (
-          /* Упражнение 5 — "Появилась новая покупка!": сверху статичный
-             образец плана (4 статьи), снизу тот же план, куда нужно
-             перенести жетон "-10 → +10", чтобы уменьшить "Развлечения" и
-             увеличить "Подарок другу". Без текстовой подписи-заголовка (см.
-             правило "убери эту подпись") — сами карточки статей плана это
-             часть механики, а не декоративный текст. */
-          <div className="col-span-3 row-span-2 mt-[1%] grid min-h-0 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1 rounded-[22px] border border-white/70 bg-[#fffaf3] p-2 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
-            <div className="grid min-h-0 grid-cols-4 gap-1.5">
-              {planCategories.map((cat) => (
-                <div key={`your-${cat.id}`} className="flex min-h-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl p-1" style={{ background: cat.color }}>
+          /* Упражнение 5 — "Появилась новая нужная трата!" (редизайн по
+             мокапу): план на месяц из 3 статей, карточка новой траты
+             (лекарство) и вопрос "Что сделать?" с тремя вариантами ответа —
+             вместо перетаскивания жетона теперь выбор одного варианта. */
+          <div className="col-span-3 row-span-2 mt-[1%] flex min-h-0 flex-col gap-1.5 overflow-y-auto rounded-[22px] border border-white/70 bg-[#fffaf3] p-2.5 shadow-[0_4px_16px_rgba(102,75,50,.12)] animate-[lessonItemIn_260ms_ease-out]">
+            <div className="flex shrink-0 items-center justify-between px-0.5">
+              <span className="text-[clamp(11px,3.2vw,13px)] font-black text-[#17469d]">Мой план на месяц</span>
+              <span className="flex items-center gap-1 text-[clamp(12px,3.5vw,14px)] font-black text-[#c9862a]"><img src={coinIcon} alt="" className="h-4 w-4 object-contain" />{planItems.reduce((total, cat) => total + cat.base, 0)}</span>
+            </div>
+            <div className="grid shrink-0 grid-cols-3 gap-1.5">
+              {planItems.map((cat) => (
+                <div key={cat.id} className="flex min-h-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-white/85 p-1.5 shadow-sm">
                   <img src={cat.image} alt="" className="h-7 w-7 object-contain" />
-                  <span className="max-w-full truncate text-[clamp(7px,1.8vw,9px)] font-black leading-none text-[#5a4a3a]">{cat.label}</span>
+                  <span className="max-w-full truncate text-[clamp(7.5px,1.9vw,9px)] font-black leading-none text-[#5a4a3a]">{cat.label}</span>
                   <span className="flex items-center gap-0.5 text-[clamp(8px,2vw,10px)] font-black text-[#17469d]"><img src={coinIcon} alt="" className="h-3 w-3 object-contain" />{cat.base}</span>
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-center gap-2 py-0.5">
-              {!planApplied ? (
-                <div onPointerDown={(e) => dnd.start(e, 'plan-transfer', null)} onPointerMove={dnd.move} onPointerUp={(e) => dnd.end(e, handleDrop)} onPointerCancel={dnd.cancel} onClick={applyPlanAdjustment} className="flex cursor-grab touch-none select-none items-center gap-2 active:cursor-grabbing active:scale-95">
-                  <span className="rounded-full bg-[#ef5350] px-2.5 py-1 text-[clamp(11px,3vw,13px)] font-black text-white shadow-sm">−10</span>
-                  <span className="text-[clamp(14px,4vw,18px)] font-black text-[#e0785a]">→</span>
-                  <span className="rounded-full bg-[#4caf50] px-2.5 py-1 text-[clamp(11px,3vw,13px)] font-black text-white shadow-sm">+10</span>
-                </div>
-              ) : <span className="text-[clamp(10px,2.6vw,12px)] font-bold text-[#6c9a4a]">✓ План обновлён</span>}
+            <div className="flex shrink-0 items-center gap-2 rounded-[14px] border border-[#f3b8c6] bg-[#fdeaef] px-2.5 py-1.5">
+              <img src={medicineIcon} alt="" className="h-9 w-9 shrink-0 object-contain" />
+              <div className="flex min-w-0 flex-1 flex-col leading-tight">
+                <span className="text-[clamp(8px,2.2vw,9.5px)] font-black uppercase tracking-wide text-[#d1497a]">Новая нужная трата</span>
+                <span className="truncate text-[clamp(10px,2.9vw,12px)] font-black text-[#5a3a45]">{PLAN_EXPENSE_LABEL}</span>
+              </div>
+              <span className="flex shrink-0 items-center gap-0.5 text-[clamp(11px,3.2vw,13px)] font-black text-[#17469d]"><img src={coinIcon} alt="" className="h-3.5 w-3.5 object-contain" />{PLAN_EXPENSE_COST}</span>
             </div>
-            <div data-drop="plan-target" className="grid min-h-0 grid-cols-4 gap-1.5">
-              {planCategories.map((cat) => {
-                const value = cat.id === 'plan-fun' ? (planApplied ? cat.base - 10 : cat.base) : cat.id === 'plan-gift' ? (planApplied ? cat.base + 10 : cat.base) : cat.base;
-                const changed = planApplied && (cat.id === 'plan-fun' || cat.id === 'plan-gift');
+            <span className="shrink-0 px-0.5 text-[clamp(10.5px,3vw,12.5px)] font-black text-[#5a6a92]">Что сделать?</span>
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+              {planOptions.map((option) => {
+                const selected = planChoice === option.id;
                 return (
-                  <div key={`new-${cat.id}`} onClick={() => changed && undoPlanAdjustment()} className={`flex min-h-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl border-2 p-1 transition ${changed ? 'cursor-pointer border-[#6c9a4a] bg-[#f2fbe9]' : 'border-dashed'}`} style={{ borderColor: changed ? '#6c9a4a' : cat.border, background: changed ? '#f2fbe9' : cat.color }}>
-                    <img src={cat.image} alt="" className="h-7 w-7 object-contain" />
-                    <span className="max-w-full truncate text-[clamp(7px,1.8vw,9px)] font-black leading-none text-[#5a4a3a]">{cat.label}</span>
-                    <span className="flex items-center gap-0.5 text-[clamp(8px,2vw,10px)] font-black text-[#17469d]"><img src={coinIcon} alt="" className="h-3 w-3 object-contain" />{value}</span>
-                  </div>
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => choosePlanOption(option.id)}
+                    className={`flex min-h-0 flex-1 items-center gap-2.5 rounded-[14px] bg-white/85 px-2.5 shadow-sm transition active:scale-[.98] ${selected ? 'ring-[3px] ring-[#675ff3]' : ''}`}
+                  >
+                    <img src={option.image} alt="" className="h-8 w-8 shrink-0 object-contain" />
+                    <span className="min-w-0 flex-1 text-left text-[clamp(10.5px,3vw,12.5px)] font-black leading-tight text-[#17469d]">{option.label}</span>
+                  </button>
                 );
               })}
             </div>
@@ -673,18 +691,6 @@ export default function LessonOne({ onBack, onPracticeComplete, onFinish }: Prop
               x={dragging.x}
               y={dragging.y}
             />
-          );
-        }
-        if (dragging.id === 'plan-transfer') {
-          return (
-            <div
-              className="pointer-events-none absolute z-[999] flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 shadow-2xl"
-              style={{ left: dragging.x - 62, top: dragging.y - 22, transform: 'scale(1.1)' }}
-            >
-              <span className="rounded-full bg-[#ef5350] px-2.5 py-1 text-[13px] font-black text-white shadow-sm">−10</span>
-              <span className="text-[16px] font-black text-[#e0785a]">→</span>
-              <span className="rounded-full bg-[#4caf50] px-2.5 py-1 text-[13px] font-black text-white shadow-sm">+10</span>
-            </div>
           );
         }
         return null;

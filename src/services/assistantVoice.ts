@@ -1,4 +1,5 @@
 import { useSettingsStore } from '../features/settings/settingsStore';
+import { setVoiceoverActive } from './musicFade';
 
 // Озвучка подсказок помощника через встроенный в браузер/WebView SpeechSynthesis —
 // без сторонних сервисов и файлов. Гейтится настройкой assistantVoiceEnabled.
@@ -19,6 +20,9 @@ export function speakAssistant(text: string) {
     utter.lang = 'ru-RU';
     utter.rate = 1;
     utter.pitch = 1.1;
+    utter.onstart = () => setVoiceoverActive(true);
+    utter.onend = () => setVoiceoverActive(false);
+    utter.onerror = () => setVoiceoverActive(false);
     window.speechSynthesis.speak(utter);
   } catch {
     // ignore — голос не критичен для игры
@@ -30,6 +34,7 @@ export function stopAssistantVoice() {
   if (!supported()) return;
   try {
     window.speechSynthesis.cancel();
+    setVoiceoverActive(false);
   } catch {
     // ignore
   }

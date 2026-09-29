@@ -1,5 +1,6 @@
 import { VOICE_SEGMENTS } from './voiceoverSegments';
 import { VOICE_PHRASES } from './voiceoverPhrases';
+import { setVoiceoverActive } from './musicFade';
 
 const TRACKS = [
   '/audio/voiceover/part-1.mp3',
@@ -11,6 +12,10 @@ let player: HTMLAudioElement | null = null;
 let stopTimer: number | null = null;
 let queue: number[] = [];
 let pendingPlayback: (() => void) | null = null;
+// Номер актуального запуска. Метаданные старого HTMLAudioElement могут
+// прийти уже после перехода на другой экран; такой callback нельзя пускать в
+// эфир, иначе старая фраза внезапно начинает звучать поверх нового экрана.
+let playbackToken = 0;
 
 function isVoiceoverBlocked(): boolean {
   return typeof document !== 'undefined' && Boolean(document.querySelector('[data-voiceover-blocking="true"]'));
@@ -57,12 +62,10 @@ export function findVoicePhrase(text: string): number | null {
 }
 
 function locate(globalIndex: number): { track: string; segment: readonly [number, number] } | null {
-  // В первой дорожке между приветствием и разделом периодов две длинные
-  // паузы были ошибочно распознаны как отдельные границы. После них все
-  // последующие сегменты сдвинуты на две позиции относительно списка фраз.
-  // Нормализуем индекс здесь, чтобы события, магазин и копилка использовали
-  // правильную запись независимо от вызывающего экрана.
-  const normalizedIndex = globalIndex >= 25 ? globalIndex - 2 : globalIndex;
+  // VOICE_SEGMENTS и VOICE_PHRASES синхронизированы одним плоским индексом.
+  // Важно не делать никаких ручных сдвигов: после 25-й фразы в первой
+  // дорожке есть обычные сегменты, а не пропуски.
+  const normalizedIndex = globalIndex;
   let offset = 0;
   for (let trackIndex = 0; trackIndex < VOICE_SEGMENTS.length; trackIndex += 1) {
     const segments = VOICE_SEGMENTS[trackIndex];
@@ -75,6 +78,7 @@ function locate(globalIndex: number): { track: string; segment: readonly [number
 }
 
 export function stopVoiceover(): void {
+  playbackToken += 1;
   queue = [];
   pendingPlayback = null;
   if (stopTimer !== null) window.clearTimeout(stopTimer);
@@ -83,6 +87,7 @@ export function stopVoiceover(): void {
     player.pause();
     player.currentTime = 0;
   }
+  setVoiceoverActive(false);
 }
 
 export function playVoiceSequence(indices: readonly (number | null)[]): void {
@@ -97,13 +102,17 @@ export function playVoiceSequence(indices: readonly (number | null)[]): void {
   if (!located || typeof window === 'undefined') return;
   stopVoiceover();
   queue = indices.filter((index): index is number => index !== null).slice(1);
-  player = new Audio(located.track);
+  const audio = new Audio(located.track);
+  player = audio;
+  const token = playbackToken;
   const [start, end] = located.segment;
   const play = () => {
-    if (!player) return;
-    player.currentTime = start;
-    void player.play().catch(() => undefined);
+    if (token !== playbackToken || player !== audio) return;
+    audio.currentTime = start;
+    setVoiceoverActive(true);
+    void audio.play().catch(() => undefined);
     stopTimer = window.setTimeout(() => {
+      if (token !== playbackToken || player !== audio) return;
       const following = queue.shift();
       if (following === undefined) {
         stopVoiceover();
@@ -112,8 +121,8 @@ export function playVoiceSequence(indices: readonly (number | null)[]): void {
       }
     }, Math.max(100, (end - start) * 1000));
   };
-  player.addEventListener('loadedmetadata', play, { once: true });
-  player.load();
+  audio.addEventListener('loadedmetadata', play, { once: true });
+  audio.load();
 }
 
 export function playVoiceClip(globalIndex: number | null): void {
@@ -125,16 +134,21 @@ export function playVoiceClip(globalIndex: number | null): void {
   const located = locate(globalIndex);
   if (!located) return;
   stopVoiceover();
-  player = new Audio(located.track);
+  const audio = new Audio(located.track);
+  player = audio;
+  const token = playbackToken;
   const [start, end] = located.segment;
   const play = () => {
-    if (!player) return;
-    player.currentTime = start;
-    void player.play().catch(() => undefined);
-    stopTimer = window.setTimeout(() => stopVoiceover(), Math.max(100, (end - start) * 1000));
+    if (token !== playbackToken || player !== audio) return;
+    audio.currentTime = start;
+    setVoiceoverActive(true);
+    void audio.play().catch(() => undefined);
+    stopTimer = window.setTimeout(() => {
+      if (token === playbackToken && player === audio) stopVoiceover();
+    }, Math.max(100, (end - start) * 1000));
   };
-  player.addEventListener('loadedmetadata', play, { once: true });
-  player.load();
+  audio.addEventListener('loadedmetadata', play, { once: true });
+  audio.load();
 }
 
 export function playVoicePhrase(text: string): void {
@@ -151,6 +165,7 @@ export function playStandaloneVoice(source: string, delayMs = 120): void {
   stopVoiceover();
   stopTimer = window.setTimeout(() => {
     player = new Audio(source);
+    setVoiceoverActive(true);
     player.addEventListener('ended', stopVoiceover, { once: true });
     void player.play().catch(() => undefined);
   }, delayMs);

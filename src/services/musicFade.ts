@@ -5,6 +5,8 @@ import { useSettingsStore } from '../features/settings/settingsStore';
 // на самом элементе, поэтому новый fade отменяет предыдущий (например, музыку
 // начали гасить и тут же снова включили — громкость просто развернётся).
 const timers = new WeakMap<HTMLAudioElement, ReturnType<typeof setInterval>>();
+let voiceoverActive = false;
+const duckingListeners = new Set<() => void>();
 
 export const MUSIC_FADE_IN_MS = 1200;
 export const MUSIC_FADE_OUT_MS = 500;
@@ -35,7 +37,23 @@ export function fadeAudio(el: HTMLAudioElement, target: number, ms: number, done
 /** Множитель громкости из ползунка в настройках: 35 (по умолчанию) = 1, 100 ≈ 2.9, 0 = тишина. */
 export function musicGain(): number {
   const v = useSettingsStore.getState().musicVolume;
-  return Math.max(0, Math.min(100, typeof v === 'number' ? v : 35)) / 35;
+  const settingsGain = Math.max(0, Math.min(100, typeof v === 'number' ? v : 35)) / 35;
+  // Во время речи оставляем музыку слышной, но заметно тише, чтобы слова
+  // не терялись на фоне. Все музыкальные дорожки используют этот множитель.
+  return settingsGain * (voiceoverActive ? 0.22 : 1);
+}
+
+/** Включает/выключает приглушение музыки на время голосовой озвучки. */
+export function setVoiceoverActive(active: boolean) {
+  if (voiceoverActive === active) return;
+  voiceoverActive = active;
+  duckingListeners.forEach((listener) => listener());
+}
+
+/** Подписка музыкальных дорожек на начало/конец озвучки. */
+export function onMusicDuckingChange(cb: () => void) {
+  duckingListeners.add(cb);
+  return () => duckingListeners.delete(cb);
 }
 
 /** Реагирует на движение ползунка сразу, пока музыка играет (один слушатель на модуль). */

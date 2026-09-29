@@ -1,5 +1,5 @@
 import bgMusicSrc from '../assets/audio/bg-music.mp3';
-import { cancelFade, fadeAudio, musicGain, onMusicVolumeChange, MUSIC_FADE_IN_MS, MUSIC_FADE_OUT_MS } from './musicFade';
+import { cancelFade, fadeAudio, musicGain, onMusicDuckingChange, onMusicVolumeChange, MUSIC_FADE_IN_MS, MUSIC_FADE_OUT_MS } from './musicFade';
 
 // Негромкая, зацикленная фоновая музыка на всё приложение — единственный
 // экземпляр <audio> на уровне модуля (а не в компоненте), чтобы React
@@ -124,3 +124,11 @@ if (!gv.__fmBgVol) {
     if (el && !el.paused && state.wantsToPlay) el.volume = vol();
   });
 }
+
+onMusicDuckingChange(() => {
+  const el = state.audio;
+  if (el && !el.paused && state.wantsToPlay) {
+    cancelFade(el);
+    el.volume = vol();
+  }
+});

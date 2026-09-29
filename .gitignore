@@ -1,0 +1,29 @@
+# Dependencies and local caches
+node_modules/
+.vite/
+*.tsbuildinfo
+
+# Generated web and Android output
+dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/
+android/local.properties
+
+# IDE and OS files
+.DS_Store
+.idea/
+*.iml
+
+# Local signing and secrets
+*.jks
+*.keystore
+google-services.json
+.env
+.env.*
+!.env.example
+
+# Temporary exports and experiments
+_to_delete/
+Claude outputs/

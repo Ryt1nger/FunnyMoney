@@ -1,5 +1,5 @@
 import practiceMusicSrc from '../assets/audio/practice-music.mp3';
-import { fadeAudio, musicGain, onMusicVolumeChange, MUSIC_FADE_IN_MS, MUSIC_FADE_OUT_MS } from './musicFade';
+import { cancelFade, fadeAudio, musicGain, onMusicDuckingChange, onMusicVolumeChange, MUSIC_FADE_IN_MS, MUSIC_FADE_OUT_MS } from './musicFade';
 import { useSettingsStore } from '../features/settings/settingsStore';
 
 // Отдельная тихая фоновая музыка ИМЕННО для практики в уроках (не для
@@ -90,3 +90,11 @@ if (!gv.__fmPracVol) {
     if (el && !el.paused && state.wantsToPlay) el.volume = vol();
   });
 }
+
+onMusicDuckingChange(() => {
+  const el = state.audio;
+  if (el && !el.paused && state.wantsToPlay) {
+    cancelFade(el);
+    el.volume = vol();
+  }
+});

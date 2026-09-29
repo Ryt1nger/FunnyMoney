@@ -1,5 +1,5 @@
 import gameMusicSrc from '../assets/audio/game-music.mp3';
-import { musicGain, onMusicVolumeChange } from './musicFade';
+import { musicGain, onMusicDuckingChange, onMusicVolumeChange } from './musicFade';
 import { useSettingsStore } from '../features/settings/settingsStore';
 
 // Музыка мини-игры «Гонка мишки». Тот же принцип, что у backgroundMusic.ts и
@@ -128,3 +128,11 @@ if (!gv.__fmGameVol) {
     if (el && !el.paused && state.wantsToPlay) el.volume = vol();
   });
 }
+
+onMusicDuckingChange(() => {
+  const el = state.audio;
+  if (el && !el.paused && state.wantsToPlay) {
+    clearFade();
+    el.volume = vol();
+  }
+});
