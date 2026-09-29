@@ -11,7 +11,29 @@ import EventOptionCard from './EventOptionCard';
 import EventResult from './EventResult';
 import ConfirmPurchaseModal, { type PurchaseEffect } from '../../../components/ConfirmPurchaseModal';
 import coinIcon from '../../../assets/icons/coin.png';
-import { findVoicePhrase, playVoicePhrase, playVoiceSequence, stopVoiceover } from '../../../services/voiceover';
+import { findVoicePhrase, playVoiceClip, playVoiceSequence, stopVoiceover } from '../../../services/voiceover';
+
+// Тексты событий в интерфейсе немного короче/длиннее, чем в записи (цифры
+// также записаны словами). Поэтому для событий нельзя надёжно выбирать один
+// клип по fuzzy-поиску: похожими оказываются соседние варианты. Здесь один
+// раз фиксируем соответствие событие → сегменты готовой озвучки.
+const EVENT_VOICE: Record<string, { intro: readonly number[]; options: readonly number[]; feedback: readonly number[] }> = {
+  'period-1-feed-first': { intro: [102, 103, 104, 105], options: [106, 107, 108], feedback: [109, 110, 112] },
+  'period-1-help-reward': { intro: [113, 114, 115], options: [116, 117, 118], feedback: [119, 120, 121] },
+  'period-1-bowl-breaks': { intro: [122, 123, 124, 125], options: [126, 127, 128], feedback: [129, 130, 131] },
+  'period-2-smart-shopping': { intro: [132, 133, 134, 135], options: [136, 137, 138], feedback: [139, 140, 141] },
+  'period-2-real-discount': { intro: [142, 143, 144], options: [145, 146, 147], feedback: [148, 149, 150] },
+  'period-2-overloaded-cart': { intro: [151, 152, 153], options: [154, 155, 156], feedback: [157, 158, 159] },
+  'period-3-dream-house': { intro: [160, 161, 162, 163], options: [164, 165, 166], feedback: [167, 168, 169] },
+  'period-3-plan-changed': { intro: [170, 171, 172, 173, 174], options: [175, 176, 177], feedback: [178, 179, 180] },
+  'period-3-last-ten': { intro: [182, 183, 184, 185], options: [186, 187, 188], feedback: [189, 190, 191] },
+  'period-4-sick-pet': { intro: [192, 193, 194, 195], options: [196, 197, 198], feedback: [199, 200, 201] },
+  'period-4-reward': { intro: [202, 203, 204], options: [205, 206, 207], feedback: [208, 209, 210] },
+  'period-4-broken-toy': { intro: [211, 212, 213, 214, 215], options: [216, 217, 218], feedback: [219, 220, 221] },
+  'period-5-preparing-party': { intro: [222, 223, 224, 225], options: [226, 227, 228], feedback: [229, 230, 231] },
+  'period-5-last-chance': { intro: [232, 233, 234, 235], options: [236, 237, 238], feedback: [239, 240, 241] },
+  'period-5-final-choice': { intro: [242, 243, 244, 245], options: [246, 247, 248], feedback: [249, 250, 251] },
+};
 
 /** Влияние выбранного варианта на Здоровье/Счастье/Богатство для модалки
  * подтверждения — тот же принцип, что и buildPurchaseEffects в Shop.tsx
@@ -87,9 +109,12 @@ export default function EventModal({ open, onClose }: Props) {
       return;
     }
     if (phase === 'result' && lastChoice) {
-      playVoicePhrase(lastChoice.choice.feedback);
+      const voice = EVENT_VOICE[lastChoice.event.id];
+      const optionIndex = lastChoice.event.options.findIndex((option) => option.id === lastChoice.option.id);
+      playVoiceClip(voice?.feedback[optionIndex] ?? findVoicePhrase(lastChoice.choice.feedback));
     } else {
-      playVoiceSequence([findVoicePhrase(event.title), findVoicePhrase(event.context)]);
+      const voice = EVENT_VOICE[event.id];
+      playVoiceSequence(voice?.intro ?? [findVoicePhrase(event.title), findVoicePhrase(event.context)]);
     }
     return stopVoiceover;
   }, [open, event?.id, phase, lastChoice?.choice.feedback]);
@@ -134,7 +159,9 @@ export default function EventModal({ open, onClose }: Props) {
 
   function handleSelect(option: PeriodEventOption) {
     if (!event) return;
-    playVoicePhrase(option.label);
+    const voice = EVENT_VOICE[event.id];
+    const optionIndex = event.options.findIndex((item) => item.id === option.id);
+    playVoiceClip(voice?.options[optionIndex] ?? findVoicePhrase(option.label));
     if (event.id === OVERSPEND_EVENT_ID && option.id === OVERSPEND_OPTION_ID) {
       setOverspendWarning(true);
       return;

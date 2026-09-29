@@ -157,16 +157,31 @@ export function playVoicePhrase(text: string): void {
 
 /** Plays a dedicated recording that is not part of the phrase sequence. */
 export function playStandaloneVoice(source: string, delayMs = 120): void {
+  playStandaloneVoiceSegment(source, 0, null, delayMs);
+}
+
+/** Plays a selected part of a dedicated recording. Times are in seconds. */
+export function playStandaloneVoiceSegment(source: string, start: number, end: number | null, delayMs = 120): void {
   if (typeof window === 'undefined') return;
   if (isVoiceoverBlocked()) {
-    pendingPlayback = () => playStandaloneVoice(source, delayMs);
+    pendingPlayback = () => playStandaloneVoiceSegment(source, start, end, delayMs);
     return;
   }
   stopVoiceover();
   stopTimer = window.setTimeout(() => {
     player = new Audio(source);
-    setVoiceoverActive(true);
-    player.addEventListener('ended', stopVoiceover, { once: true });
-    void player.play().catch(() => undefined);
+    const play = () => {
+      if (!player) return;
+      player.currentTime = Math.max(0, start);
+      setVoiceoverActive(true);
+      void player.play().catch(() => undefined);
+      if (end !== null) {
+        stopTimer = window.setTimeout(stopVoiceover, Math.max(100, (end - start) * 1000));
+      } else {
+        player.addEventListener('ended', stopVoiceover, { once: true });
+      }
+    };
+    player.addEventListener('loadedmetadata', play, { once: true });
+    player.load();
   }, delayMs);
 }

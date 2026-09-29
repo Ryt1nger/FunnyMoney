@@ -204,7 +204,13 @@ export const usePeriodEventStore = create<PeriodEventStore>((set, get) => ({
     if (period.status !== 'active') return null;
     const current = get();
     const pet = usePetStore.getState().pet;
-    if (current.careVersionRequired !== undefined && (pet?.careVersion ?? 0) <= current.careVersionRequired) return null;
+    // Обязательная забота о питомце между событиями — реальный игровой цикл,
+    // но в демо-режиме (быстрое тестирование всего цикла периода) она не
+    // должна требовать реального захода в мини-игру/кухню между КАЖДЫМ
+    // событием: иначе демо-режим ускоряет только таймеры, а цепочка всё
+    // равно виснет на первом же событии, ожидая ухода за питомцем.
+    const demoMode = useSettingsStore.getState().demoMode;
+    if (!demoMode && current.careVersionRequired !== undefined && (pet?.careVersion ?? 0) <= current.careVersionRequired) return null;
     const lessons = useLessonProgressStore.getState();
     const event = getPeriodEvents(period.id as PeriodId).find((event) => {
       if (current.completedEventIds.includes(event.id)) return false;

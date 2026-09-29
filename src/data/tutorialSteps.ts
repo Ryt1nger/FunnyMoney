@@ -21,7 +21,7 @@
 // Тексты — от лица питомца, для детей 6+: коротко (1–2 простых
 // предложения), без терминов. {name} подставляется именем питомца.
 
-export type TutorialTourId = 'home' | 'lessons' | 'period' | 'shop' | 'stats' | 'kitchen' | 'piggy';
+export type TutorialTourId = 'home' | 'lessons' | 'periodsNudge' | 'period' | 'shop' | 'stats' | 'kitchen' | 'piggy';
 
 export type TutorialAction =
   /** показать карточку и кнопку "Дальше" */
@@ -105,6 +105,13 @@ export const tutorialTours: Record<TutorialTourId, TutorialStep[]> = {
       action: 'next',
     },
     {
+      id: 'home-minigame-preview',
+      targets: ['home-minigame'],
+      title: 'Гонка мишки',
+      text: 'А это моя любимая игра! Нажми сюда, чтобы покататься со мной и получить монетки.',
+      action: 'next',
+    },
+    {
       id: 'home-piggy-preview',
       targets: ['home-piggy'],
       title: 'А это копилка',
@@ -136,6 +143,23 @@ export const tutorialTours: Record<TutorialTourId, TutorialStep[]> = {
       title: 'Короткие уроки',
       text: 'Каждый урок — это мультик и маленькая игра. За урок дают монетки и звёздочки опыта!',
       action: 'next',
+    },
+  ],
+
+  // ─── Подсказка "иди в периоды" — 1 шаг, запускается не при открытии
+  //     своего раздела, а вручную из Lessons.tsx сразу после того, как
+  //     ребёнок первый раз закрывает результаты САМОГО ПЕРВОГО урока (см.
+  //     goToLessonsList) — чтобы он не проваливался сразу во второй урок,
+  //     а заметил раздел "Периоды". action: 'tap' + блокирующие "стены"
+  //     оверлея (см. TutorialOverlay) не дают тапнуть по карточкам уроков,
+  //     пока подсказка не закрыта настоящим тапом по вкладке "Периоды".
+  periodsNudge: [
+    {
+      id: 'periods-nudge',
+      targets: ['nav-day'],
+      title: 'Отличная работа!',
+      text: 'Первый урок пройден! Теперь загляни в «Периоды» — там тебя ждут события и награды.',
+      action: 'tap',
     },
   ],
 

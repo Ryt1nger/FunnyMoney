@@ -4,7 +4,8 @@ import { tutorialTours, type TutorialStep } from '../data/tutorialSteps';
 import { usePetStore } from '../features/pet/petStore';
 import { hapticTap } from '../services/haptics';
 import { getCharacterById } from '../data/petCharacters';
-import { playVoiceSequence, stopVoiceover } from '../services/voiceover';
+import { playStandaloneVoiceSegment, playVoiceSequence, stopVoiceover } from '../services/voiceover';
+import { useSettingsStore } from '../features/settings/settingsStore';
 
 interface Rect {
   left: number;
@@ -40,6 +41,16 @@ const TUTORIAL_VOICE_BY_ID: Readonly<Record<string, readonly number[]>> = {
   'kitchen-shop': [22, 23],
   'piggy-overview': [35, 36, 37, 38],
   'piggy-goal': [39, 40],
+};
+
+const ONBOARDING_VOICE = '/audio/voiceover/onboarding-home.mp3';
+const MINIGAME_VOICE = '/audio/voiceover/minigame-home.mp3';
+const LESSONS_VOICE = '/audio/voiceover/lessons-home.mp3';
+const STATS_VOICE = '/audio/voiceover/stats-podium.mp3';
+const ONBOARDING_VOICE_BY_ID: Readonly<Record<string, readonly [number, number]>> = {
+  'home-level': [10.7, 22.1],
+  'home-metrics': [22.1, 33.41],
+  'bottom-nav-preview': [0, 10.7],
 };
 
 // Ближайший СКРОЛЛЯЩИЙСЯ предок элемента (overflow-y: auto/scroll и реально
@@ -154,7 +165,18 @@ export default function TutorialOverlay() {
       stopVoiceover();
       return;
     }
-    playVoiceSequence(TUTORIAL_VOICE_BY_ID[step.id] ?? []);
+    const onboardingSegment = ONBOARDING_VOICE_BY_ID[step.id];
+    if (step.id === 'stats-podium') {
+      playStandaloneVoiceSegment(STATS_VOICE, 0, 6.43);
+    } else if (step.id === 'lessons-first') {
+      playStandaloneVoiceSegment(LESSONS_VOICE, 0, 5.72);
+    } else if (step.id === 'home-minigame-preview') {
+      playStandaloneVoiceSegment(MINIGAME_VOICE, 0, 5.41);
+    } else if (onboardingSegment) {
+      playStandaloneVoiceSegment(ONBOARDING_VOICE, onboardingSegment[0], onboardingSegment[1]);
+    } else {
+      playVoiceSequence(TUTORIAL_VOICE_BY_ID[step.id] ?? []);
+    }
     return stopVoiceover;
   }, [active, step]);
 
@@ -416,6 +438,7 @@ export default function TutorialOverlay() {
         ready={ready}
         scene={scene}
         freeInteraction={!!step.freeInteraction}
+        showDemoModeHint={step.id === 'welcome'}
         onNext={() => {
           hapticTap();
           next();
@@ -572,6 +595,10 @@ interface CardProps {
    *  во время перетаскивания. Поэтому такую карточку прижимаем к самому
    *  верху экрана, подальше от пути пальца. */
   freeInteraction: boolean;
+  /** Сноска-подсказка "включить демо-режим для тестирования" — только на
+   *  самом первом шаге приветствия (id 'welcome'), пока это в основном
+   *  внутреннее тестирование, а не релиз для детей. */
+  showDemoModeHint?: boolean;
   onNext: () => void;
   onSkip: () => void;
 }
@@ -586,7 +613,9 @@ const CARD_CLEARANCE = 190;
 // ниже шапки со статами питомца, чтобы не перекрывать и её.
 const FREE_INTERACTION_TOP = 96;
 
-function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight, ready, scene, freeInteraction, onNext, onSkip }: CardProps) {
+function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight, ready, scene, freeInteraction, showDemoModeHint, onNext, onSkip }: CardProps) {
+  const demoMode = useSettingsStore((s) => s.demoMode);
+  const setDemoMode = useSettingsStore((s) => s.setDemoMode);
   const CARD_WIDTH = 'min(86%, 340px)';
   const style: CSSProperties = (() => {
     if (freeInteraction) {
@@ -645,6 +674,28 @@ function TutorialCard({ title, text, action, buttonLabel, rect, containerHeight,
       ) : (
         <div className="mt-3 text-[12px] font-bold" style={{ color: '#8b83a8' }}>
           Нажми на подсвеченное ↓
+        </div>
+      )}
+
+      {/* Сноска для тестировщиков: только на самом первом шаге приветствия.
+          Не часть обучения для ребёнка — короткая подсказка + переключатель
+          тут же, чтобы не заставлять уходить в настройки ради тестового
+          прогона. */}
+      {showDemoModeHint && (
+        <div
+          className="mt-3 flex items-center gap-2 rounded-[14px] px-3 py-2 text-left"
+          style={{ background: 'rgba(103,95,243,0.10)' }}
+        >
+          <span className="flex-1 text-[11px] font-semibold leading-snug" style={{ color: '#5d5770' }}>
+            Тестируешь игру? Включи демо-режим — периоды и события пойдут быстрее.
+          </span>
+          <button
+            onClick={() => setDemoMode(!demoMode)}
+            className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-extrabold text-white transition active:scale-[0.96]"
+            style={{ background: demoMode ? '#3f9142' : '#675ff3' }}
+          >
+            {demoMode ? 'Включено' : 'Включить'}
+          </button>
         </div>
       )}
 

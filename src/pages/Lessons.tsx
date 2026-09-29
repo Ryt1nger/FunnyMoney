@@ -155,8 +155,15 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   }
 
   // "К урокам" — закрыть урок и вернуться к списку (тот же путь, что раньше
-  // проходил через onBack у самого компонента урока).
+  // проходил через onBack у самого компонента урока). Если это был самый
+  // первый урок курса — запускаем мини-тур "иди в периоды" (см.
+  // tutorialSteps.ts: periodsNudge), чтобы ребёнок не провалился сразу во
+  // второй урок, а заметил раздел "Периоды". startTourIfNeeded сам не даст
+  // показать это дважды (флаг "тур пройден") и не перебьёт другой активный тур.
   function goToLessonsList() {
+    if (lessonResult?.lessonId === 'what-is-money') {
+      useTutorialStore.getState().startTourIfNeeded('periodsNudge');
+    }
     onLessonTransition?.('exit');
     setActiveLesson(null);
     setLessonResult(null);

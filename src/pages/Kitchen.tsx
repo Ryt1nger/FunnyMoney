@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { usePetStore } from '../features/pet/petStore';
 import { getCharacterById } from '../data/petCharacters';
-import kitchenBearOpen from '../assets/pet/kitchen-bear-open.png';
-import kitchenBearOpenWide from '../assets/pet/kitchen-bear-open-wide.png';
 import levelFlower from '../assets/ui/level-flower.png';
 import coinIcon from '../assets/icons/coin.png';
 import heartMetricIcon from '../assets/icons/metrics/heart-3d.png';
@@ -19,6 +17,7 @@ import {
 import { rooms, roomsBySection, shopProducts, type ShopProduct } from '../data/shopData';
 import { useInventoryStore } from '../features/inventory/inventoryStore';
 import { feedPet } from '../features/economy/purchase';
+import { usePeriodEventStore } from '../features/periodEvents/eventStore';
 import { useTutorialStore } from '../features/tutorial/tutorialStore';
 import { hapticTap } from '../services/haptics';
 import { playFeedCrunchSound, primeFeedCrunchSound } from '../services/feedSound';
@@ -29,7 +28,6 @@ const DEFAULT_KITCHEN_BG = roomsBySection('kitchen')[0].background;
 
 // Свайп вверх по кухне (не по еде) — открыть магазин.
 const SWIPE_UP_THRESHOLD = 70;
-const BEAR_STEP_MS = 60;
 
 interface Props {
   bottomInset?: number;
@@ -82,10 +80,6 @@ export default function Kitchen({
     .map((product) => ({ product, qty: foodQty[product.id] ?? 0 }));
 
   const [drag, setDrag] = useState<DragState | null>(null);
-  // Пять состояний анимации используют три позы из исходного спрайта:
-  // закрыт → полуоткрыт → открыт → полуоткрыт → закрыт.
-  const [bearPose, setBearPose] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const bearPoseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bearZoneRef = useRef<HTMLDivElement>(null);
   // Корень экрана — плавающая копия карточки координируется относительно него
   // (position: absolute), а не относительно окна (position: fixed): Kitchen
@@ -106,32 +100,6 @@ export default function Kitchen({
     useTutorialStore.getState().startTourIfNeeded('kitchen');
   }, []);
 
-  function clearBearPoseTimer() {
-    if (bearPoseTimerRef.current) {
-      clearTimeout(bearPoseTimerRef.current);
-      bearPoseTimerRef.current = null;
-    }
-  }
-
-  function playBearSequence(sequence: Array<1 | 2 | 3 | 4 | 5>) {
-    clearBearPoseTimer();
-    let index = 0;
-    setBearPose(sequence[index]);
-
-    const advance = () => {
-      index += 1;
-      if (index >= sequence.length) {
-        bearPoseTimerRef.current = null;
-        return;
-      }
-      setBearPose(sequence[index]);
-      bearPoseTimerRef.current = setTimeout(advance, BEAR_STEP_MS);
-    };
-
-    bearPoseTimerRef.current = setTimeout(advance, BEAR_STEP_MS);
-  }
-
-  useEffect(() => () => clearBearPoseTimer(), []);
 
   const background =
     rooms.find((r) => r.id === activeKitchenRoomId)?.background ?? DEFAULT_KITCHEN_BG;
@@ -162,8 +130,6 @@ export default function Kitchen({
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     primeFeedCrunchSound();
-    // В момент взятия еды: закрыт → полуоткрыт → открыт.
-    playBearSequence([1, 2, 3]);
     setDrag({ product, ...toLocalPoint(e.clientX, e.clientY) });
   }
 
@@ -187,14 +153,13 @@ export default function Kitchen({
         if (ok) {
           hapticTap();
           playFeedCrunchSound();
-          // После отпускания: открытый → полуоткрытый → закрытый →
-          // полуоткрытый → закрытый (два коротких жевательных движения).
-          playBearSequence([3, 4, 5, 4, 5]);
-        } else {
-          playBearSequence([2, 1]);
+          // Обычное кормление на кухне — тоже полноценная забота о питомце:
+          // если событие периода ждало именно "покормить", закрываем его
+          // здесь же, а не только через мини-игру "Гонка мишки".
+          if (usePeriodEventStore.getState().getPendingPetAction() === 'feed') {
+            usePeriodEventStore.getState().completePendingCare('feed');
+          }
         }
-      } else {
-        playBearSequence([2, 1]);
       }
       return null;
     });
@@ -381,34 +346,14 @@ export default function Kitchen({
         />
 
         {/* Размер и нижняя точка также заданы от viewport, поэтому поднос ниже
-            не участвует в геометрии питомца. */}
-        {/* Базовый кадр держит глаза и корпус неподвижными. Поверх него
-            кроссфейдится только мягко замаскированная область рта — иначе
-            небольшие различия глаз в исходных кадрах выглядят как моргание. */}
+            не участвует в геометрии питомца. Анимация "жевания" (маска рта)
+            убрана по просьбе — теперь просто статичная картинка персонажа. */}
         <img
           src={character.mainImage}
           alt={petName}
           draggable={false}
           className="pointer-events-none absolute bottom-0 left-1/2 h-[42vh] w-auto -translate-x-1/2 select-none object-contain drop-shadow-2xl"
         />
-        {[{ pose: 2, src: kitchenBearOpen }, { pose: 3, src: kitchenBearOpenWide }].map(({ pose, src }) => {
-          const isVisible = pose === 2 ? bearPose === 2 || bearPose === 4 : bearPose === 3;
-          return (
-            <img
-              key={pose}
-              src={src}
-              alt=""
-              draggable={false}
-              className="pointer-events-none absolute bottom-0 left-1/2 h-[42vh] w-auto -translate-x-1/2 select-none object-contain transition-opacity ease-in-out"
-              style={{
-                opacity: isVisible ? 1 : 0,
-                transitionDuration: `${BEAR_STEP_MS}ms`,
-                maskImage: 'radial-gradient(ellipse 30% 18% at 50% 36%, #000 48%, transparent 100%)',
-                WebkitMaskImage: 'radial-gradient(ellipse 30% 18% at 50% 36%, #000 48%, transparent 100%)',
-              }}
-            />
-          );
-        })}
       </div>
 
       {/* Заполняет пространство до подноса, но не влияет на закреплённую сцену. */}
@@ -440,10 +385,7 @@ export default function Kitchen({
                 onPointerDown={(e) => handlePointerDown(e, product)}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                onPointerCancel={() => {
-                  playBearSequence([2, 1]);
-                  setDrag(null);
-                }}
+                onPointerCancel={() => setDrag(null)}
                 className="relative flex w-[84px] shrink-0 touch-none select-none flex-col items-center rounded-[16px] border bg-white/90 p-1.5 shadow-sm"
                 style={{
                   borderColor: '#f0e2cb',

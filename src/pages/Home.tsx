@@ -444,7 +444,10 @@ export default function Home() {
     const events = getPeriodEvents(period.id as 1 | 2 | 3 | 4 | 5);
     const eventState = usePeriodEventStore.getState();
     const allEventsDone = events.length > 0 && events.every((event) => eventState.completedEventIds.includes(event.id));
-    if (!allEventsDone || eventState.getPendingPetAction()) return;
+    // В демо-режиме забота о питомце — только подсказка, а не блокировка
+    // (см. getAvailableEvent в eventStore.ts): иначе быстрый прогон периода
+    // всё равно виснет на последнем событии.
+    if (!allEventsDone || (!demoMode && eventState.getPendingPetAction())) return;
     if (eventState.nextEventAt && Date.now() < eventState.nextEventAt) return;
     if (period.completePeriod()) {
       const completed = usePeriodStore.getState();

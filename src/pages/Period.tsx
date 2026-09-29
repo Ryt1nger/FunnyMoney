@@ -333,7 +333,15 @@ export default function Period({ bottomInset = 0, onClose, onOpenPiggy, onOpenEv
       ) : (
         <>
           <DistributionGrid plan={isLocked ? null : plan} income={isLocked ? 0 : income} />
-          {status === 'active' && onOpenPiggy && plan && (
+          {/* Разовая кнопка-ярлык: переносит plan.savings в копилку одним
+              тапом. isCurrent && status === 'active' гарантирует period.actual
+              относится к текущему периоду — прячем её, как только в периоде
+              появилось хоть одно пополнение копилки (period.actual.savings > 0,
+              то же условие, что уже использует updateSavingsPlan выше, чтобы
+              не дать вносить план по копилке повторно и накручивать её сверх
+              плана). Дальше копилку можно пополнять только вручную из самого
+              экрана копилки. */}
+          {status === 'active' && onOpenPiggy && plan && isCurrent && period.actual.savings === 0 && (
             <button
               onClick={() => onOpenPiggy(plan.savings)}
               className="mt-2.5 flex h-10 w-full items-center justify-center gap-1.5 rounded-[14px] bg-[#f1e9ff] text-[11.5px] font-extrabold text-[#6a4bc7]"
