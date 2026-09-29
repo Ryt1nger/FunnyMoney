@@ -97,8 +97,15 @@ export default function Lessons({ bottomInset = 0, coins, level, xp, xpToNext, o
   // (см. правку "разбить обучение на мини-туры"), не только при первом
   // входе в приложение целиком.
   useEffect(() => {
-    useTutorialStore.getState().startTourIfNeeded('lessons');
-  }, []);
+    const tutorial = useTutorialStore.getState();
+    // Не оставляем подсказку поверх списка после прохождения первого урока:
+    // её spotlight намеренно блокирует все карточки, кроме первой.
+    if (completedLessonIds.includes('what-is-money')) {
+      if (tutorial.active && tutorial.tourId === 'lessons') tutorial.finish();
+      return;
+    }
+    tutorial.startTourIfNeeded('lessons');
+  }, [completedLessonIds]);
   const xpPercent = Math.min(100, Math.round((xp / xpToNext) * 100));
   const list = lessonCards;
 
