@@ -147,12 +147,14 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
   const [scene, setScene] = useState(0);
   const [goal, setGoal] = useState<string | null>(null); // экран 1
   const [placement, setPlacement] = useState<Record<string, Place>>(initialPlacement); // экран 2
+  const [placementTouched, setPlacementTouched] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState<string | null>(null); // экран 2 — монета, выбранная тапом
   const [weeks, setWeeks] = useState<number[]>([]); // экран 3
   const [impulse, setImpulse] = useState<string | null>(null); // экран 4
   const [deposited, setDeposited] = useState(false); // экран 5
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
@@ -212,13 +214,14 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
   const planReached = PLAN_SAVED + weeks.length * WEEK_AMOUNT;
 
   function moveCoin(id: string, to: Place) {
+    setPlacementTouched(true);
     setPlacement((current) => (current[id] === to ? current : { ...current, [id]: to }));
     setSelectedCoin(null);
   }
 
   function handleDrop(id: string, _from: number | null, zone: string | null) {
     if (scene === 1 && COIN_IDS.includes(id) && (zone === 'piggy' || zone === 'wallet' || zone === 'pool')) moveCoin(id, zone);
-    if (scene === 4 && id === 'final' && zone === 'piggy') setDeposited(true);
+    if (scene === 4 && id === 'final' && zone === 'piggy') { setDeposited(true); }
   }
 
   // Тап по монете: в зоне — вернуть в кучку, в кучке — выбрать (потом тап по зоне)
@@ -246,6 +249,7 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
   function goToNextScene() {
     setScene((value) => value + 1);
     setPlacement(initialPlacement());
+    setPlacementTouched(false);
     setSelectedCoin(null);
     setCheckState('idle');
     setHintText(null);
@@ -253,6 +257,11 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
 
   function handleCheck() {
     if (checkState === 'correct') return;
+    const hasAttempt = scene === 0 ? goal !== null : scene === 1 ? placementTouched : scene === 2 ? weeks.length > 0 : scene === 3 ? impulse !== null : deposited;
+    if (!hasAttempt) {
+      setHintText('Сначала попробуй выполнить задание.');
+      return;
+    }
     if (isSceneCorrect()) {
       onPracticeComplete?.();
       setHintText(null);
@@ -261,9 +270,17 @@ export default function LessonFive({ onBack, onPracticeComplete, onFinish }: Pro
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+        if (reviewMode) {
+          const remaining = mistakeScenes.filter((value) => value !== scene);
+          setMistakeScenes(remaining);
+          if (remaining.length > 0) {
+            setScene(remaining[0]); setPlacement(initialPlacement()); setPlacementTouched(false); setSelectedCoin(null); setWeeks([]); setImpulse(null); setDeposited(false); setCheckState('idle'); setHintText(null);
+          } else { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }
+        } else if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+          advanceTimerRef.current = setTimeout(() => {
+            setReviewNotice(false); setReviewMode(true); setScene(mistakeScenes[0]); setPlacement(initialPlacement()); setPlacementTouched(false); setSelectedCoin(null); setWeeks([]); setImpulse(null); setDeposited(false); setCheckState('idle'); setHintText(null);
+          }, 1800);
         } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {

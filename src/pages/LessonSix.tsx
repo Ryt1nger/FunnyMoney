@@ -153,6 +153,7 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
   const [budgetPicks, setBudgetPicks] = useState<string[]>([]); // экран 5
   const [checkState, setCheckState] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [mistakeScenes, setMistakeScenes] = useState<number[]>([]);
+  const [reviewMode, setReviewMode] = useState(false);
   const [reviewNotice, setReviewNotice] = useState(false);
   const [checkPulse, setCheckPulse] = useState(0);
   const [hintText, setHintText] = useState<string | null>(null);
@@ -229,14 +230,37 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
     return budgetTotal === BUDGET_TOTAL && BUDGET_CORRECT.every((id) => budgetPicks.includes(id)) && budgetPicks.length === BUDGET_CORRECT.length;
   }
 
+  function hasAttempt(): boolean {
+    if (scene === 0) return deviation !== null;
+    if (scene === 1) return overspend !== null;
+    if (scene === 2) return blank1 !== null || blank2 !== null;
+    if (scene === 3) return reason !== null;
+    return budgetPicks.length > 0;
+  }
+
+  function resetSceneInputs() {
+    setDeviation(null);
+    setOverspend(null);
+    setBlank1(null);
+    setBlank2(null);
+    setActiveBlank(1);
+    setReason(null);
+    setBudgetPicks([]);
+  }
+
   function goToNextScene() {
     setScene((value) => value + 1);
     setCheckState('idle');
     setHintText(null);
+    resetSceneInputs();
   }
 
   function handleCheck() {
     if (checkState === 'correct') return;
+    if (!hasAttempt()) {
+      setHintText('Сначала попробуй выполнить задание.');
+      return;
+    }
     if (isSceneCorrect()) {
       onPracticeComplete?.();
       setHintText(null);
@@ -245,9 +269,27 @@ export default function LessonSix({ onBack, onPracticeComplete, onFinish }: Prop
       setCheckPulse((value) => value + 1);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = setTimeout(() => {
-        if (scene < scenes.length - 1) goToNextScene(); else if (mistakeScenes.length > 0) {
+        if (scene < scenes.length - 1) goToNextScene(); else if (reviewMode) {
+          const remaining = mistakeScenes.filter((index) => index !== scene);
+          setMistakeScenes(remaining);
+          if (remaining.length > 0) {
+            setScene(remaining[0]);
+            resetSceneInputs();
+            setCheckState('idle');
+            setHintText(null);
+          } else {
+            lessonCompletedRef.current = true;
+            onFinish(scenes.length - mistakeScenes.length);
+          }
+        } else if (mistakeScenes.length > 0) {
           setReviewNotice(true);
-          advanceTimerRef.current = setTimeout(() => { lessonCompletedRef.current = true; onFinish(scenes.length - mistakeScenes.length); }, 1800);
+          advanceTimerRef.current = setTimeout(() => {
+            setReviewMode(true);
+            setScene(mistakeScenes[0]);
+            resetSceneInputs();
+            setCheckState('idle');
+            setHintText(null);
+          }, 1800);
         } else { lessonCompletedRef.current = true; onFinish(scenes.length); }
       }, 700);
     } else {
